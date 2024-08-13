@@ -47,7 +47,7 @@ Includes initial hubclientinfo OCPI module implementation.
 - Optional "Planned Party" search scans registry for newly planned parties at regular intervals.
 - New configuration properties under `ocn.node`: `stillAliveEnabled`, `stillAliveRate`,
   `plannedPartySearchEnabled`, `plannedPartySearchRate`.
-
+  
 ## 1.0.0
 ### Mar 03, 2020
 
