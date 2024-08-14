@@ -4,7 +4,7 @@ import org.springframework.boot.gradle.tasks.bundling.BootJar
 
 plugins {
     kotlin("plugin.jpa") version "1.3.72"
-    kotlin("jvm") version "1.3.72"
+    kotlin("jvm") version "1.6.21"
     kotlin("plugin.spring") version "1.3.72"
     kotlin("plugin.allopen") version "1.3.72"
     kotlin("kapt") version "1.3.72"
@@ -28,6 +28,7 @@ configurations {
 }
 
 repositories {
+    mavenLocal()
     jcenter()
 }
 
