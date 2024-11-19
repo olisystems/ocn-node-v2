@@ -16,6 +16,7 @@
 
 package snc.openchargingnetwork.node.config
 
+import com.olisystems.ocnregistryv2_0.OcnRegistry
 import org.springframework.boot.ApplicationRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -53,6 +54,15 @@ class NodeConfig(private val properties: NodeProperties) {
                 web3,
                 txManager,
                 gasProvider)
+    }
+
+    @Bean
+    fun ocnRegistry(): OcnRegistry {
+        return OcnRegistry.load(
+            properties.web3.contracts.ocnRegistry,
+            web3,
+            txManager,
+            gasProvider)
     }
 
     @Bean
