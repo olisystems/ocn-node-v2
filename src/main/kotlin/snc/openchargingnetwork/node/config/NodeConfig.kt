@@ -29,6 +29,7 @@ import snc.openchargingnetwork.contracts.Permissions
 import snc.openchargingnetwork.contracts.Registry
 import snc.openchargingnetwork.node.repositories.*
 import snc.openchargingnetwork.node.scheduledTasks.HubClientInfoStillAliveCheck
+import snc.openchargingnetwork.node.scheduledTasks.NewPlannedPartySearch
 import snc.openchargingnetwork.node.scheduledTasks.PlannedPartySearch
 import org.web3j.protocol.http.HttpService as Web3jHttpService
 import snc.openchargingnetwork.node.services.HttpService as OcnHttpService
@@ -98,6 +99,28 @@ class NodeConfig(private val properties: NodeProperties) {
         return taskList.toList()
     }
 
+    @Bean
+    fun newScheduledTasks(registry: OcnRegistry,
+                          httpService: OcnHttpService,
+                          platformRepo: PlatformRepository,
+                          roleRepo: RoleRepository,
+                          networkClientInfoRepo: NetworkClientInfoRepository): List<IntervalTask> {
+
+        val taskList = mutableListOf<IntervalTask>()
+        val hasPrivateKey = properties.privateKey !== null
+
+        if (properties.stillAliveEnabled && hasPrivateKey) {
+            val stillAliveTask = HubClientInfoStillAliveCheck(httpService, platformRepo, properties)
+            taskList.add(IntervalTask(stillAliveTask, properties.stillAliveRate.toLong()))
+        }
+
+        //
+        if (properties.plannedPartySearchEnabled && hasPrivateKey) {
+            val plannedPartyTask = NewPlannedPartySearch(registry, roleRepo, networkClientInfoRepo, properties)
+            taskList.add(IntervalTask(plannedPartyTask, properties.plannedPartySearchRate.toLong()))
+        }
+        return taskList.toList()
+    }
 //    // modify the default task executor (runs async tasks, not to be confused with scheduled tasks)
 //    @Bean
 //    fun taskExecutor(): TaskExecutor {
@@ -108,3 +131,4 @@ class NodeConfig(private val properties: NodeProperties) {
 //    }
 
 }
+

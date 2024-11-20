@@ -28,19 +28,20 @@ import snc.openchargingnetwork.node.models.ocpi.*
 import snc.openchargingnetwork.node.models.ocpi.Role
 import snc.openchargingnetwork.node.repositories.*
 import snc.openchargingnetwork.node.services.HttpService
+import snc.openchargingnetwork.node.services.NewRegistryService
 import snc.openchargingnetwork.node.services.RegistryService
 import snc.openchargingnetwork.node.tools.*
 
 @RestController
-@RequestMapping("/ocpi/2.2/old-credentials")
-class CredentialsController(private val platformRepo: PlatformRepository,
-                            private val roleRepo: RoleRepository,
-                            private val endpointRepo: EndpointRepository,
-                            private val networkClientInfoRepository: NetworkClientInfoRepository,
-                            private val ocnRulesListRepo: OcnRulesListRepository,
-                            private val properties: NodeProperties,
-                            private val registryService: RegistryService,
-                            private val httpService: HttpService) {
+@RequestMapping("/ocpi/2.2/credentials")
+class NewCredentialsController(private val platformRepo: PlatformRepository,
+                               private val roleRepo: RoleRepository,
+                               private val endpointRepo: EndpointRepository,
+                               private val networkClientInfoRepository: NetworkClientInfoRepository,
+                               private val ocnRulesListRepo: OcnRulesListRepository,
+                               private val properties: NodeProperties,
+                               private val registryService: NewRegistryService,
+                               private val httpService: HttpService) {
 
     private fun myCredentials(token: String): Credentials {
         return Credentials(
