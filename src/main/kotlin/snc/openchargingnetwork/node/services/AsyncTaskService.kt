@@ -24,7 +24,7 @@ import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.ocpi.ModuleID
 
 @Service
-class AsyncTaskService(private val registryService: RegistryService, private val properties: NodeProperties) {
+class AsyncTaskService(private val registryService: NewRegistryService, private val properties: NodeProperties) {
 
     companion object {
         private val logger = LoggerFactory.getLogger(AsyncTaskService::class.java)
@@ -33,26 +33,27 @@ class AsyncTaskService(private val registryService: RegistryService, private val
     /**
      * Finds all services, linked to a sender, with permissions that grant them access to a given request type.
      * Once services have been found, sends via provided request handler.
+     * TODO new ocn: forward request o all parties of a given oposite role
      */
     @Async
     fun forwardOcpiRequestToLinkedServices(requestHandler: OcpiRequestHandler<*>, fromLocalPlatform: Boolean = true) {
         // we only want to forward to services if the module is one of the default OCPI modules,
         // and only if the sender is a local platform (to avoid repeat forwarding on the recipient node)
         // and also forward if service interface option is enabled
-        val isDefaultModule = requestHandler.request.module != ModuleID.CUSTOM
-
-        if (isDefaultModule && fromLocalPlatform && properties.serviceInterfaceEnabled) {
-            val request = requestHandler.request
-            registryService.getAgreementsByInterface(request.headers.sender, request.module, request.interfaceRole)
-                    .forEach {
-                        try {
-                            requestHandler.forwardAgain(it.provider)
-                        } catch (e: Exception) {
-                            // fire and forget
-                            logger.warn("Error forwarding request to service ${it.provider}: ${e.message}")
-                        }
-                    }
-        }
+//        val isDefaultModule = requestHandler.request.module != ModuleID.CUSTOM
+//
+//        if (isDefaultModule && fromLocalPlatform && properties.serviceInterfaceEnabled) {
+//            val request = requestHandler.request
+//            registryService.getAgreementsByInterface(request.headers.sender, request.module, request.interfaceRole)
+//                    .forEach {
+//                        try {
+//                            requestHandler.forwardAgain(it.provider)
+//                        } catch (e: Exception) {
+//                            // fire and forget
+//                            logger.warn("Error forwarding request to service ${it.provider}: ${e.message}")
+//                        }
+//                    }
+//        }
     }
 
 }

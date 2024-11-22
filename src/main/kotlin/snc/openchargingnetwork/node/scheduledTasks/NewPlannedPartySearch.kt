@@ -18,10 +18,8 @@ package snc.openchargingnetwork.node.scheduledTasks
 
 import com.olisystems.ocnregistryv2_0.OcnRegistry
 import org.web3j.crypto.Credentials
-import snc.openchargingnetwork.contracts.Registry
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.NewRegistryPartyDetails
-import snc.openchargingnetwork.node.models.RegistryPartyDetails
 import snc.openchargingnetwork.node.models.entities.NetworkClientInfoEntity
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
 import snc.openchargingnetwork.node.models.ocpi.ConnectionStatus

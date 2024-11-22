@@ -28,7 +28,7 @@ import snc.openchargingnetwork.node.models.ocpi.*
 import snc.openchargingnetwork.node.models.ocpi.Role
 import snc.openchargingnetwork.node.repositories.*
 import snc.openchargingnetwork.node.services.HttpService
-import snc.openchargingnetwork.node.services.RegistryService
+import snc.openchargingnetwork.node.services.NewRegistryService
 import snc.openchargingnetwork.node.tools.*
 
 @RestController
@@ -39,7 +39,7 @@ class CredentialsController(private val platformRepo: PlatformRepository,
                             private val networkClientInfoRepository: NetworkClientInfoRepository,
                             private val ocnRulesListRepo: OcnRulesListRepository,
                             private val properties: NodeProperties,
-                            private val registryService: RegistryService,
+                            private val registryService: NewRegistryService,
                             private val httpService: HttpService) {
 
     private fun myCredentials(token: String): Credentials {

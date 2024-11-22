@@ -20,11 +20,12 @@ import snc.openchargingnetwork.node.models.ocpi.*
 import snc.openchargingnetwork.node.models.ocpi.Role
 import snc.openchargingnetwork.node.repositories.*
 import snc.openchargingnetwork.node.services.HttpService
+import snc.openchargingnetwork.node.services.NewRegistryService
 import snc.openchargingnetwork.node.services.RegistryService
 import snc.openchargingnetwork.node.tools.bs64Encoder
 
-@WebMvcTest(CredentialsController::class)
-class CredentialsControllerTest(@Autowired val mockMvc: MockMvc) {
+@WebMvcTest(NewCredentialsController::class)
+class NewCredentialsControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @MockkBean
     lateinit var platformRepo: PlatformRepository
@@ -45,8 +46,8 @@ class CredentialsControllerTest(@Autowired val mockMvc: MockMvc) {
     lateinit var properties: NodeProperties
 
     @MockkBean
-    lateinit var registryService: RegistryService
-
+    lateinit var registryService: NewRegistryService
+    
     @MockkBean
     lateinit var httpService: HttpService
 
@@ -58,7 +59,7 @@ class CredentialsControllerTest(@Autowired val mockMvc: MockMvc) {
         val platform = PlatformEntity(auth = Auth(tokenC = enc(tokenC)))
         every { platformRepo.findByAuth_TokenC(platform.auth.tokenC) } returns platform
         every { properties.url } returns "http://localhost:8001"
-        mockMvc.perform(get("/ocpi/2.2/old-credentials")
+        mockMvc.perform(get("/ocpi/2.2/credentials")
                 .header("Authorization", "Token ${platform.auth.tokenC}"))
                 .andExpect(status().isOk)
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -120,7 +121,7 @@ class CredentialsControllerTest(@Autowired val mockMvc: MockMvc) {
         every { endpointRepo.save<EndpointEntity>(any()) } returns mockk()
         every { roleRepo.saveAll(any<List<RoleEntity>>())} returns mockk()
 
-        mockMvc.perform(post("/ocpi/2.2/old-credentials")
+        mockMvc.perform(post("/ocpi/2.2/credentials")
                 .header("Authorization", "Token ${platform.auth.tokenA!!}")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jacksonObjectMapper().writeValueAsString(Credentials(
@@ -181,7 +182,7 @@ class CredentialsControllerTest(@Autowired val mockMvc: MockMvc) {
         every { roleRepo.deleteByPlatformID(platform.id) } returns mockk()
         every { roleRepo.saveAll(any<List<RoleEntity>>())} returns mockk()
 
-        mockMvc.perform(put("/ocpi/2.2/old-credentials")
+        mockMvc.perform(put("/ocpi/2.2/credentials")
                 .header("Authorization", "Token ${platform.auth.tokenC}")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jacksonObjectMapper().writeValueAsString(Credentials(
@@ -214,7 +215,7 @@ class CredentialsControllerTest(@Autowired val mockMvc: MockMvc) {
         every { endpointRepo.deleteByPlatformID(platform.id) } just Runs
         every { ocnRulesListRepo.deleteByPlatformID(platform.id) } just Runs
         
-        mockMvc.perform(delete("/ocpi/2.2/old-credentials")
+        mockMvc.perform(delete("/ocpi/2.2/credentials")
                 .header("Authorization", "Token ${platform.auth.tokenC}"))
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("\$.status_code").value(OcpiStatus.SUCCESS.code))

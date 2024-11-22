@@ -29,7 +29,6 @@ import snc.openchargingnetwork.node.models.ocpi.Role
 import snc.openchargingnetwork.node.repositories.*
 import snc.openchargingnetwork.node.services.HttpService
 import snc.openchargingnetwork.node.services.NewRegistryService
-import snc.openchargingnetwork.node.services.RegistryService
 import snc.openchargingnetwork.node.tools.*
 
 @RestController

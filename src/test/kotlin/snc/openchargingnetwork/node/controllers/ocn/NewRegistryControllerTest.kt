@@ -1,6 +1,7 @@
 package snc.openchargingnetwork.node.controllers.ocn
 
 import com.ninjasquad.springmockk.MockkBean
+import com.olisystems.ocnregistryv2_0.OcnRegistry
 import io.mockk.every
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -21,9 +22,9 @@ import snc.openchargingnetwork.contracts.Registry
 import snc.openchargingnetwork.node.config.NodeProperties
 
 
-@WebMvcTest(RegistryController::class)
+@WebMvcTest(NewRegistryController::class)
 @ExtendWith(RestDocumentationExtension::class)
-class RegistryControllerTest {
+class NewRegistryControllerTest {
 
     lateinit var mockMvc: MockMvc
 
@@ -31,7 +32,7 @@ class RegistryControllerTest {
     lateinit var properties: NodeProperties
 
     @MockkBean
-    lateinit var registry: Registry
+    lateinit var registry: OcnRegistry
 
     @BeforeEach
     fun setUp(webApplicationContext: WebApplicationContext,
@@ -48,7 +49,7 @@ class RegistryControllerTest {
         val expectedAddress = "0x9bC1169Ca09555bf2721A5C9eC6D69c8073bfeB4"
         every { properties.url } returns expectedUrl
         every { properties.privateKey } returns "0x1c3e5453c0f9aa74a8eb0216310b2b013f017813a648fce364bf41dbc0b37647"
-        mockMvc.perform(get("/ocn/old-registry/node-info"))
+        mockMvc.perform(get("/ocn/registry/node-info"))
                 .andExpect(jsonPath("\$.url").value(expectedUrl))
                 .andExpect(jsonPath("\$.address").value(expectedAddress.toLowerCase()))
                 .andDo(document("registry/node-info"))
@@ -61,7 +62,7 @@ class RegistryControllerTest {
         val expectedUrl = "https://node.ocn.org"
         val expectedAddress = "0x22D44D286d219e1B55E6A5f1a3c82Af69716756A"
         every { registry.getOperatorByOcpi(country.toByteArray(), id.toByteArray()).sendAsync().get() } returns Tuple2(expectedAddress, expectedUrl)
-        mockMvc.perform(get("/ocn/old-registry/node/$country/$id"))
+        mockMvc.perform(get("/ocn/registry/node/$country/$id"))
                 .andExpect(jsonPath("\$.url").value(expectedUrl))
                 .andExpect(jsonPath("\$.address").value(expectedAddress))
                 .andDo(document("registry/node-of"))

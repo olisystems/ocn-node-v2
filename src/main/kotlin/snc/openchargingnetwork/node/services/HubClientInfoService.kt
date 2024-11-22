@@ -42,7 +42,7 @@ class HubClientInfoService(private val platformRepo: PlatformRepository,
                            private val routingService: RoutingService,
                            private val walletService: WalletService,
                            private val ocnRulesService: OcnRulesService,
-                           private val registryService: RegistryService) {
+                           private val registryService: NewRegistryService) {
 
     companion object {
         private val logger = LoggerFactory.getLogger(HubClientInfoService::class.java)

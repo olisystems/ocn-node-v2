@@ -58,7 +58,7 @@ class CredentialsControllerTest(@Autowired val mockMvc: MockMvc) {
         val platform = PlatformEntity(auth = Auth(tokenC = enc(tokenC)))
         every { platformRepo.findByAuth_TokenC(platform.auth.tokenC) } returns platform
         every { properties.url } returns "http://localhost:8001"
-        mockMvc.perform(get("/ocpi/2.2/credentials")
+        mockMvc.perform(get("/ocpi/2.2/old-credentials")
                 .header("Authorization", "Token ${platform.auth.tokenC}"))
                 .andExpect(status().isOk)
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -120,7 +120,7 @@ class CredentialsControllerTest(@Autowired val mockMvc: MockMvc) {
         every { endpointRepo.save<EndpointEntity>(any()) } returns mockk()
         every { roleRepo.saveAll(any<List<RoleEntity>>())} returns mockk()
 
-        mockMvc.perform(post("/ocpi/2.2/credentials")
+        mockMvc.perform(post("/ocpi/2.2/old-credentials")
                 .header("Authorization", "Token ${platform.auth.tokenA!!}")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jacksonObjectMapper().writeValueAsString(Credentials(
@@ -181,7 +181,7 @@ class CredentialsControllerTest(@Autowired val mockMvc: MockMvc) {
         every { roleRepo.deleteByPlatformID(platform.id) } returns mockk()
         every { roleRepo.saveAll(any<List<RoleEntity>>())} returns mockk()
 
-        mockMvc.perform(put("/ocpi/2.2/credentials")
+        mockMvc.perform(put("/ocpi/2.2/old-credentials")
                 .header("Authorization", "Token ${platform.auth.tokenC}")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jacksonObjectMapper().writeValueAsString(Credentials(
@@ -214,7 +214,7 @@ class CredentialsControllerTest(@Autowired val mockMvc: MockMvc) {
         every { endpointRepo.deleteByPlatformID(platform.id) } just Runs
         every { ocnRulesListRepo.deleteByPlatformID(platform.id) } just Runs
         
-        mockMvc.perform(delete("/ocpi/2.2/credentials")
+        mockMvc.perform(delete("/ocpi/2.2/old-credentials")
                 .header("Authorization", "Token ${platform.auth.tokenC}"))
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("\$.status_code").value(OcpiStatus.SUCCESS.code))

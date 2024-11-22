@@ -23,7 +23,6 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import org.web3j.crypto.Credentials
 import snc.openchargingnetwork.node.config.NodeProperties
-import snc.openchargingnetwork.contracts.Registry
 
 @RestController
 @RequestMapping("/ocn/registry")
