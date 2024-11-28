@@ -45,7 +45,7 @@ class RoutingService(private val platformRepo: PlatformRepository,
                      private val roleRepo: RoleRepository,
                      private val endpointRepo: EndpointRepository,
                      private val proxyResourceRepo: ProxyResourceRepository,
-                     private val registryService: NewRegistryService,
+                     private val registryService: RegistryService,
                      private val httpService: HttpService,
                      private val walletService: WalletService,
                      private val ocnRulesService: OcnRulesService) {

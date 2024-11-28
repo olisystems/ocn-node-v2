@@ -27,7 +27,7 @@ import org.web3j.tx.TransactionManager
 import org.web3j.tx.gas.StaticGasProvider
 import snc.openchargingnetwork.node.repositories.*
 import snc.openchargingnetwork.node.scheduledTasks.HubClientInfoStillAliveCheck
-import snc.openchargingnetwork.node.scheduledTasks.NewPlannedPartySearch
+import snc.openchargingnetwork.node.scheduledTasks.PlannedPartySearch
 import org.web3j.protocol.http.HttpService as Web3jHttpService
 import snc.openchargingnetwork.node.services.HttpService as OcnHttpService
 
@@ -73,7 +73,7 @@ class NodeConfig(private val properties: NodeProperties) {
 
         //
         if (properties.plannedPartySearchEnabled && hasPrivateKey) {
-            val plannedPartyTask = NewPlannedPartySearch(registry, roleRepo, networkClientInfoRepo, properties)
+            val plannedPartyTask = PlannedPartySearch(registry, roleRepo, networkClientInfoRepo, properties)
             taskList.add(IntervalTask(plannedPartyTask, properties.plannedPartySearchRate.toLong()))
         }
         return taskList.toList()

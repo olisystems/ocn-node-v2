@@ -26,8 +26,8 @@ import snc.openchargingnetwork.node.config.NodeProperties
 
 @RestController
 @RequestMapping("/ocn/registry")
-class NewRegistryController(private val properties: NodeProperties,
-                            private val registry: OcnRegistry) {
+class RegistryController(private val properties: NodeProperties,
+                         private val registry: OcnRegistry) {
 
     @GetMapping("/node-info")
     fun getMyNodeInfo() = mapOf(

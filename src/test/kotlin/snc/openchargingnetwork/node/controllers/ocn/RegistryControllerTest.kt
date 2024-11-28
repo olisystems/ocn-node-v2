@@ -18,13 +18,12 @@ import org.springframework.test.web.servlet.setup.DefaultMockMvcBuilder
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.web.context.WebApplicationContext
 import org.web3j.tuples.generated.Tuple2
-import snc.openchargingnetwork.contracts.Registry
 import snc.openchargingnetwork.node.config.NodeProperties
 
 
-@WebMvcTest(NewRegistryController::class)
+@WebMvcTest(RegistryController::class)
 @ExtendWith(RestDocumentationExtension::class)
-class NewRegistryControllerTest {
+class RegistryControllerTest {
 
     lateinit var mockMvc: MockMvc
 

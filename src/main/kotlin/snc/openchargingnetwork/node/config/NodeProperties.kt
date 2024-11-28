@@ -44,9 +44,7 @@ class NodeProperties {
         var contracts = Contracts()
 
         class Contracts {
-            lateinit var registry: String
             lateinit var ocnRegistry: String
-            lateinit var permissions: String
         }
     }
 

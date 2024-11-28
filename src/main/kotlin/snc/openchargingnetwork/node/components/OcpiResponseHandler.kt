@@ -28,7 +28,7 @@ import snc.openchargingnetwork.node.models.exceptions.OcpiServerGenericException
 import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
 import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
 import snc.openchargingnetwork.node.services.HubClientInfoService
-import snc.openchargingnetwork.node.services.NewRegistryService
+import snc.openchargingnetwork.node.services.RegistryService
 import snc.openchargingnetwork.node.services.RoutingService
 import snc.openchargingnetwork.node.tools.extractNextLink
 import snc.openchargingnetwork.node.tools.urlJoin
@@ -39,7 +39,7 @@ import snc.openchargingnetwork.node.tools.urlJoin
  */
 @Component
 class OcpiResponseHandlerBuilder(private val routingService: RoutingService,
-                                 private val registryService: NewRegistryService,
+                                 private val registryService: RegistryService,
                                  private val hubClientInfoService: HubClientInfoService,
                                  private val properties: NodeProperties) {
 
@@ -68,7 +68,7 @@ class OcpiResponseHandler<T: Any>(request: OcpiRequestVariables,
                                   private val response: HttpResponse<T>,
                                   private val knownSender: Boolean,
                                   routingService: RoutingService,
-                                  registryService: NewRegistryService,
+                                  registryService: RegistryService,
                                   properties: NodeProperties,
                                   hubClientInfoService: HubClientInfoService):
         OcpiMessageHandler(request, properties, routingService, registryService) {

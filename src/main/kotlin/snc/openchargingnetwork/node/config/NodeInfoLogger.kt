@@ -43,8 +43,7 @@ class NodeInfoLogger(private val properties: NodeProperties) {
 
         println("${border.substring(0, 3)} NETWORK ${border.substring(15)}\n" +
                 " ETHEREUM RPC | ${properties.web3.provider}\n" +
-                " REGISTRY     | ${properties.web3.contracts.registry} [$registryStage]\n" +
-                " PERMISSIONS  | ${properties.web3.contracts.permissions} [$registryStage]")
+                " OCN_REGISTRY     | ${properties.web3.contracts.ocnRegistry} [$registryStage]\n")
 
         println("${border.substring(0, 3)} FEATURES ${border.substring(16)}\n" +
                 " DEV MODE             | ${properties.dev}\n" +
@@ -74,7 +73,8 @@ class NodeInfoLogger(private val properties: NodeProperties) {
         }
     }
 
-    private fun getRegistryStage(): String = when (properties.web3.contracts.registry) {
+    // TODO update this when redeploying the ocn registry smart contract
+    private fun getRegistryStage(): String = when (properties.web3.contracts.ocnRegistry) {
         "0xd57595D5FA1F94725C426739C449b15D92758D55" -> "test"
         "0x184aeD70F2aaB0Cd1FC62261C1170560cBfd0776" -> "prod"
         else -> "custom"

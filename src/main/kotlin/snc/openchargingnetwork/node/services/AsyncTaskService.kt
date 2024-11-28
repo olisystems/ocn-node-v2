@@ -21,10 +21,9 @@ import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 import snc.openchargingnetwork.node.components.OcpiRequestHandler
 import snc.openchargingnetwork.node.config.NodeProperties
-import snc.openchargingnetwork.node.models.ocpi.ModuleID
 
 @Service
-class AsyncTaskService(private val registryService: NewRegistryService, private val properties: NodeProperties) {
+class AsyncTaskService(private val registryService: RegistryService, private val properties: NodeProperties) {
 
     companion object {
         private val logger = LoggerFactory.getLogger(AsyncTaskService::class.java)

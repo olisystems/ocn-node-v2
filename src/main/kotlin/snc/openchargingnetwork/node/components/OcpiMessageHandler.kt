@@ -23,13 +23,13 @@ import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.exceptions.OcpiClientInvalidParametersException
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
 import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
-import snc.openchargingnetwork.node.services.NewRegistryService
+import snc.openchargingnetwork.node.services.RegistryService
 import snc.openchargingnetwork.node.services.RoutingService
 
 open class OcpiMessageHandler(val request: OcpiRequestVariables,
                               val properties: NodeProperties,
                               val routingService: RoutingService,
-                              val registryService: NewRegistryService) {
+                              val registryService: RegistryService) {
 
     /**
      * Notary object instantiated after validating a request.

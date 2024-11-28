@@ -29,10 +29,10 @@ import snc.openchargingnetwork.node.repositories.RoleRepository
 import snc.openchargingnetwork.node.tools.checksum
 
 
-class NewPlannedPartySearch(private val registry: OcnRegistry,
-                            private val roleRepo: RoleRepository,
-                            private val networkClientInfoRepo: NetworkClientInfoRepository,
-                            private val properties: NodeProperties): Runnable {
+class PlannedPartySearch(private val registry: OcnRegistry,
+                         private val roleRepo: RoleRepository,
+                         private val networkClientInfoRepo: NetworkClientInfoRepository,
+                         private val properties: NodeProperties): Runnable {
 
     override fun run() {
         val myAddress = Credentials.create(properties.privateKey).address.checksum()

@@ -35,7 +35,7 @@ import snc.openchargingnetwork.node.tools.urlJoin
  */
 @Component
 class OcpiRequestHandlerBuilder(private val routingService: RoutingService,
-                                private val registryService: NewRegistryService,
+                                private val registryService: RegistryService,
                                 private val httpService: HttpService,
                                 private val walletService: WalletService,
                                 private val hubClientInfoService: HubClientInfoService,
@@ -84,7 +84,7 @@ class OcpiRequestHandlerBuilder(private val routingService: RoutingService,
  */
 class OcpiRequestHandler<T: Any>(request: OcpiRequestVariables,
                                  routingService: RoutingService,
-                                 registryService: NewRegistryService,
+                                 registryService: RegistryService,
                                  private val httpService: HttpService,
                                  private val hubClientInfoService: HubClientInfoService,
                                  private val walletService: WalletService,

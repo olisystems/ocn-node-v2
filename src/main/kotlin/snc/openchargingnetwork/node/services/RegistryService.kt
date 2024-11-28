@@ -16,8 +16,8 @@ import snc.openchargingnetwork.node.tools.checksum
  * TODO: review tests
  */
 @Service
-class NewRegistryService(private val registry: OcnRegistry,
-                         private val properties: NodeProperties) {
+class RegistryService(private val registry: OcnRegistry,
+                      private val properties: NodeProperties) {
 
     /**
      * Get nodes listed in registry
