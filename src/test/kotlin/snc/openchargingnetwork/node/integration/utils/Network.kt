@@ -13,7 +13,7 @@ import snc.openchargingnetwork.node.integration.parties.MspServer
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
 import snc.openchargingnetwork.node.models.ocpi.Role
 
-const val provider = "http://localhost:8544"
+const val provider = "http://localhost:8545"
 val web3: Web3j = Web3j.build(HttpService(provider))
 val gasProvider = StaticGasProvider(0.toBigInteger(), 10000000.toBigInteger())
 

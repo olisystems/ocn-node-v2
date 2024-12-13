@@ -22,9 +22,15 @@ import org.springframework.stereotype.Component
 import org.web3j.crypto.Credentials
 
 @Component
-class NodeInfoLogger(private val properties: NodeProperties) {
+class NodeInfoLogger(private val properties: NodeProperties, private val dataSourceProperties: DataSourceProperties) {
 
     val hasPrivateKey = properties.privateKey != null
+
+    fun maskPassword(password: String): String {
+        if (password.length <= 4) return password
+        val middle = "*".repeat(password.length - 4)
+        return "${password.take(2)}$middle${password.takeLast(2)}"
+    }
 
     @EventListener(ApplicationReadyEvent::class)
     fun log() {
@@ -50,6 +56,11 @@ class NodeInfoLogger(private val properties: NodeProperties) {
                 " SIGNATURES           | ${properties.signatures}\n" +
                 " STILL ALIVE CHECK    | $stillAliveText\n" +
                 " PLANNED PARTY SEARCH | $plannedPartyText\n")
+
+        println("${border.substring(0, 3)} DATABASE ${border.substring(16)}\n" +
+                " URL      | ${dataSourceProperties.url}\n" +
+                " USERNAME | ${dataSourceProperties.username}\n" +
+                " PASSWORD | ${maskPassword(dataSourceProperties.password)}\n")
     }
 
     private fun calculateBorderLength(url: Int, apikey: Int): Int {
