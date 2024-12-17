@@ -17,6 +17,6 @@ RUN chmod +x /ocn-node/entrypoint-register-node.sh
 EXPOSE 9999
 
 # Execute the script at container startup (not at build time)
-#ENTRYPOINT ["/bin/sh", "-c", "/ocn-node/entrypoint-register-node.sh && java -jar ./libs/ocn-node-1.2.0-rc2.jar"]
+ENTRYPOINT ["/bin/sh", "-c", "/ocn-node/entrypoint-register-node.sh && java -jar ./libs/ocn-node-1.2.0-rc2.jar"]
 
-CMD ["java", "-jar", "./libs/ocn-node-1.2.0-rc2.jar"]
+# CMD ["java", "-jar", "./libs/ocn-node-1.2.0-rc2.jar"]
