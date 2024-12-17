@@ -1,22 +1,28 @@
 FROM openjdk:8-alpine
 
-# Copy build artifacts and resources
+# Install Node.js and Yarn
+RUN apk add --no-cache nodejs npm && \
+    npm install -g yarn
+
+# Copy application files
 COPY build /ocn-node
 COPY src/main/resources/* /ocn-node/
 
+# Set working directory
 WORKDIR /ocn-node
 
 # Set environment variables
 ENV NETWORK=minikube
 ENV OCN_NODE_URL=http://local.node.com
 
-# Grant execute permissions for the script
+# Ensure script permissions
 RUN chmod +x /ocn-node/entrypoint-register-node.sh
 
 # Expose the required port
 EXPOSE 9999
 
-# Execute the script at container startup (not at build time)
+# Define entrypoint
 ENTRYPOINT ["sh", "/ocn-node/entrypoint-register-node.sh"]
 
-# CMD ["java", "-jar", "./libs/ocn-node-1.2.0-rc2.jar"]
+# Default command
+CMD ["java", "-jar", "./libs/ocn-node-1.2.0-rc2.jar"]
