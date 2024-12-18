@@ -31,6 +31,9 @@ repositories {
     jcenter() // Use cautiously as it's deprecated
     gradlePluginPortal() // Added for plugin dependencies
     maven("https://jitpack.io") // Add this line
+    maven {
+        url = uri("https://repo.spring.io/libs-release/")
+    }
 }
 
 dependencies {
