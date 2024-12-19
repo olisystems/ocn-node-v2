@@ -1,10 +1,9 @@
-FROM openjdk:8-alpine
+FROM openjdk:13-alpine
 
 COPY build /ocn-node
 COPY src/main/resources/* /ocn-node/
 COPY gradle.properties /ocn-node/
 WORKDIR /ocn-node
 
-EXPOSE 8080
 
 CMD ["java", "-jar", "./libs/ocn-node-1.2.0-rc2.jar"]
