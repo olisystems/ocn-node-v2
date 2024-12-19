@@ -111,6 +111,7 @@ tasks.register<Exec>("ganache") {
 
 (tasks.getByName("processResources") as ProcessResources).apply {
     val profile: String by project
+    println("Building using **/application.$profile.properties")
     include("**/application.$profile.properties")
     rename { "application.properties" }
 }
