@@ -31,9 +31,6 @@ repositories {
     jcenter() // Use cautiously as it's deprecated
     gradlePluginPortal() // Added for plugin dependencies
     maven("https://jitpack.io") // Add this line
-    maven {
-        url = uri("https://repo.spring.io/libs-release/")
-    }
 }
 
 dependencies {
@@ -43,7 +40,7 @@ dependencies {
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
-    implementation("khttp:khttp:1.0.0")
+    implementation("org.danilopianini:khttp:1.2.2")
     implementation("org.web3j:core:4.5.5")
     implementation("org.postgresql:postgresql:42.2.12")
     runtimeOnly("com.h2database:h2")
