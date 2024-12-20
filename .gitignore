@@ -8,3 +8,4 @@ out/
 *.hprof
 
 src/main/resources/application.local*.properties
+gradle.properties

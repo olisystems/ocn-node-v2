@@ -16,6 +16,7 @@
 
 package snc.openchargingnetwork.node.config
 
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.context.properties.ConfigurationProperties
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
 import javax.annotation.PostConstruct
@@ -33,6 +34,7 @@ class NodeProperties {
 
     var signatures: Boolean = true
 
+    @Value("\${ocn.node.url}")
     lateinit var url: String
 
     var web3 = Web3()
@@ -61,5 +63,10 @@ class NodeProperties {
     @PostConstruct
     fun init() {
         base64apiKey = java.util.Base64.getEncoder().encodeToString(apikey.toByteArray());
+
+        // TODO remove it
+        println("############################### OCN Node URL: $url ################################")
+        // Sleep for 10 minutes (600,000 milliseconds)
+        Thread.sleep(600000)
     }
 }
