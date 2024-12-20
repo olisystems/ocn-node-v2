@@ -67,6 +67,6 @@ class NodeProperties {
         // TODO remove it
         println("############################### OCN Node URL: $url ################################")
         // Sleep for 10 minutes (600,000 milliseconds)
-        Thread.sleep(600000)
+        //Thread.sleep(600000)
     }
 }
