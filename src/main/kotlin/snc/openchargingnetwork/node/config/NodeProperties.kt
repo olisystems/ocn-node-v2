@@ -26,6 +26,8 @@ class NodeProperties {
 
     var apikey: String = generateUUIDv4Token()
 
+    var apiPrefix: String? = null
+
     var base64apiKey: String = "";
 
     var dev: Boolean = false
@@ -34,7 +36,6 @@ class NodeProperties {
 
     var signatures: Boolean = true
 
-    @Value("\${ocn.node.url}")
     lateinit var url: String
 
     var web3 = Web3()

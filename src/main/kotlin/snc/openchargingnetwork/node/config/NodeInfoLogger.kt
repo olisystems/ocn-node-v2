@@ -43,7 +43,7 @@ class NodeInfoLogger(private val properties: NodeProperties, private val dataSou
         val plannedPartyText = getPlannedPartyText()
 
         println("\n${border.substring(0, 3)} NODE INFO ${border.substring(17)}\n" +
-                " URL     | ${properties.url}\n" +
+                " URL     | ${properties.url}/${properties.apiPrefix}\n" +
                 " ADDRESS | $addressText\n" +
                 " API KEY | ${properties.apikey}")
 
