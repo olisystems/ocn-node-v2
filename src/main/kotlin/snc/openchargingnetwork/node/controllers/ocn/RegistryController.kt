@@ -25,7 +25,7 @@ import org.web3j.crypto.Credentials
 import snc.openchargingnetwork.node.config.NodeProperties
 
 @RestController
-@RequestMapping("/ocn/registry")
+@RequestMapping("\${ocn.node.apiPrefix}/ocn/registry")
 class RegistryController(private val properties: NodeProperties,
                          private val registry: OcnRegistry) {
 

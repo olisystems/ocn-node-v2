@@ -37,7 +37,7 @@ import snc.openchargingnetwork.node.tools.urlJoin
 
 
 @RestController
-@RequestMapping("/admin")
+@RequestMapping("\${ocn.node.apiPrefix}/admin")
 class AdminController(private val platformRepo: PlatformRepository,
                       private val roleRepo: RoleRepository,
                       private val endpointRepo: EndpointRepository,
