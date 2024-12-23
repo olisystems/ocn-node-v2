@@ -1,4 +1,3 @@
-
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.springframework.boot.gradle.tasks.bundling.BootJar
 
@@ -34,7 +33,6 @@ repositories {
 }
 
 dependencies {
-    implementation("com.my-oli:ocn-notary:1.0.2-1")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
@@ -43,6 +41,8 @@ dependencies {
     implementation("org.danilopianini:khttp:1.2.2")
     implementation("org.web3j:core:4.5.5")
     implementation("org.postgresql:postgresql:42.2.12")
+    implementation("com.jayway.jsonpath:json-path:2.9.0")
+    implementation("com.aayushatharva.brotli4j:brotli4j:1.7.0")
     runtimeOnly("com.h2database:h2")
     kapt("org.springframework.boot:spring-boot-configuration-processor")
     developmentOnly("org.springframework.boot:spring-boot-devtools")
@@ -63,7 +63,7 @@ dependencies {
 allOpen {
     annotation("javax.persistence.Entity")
     annotation("javax.persistence.Embeddable")
-    annotation("javax.persistence.MappedSuperClass")
+    annotation("javax.persistence.MappedSuperclass")
 }
 
 tasks.withType<KotlinCompile> {
@@ -107,7 +107,6 @@ tasks.register<Exec>("ganache") {
         "--gasLimit=10000000"
     ))
 }
-
 
 (tasks.getByName("processResources") as ProcessResources).apply {
     val profile: String by project
