@@ -1,4 +1,4 @@
-FROM openjdk:13-jdk-alpine
+FROM azul/zulu-openjdk:13
 
 COPY build /ocn-node
 COPY src/main/resources/* /ocn-node/
