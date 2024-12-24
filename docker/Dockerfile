@@ -1,4 +1,4 @@
-FROM openjdk:13-slim
+FROM openjdk:13-jdk-alpine
 
 COPY build /ocn-node
 COPY src/main/resources/* /ocn-node/
