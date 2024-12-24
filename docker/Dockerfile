@@ -1,6 +1,5 @@
-FROM openjdk:8-jdk-slim
+FROM openjdk:13-jdk-alpine
 
-RUN apt-get update && apt-get install -y brotli
 COPY build /ocn-node
 COPY src/main/resources/* /ocn-node/
 WORKDIR /ocn-node
