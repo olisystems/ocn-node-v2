@@ -134,3 +134,9 @@ tasks.register<Tar>("archive") {
         )
     }
 }
+
+tasks.withType<JavaExec> {
+    jvmArgs = listOf(
+        "--add-opens", "java.base/java.net=ALL-UNNAMED"
+    )
+}
