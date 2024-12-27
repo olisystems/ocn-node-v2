@@ -109,7 +109,7 @@ open class PartyServer(val config: PartyDefinition, deployedContracts: OcnContra
     }
 
     fun addToList(type: OcnRulesListType, party: BasicRole, modules: List<String>? = listOf()) {
-        khttp.post("$node/ocpi/receiver/2.2/ocnrules/${type.toString().toLowerCase()}",
+        khttp.post("$node/ocpi/receiver/2.2/ocnrules/${type.toString().lowercase()}",
                 headers = mapOf("Authorization" to "Token $tokenC"),
                 json = mapOf("country_code" to party.country, "party_id" to party.id, "modules" to modules))
     }

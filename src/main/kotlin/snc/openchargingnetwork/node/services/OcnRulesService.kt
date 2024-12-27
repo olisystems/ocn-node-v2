@@ -122,7 +122,7 @@ class OcnRulesService(private val platformRepo: PlatformRepository,
 
         ocnRulesListRepo.saveAll(parties.map { OcnRulesListEntity(
             platformID = platform.id!!,
-            counterparty = BasicRole(it.id, it.country).toUpperCase(),
+            counterparty = BasicRole(it.id, it.country).uppercase(),
             modules = it.modules)
         })
     }
@@ -157,7 +157,7 @@ class OcnRulesService(private val platformRepo: PlatformRepository,
 
         ocnRulesListRepo.saveAll(parties.map { OcnRulesListEntity(
                 platformID = platform.id!!,
-                counterparty = BasicRole(it.id, it.country).toUpperCase(),
+                counterparty = BasicRole(it.id, it.country).uppercase(),
                 modules = it.modules)})
     }
 
@@ -178,7 +178,7 @@ class OcnRulesService(private val platformRepo: PlatformRepository,
         platform.rules.whitelist = true
 
         // 5. check entry does not already exist
-        if (ocnRulesListRepo.existsByCounterparty(BasicRole( id = body.id, country = body.country).toUpperCase())) {
+        if (ocnRulesListRepo.existsByCounterparty(BasicRole( id = body.id, country = body.country).uppercase())) {
             throw OcpiClientInvalidParametersException("Party already on OCN Rules whitelist")
         }
 
@@ -188,7 +188,7 @@ class OcnRulesService(private val platformRepo: PlatformRepository,
         // 7. add to whitelist
         ocnRulesListRepo.save(OcnRulesListEntity(
                 platformID = platform.id!!,
-                counterparty = BasicRole( id = body.id, country = body.country).toUpperCase(),
+                counterparty = BasicRole( id = body.id, country = body.country).uppercase(),
                 modules = body.modules))
     }
 
@@ -209,7 +209,7 @@ class OcnRulesService(private val platformRepo: PlatformRepository,
         platform.rules.blacklist = true
 
         // 5. check entry does not already exist
-        if (ocnRulesListRepo.existsByCounterparty(BasicRole( id = body.id, country = body.country).toUpperCase())) {
+        if (ocnRulesListRepo.existsByCounterparty(BasicRole( id = body.id, country = body.country).uppercase())) {
             throw OcpiClientInvalidParametersException("Party already on OCN Rules blacklist")
         }
 
@@ -219,7 +219,7 @@ class OcnRulesService(private val platformRepo: PlatformRepository,
         // 7. add to blacklist
         ocnRulesListRepo.save(OcnRulesListEntity(
                 platformID = platform.id!!,
-                counterparty = BasicRole( id = body.id, country = body.country).toUpperCase(),
+                counterparty = BasicRole( id = body.id, country = body.country).uppercase(),
                 modules = body.modules))
     }
 
@@ -269,7 +269,7 @@ class OcnRulesService(private val platformRepo: PlatformRepository,
     fun isWhitelisted(platform: PlatformEntity, counterParty: BasicRole): Boolean {
         val rulesList = ocnRulesListRepo.findAllByPlatformID(platform.id)
 
-        val compareParties = { party: BasicRole -> party.toUpperCase() == counterParty.toUpperCase() }
+        val compareParties = { party: BasicRole -> party.uppercase() == counterParty.uppercase() }
 
         return when {
             platform.rules.whitelist -> rulesList.any { compareParties(it.counterparty) }

@@ -94,7 +94,7 @@ class OcnRulesController(private val ocnRulesService: OcnRulesService) {
                             @PathVariable countryCode: String,
                             @PathVariable partyID: String): ResponseEntity<OcpiResponse<Unit>> {
 
-        val party = BasicRole(country = countryCode, id = partyID).toUpperCase()
+        val party = BasicRole(country = countryCode, id = partyID).uppercase()
         ocnRulesService.deleteFromWhitelist(authorization, party)
         return ResponseEntity.ok(OcpiResponse(statusCode = 1000))
     }
@@ -105,7 +105,7 @@ class OcnRulesController(private val ocnRulesService: OcnRulesService) {
                             @PathVariable countryCode: String,
                             @PathVariable partyID: String): ResponseEntity<OcpiResponse<Unit>> {
 
-        val party = BasicRole(country = countryCode, id = partyID).toUpperCase()
+        val party = BasicRole(country = countryCode, id = partyID).uppercase()
         ocnRulesService.deleteFromBlacklist(authorization, party)
         return ResponseEntity.ok(OcpiResponse(statusCode = 1000))
     }

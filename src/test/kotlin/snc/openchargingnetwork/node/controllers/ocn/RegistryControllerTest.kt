@@ -50,7 +50,7 @@ class RegistryControllerTest {
         every { properties.privateKey } returns "0x1c3e5453c0f9aa74a8eb0216310b2b013f017813a648fce364bf41dbc0b37647"
         mockMvc.perform(get("/ocn/registry/node-info"))
                 .andExpect(jsonPath("\$.url").value(expectedUrl))
-                .andExpect(jsonPath("\$.address").value(expectedAddress.toLowerCase()))
+                .andExpect(jsonPath("\$.address").value(expectedAddress.lowercase()))
                 .andDo(document("registry/node-info"))
     }
 

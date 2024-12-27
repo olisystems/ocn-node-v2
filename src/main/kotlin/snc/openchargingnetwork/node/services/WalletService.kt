@@ -83,7 +83,7 @@ class WalletService(private val properties: NodeProperties,
         val signingKey = Sign.signedPrefixedMessageToKey(dataToVerify, Sign.SignatureData(v, r, s))
         val signingAddress = "0x${Keys.getAddress(signingKey)}"
         val (operator, _) = registry.getOperatorByOcpi(sender.country.toByteArray(), sender.id.toByteArray()).sendAsync().get()
-        if (signingAddress.toLowerCase() != operator.toLowerCase()) {
+        if (signingAddress.lowercase() != operator.lowercase()) {
             throw OcpiHubConnectionProblemException("Could not verify OCN-Signature of request")
         }
     }

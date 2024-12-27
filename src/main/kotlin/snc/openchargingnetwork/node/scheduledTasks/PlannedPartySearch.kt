@@ -70,7 +70,7 @@ class PlannedPartySearch(private val registry: OcnRegistry,
             for (role in party.roles) {
                 if (!networkClientInfoRepo.existsByPartyAndRole(party.party, role)) {
                     val networkClientInfo = NetworkClientInfoEntity(
-                            party = party.party.toUpperCase(),
+                            party = party.party.uppercase(),
                             role = role,
                             status = ConnectionStatus.PLANNED)
                     networkClientInfo.foundNewlyPlannedRole()
