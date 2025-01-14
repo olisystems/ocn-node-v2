@@ -228,3 +228,18 @@ Make sure the project has been built already, then run:
 
 Documentation is generated automatically on build. The asciidoc template can be found in
 `src/docs/asciidoc/index.adoc` and the output in `build/asciidoc/html5/index.html`.
+
+##  Ocn Node V2
+This repo is a fork of the original OCN Node repository at https://github.com/energywebfoundation/ocn-node. The main difference is that this repository is using the OCN Registry 2.0 with different features like the payment system. 
+What is still to be done here:
+ - update the unit and integration tests;
+ - update the overwall libraries including gradle and java;
+ - apply and test signatures mode on;
+
+### Local setup for Development using IntelliJ
+- Install Java 13
+- Setup Gradle Settings
+![Gradle Settings](images/gradle-settings.png)
+- Create a Run Configuration
+![Run Configuration](images/run-config.png)
+

@@ -81,7 +81,7 @@ class RepositoriesTests @Autowired constructor(
         val exists2 = roleRepository.existsByPlatformIDAndCountryCodeAndPartyIDAllIgnoreCase(2L, role.countryCode, role.partyID)
         assertThat(exists2).isEqualTo(false)
         // find by ignore case (lowercase)
-        val alsoExists = roleRepository.existsByPlatformIDAndCountryCodeAndPartyIDAllIgnoreCase(1L, role.countryCode.toLowerCase(), role.partyID.toLowerCase())
+        val alsoExists = roleRepository.existsByPlatformIDAndCountryCodeAndPartyIDAllIgnoreCase(1L, role.countryCode.lowercase(), role.partyID.lowercase())
         assertThat(alsoExists).isEqualTo(true)
     }
 
@@ -93,7 +93,7 @@ class RepositoriesTests @Autowired constructor(
         val exists = roleRepository.findAllByCountryCodeAndPartyIDAllIgnoreCase(role.countryCode, role.partyID)
         assertThat(exists).isEqualTo(listOf(role))
         // find by ignore case (lowercase)
-        val alsoExists = roleRepository.findAllByCountryCodeAndPartyIDAllIgnoreCase(role.countryCode.toLowerCase(), role.partyID.toLowerCase())
+        val alsoExists = roleRepository.findAllByCountryCodeAndPartyIDAllIgnoreCase(role.countryCode.lowercase(), role.partyID.lowercase())
         assertThat(alsoExists).isEqualTo(listOf(role))
     }
 

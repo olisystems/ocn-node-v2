@@ -44,8 +44,8 @@ data class BasicRole(@JsonProperty("party_id") final val id: String,
         }
     }
 
-    fun toUpperCase(): BasicRole {
-        return BasicRole(id = id.toUpperCase(), country = country.toUpperCase())
+    fun uppercase(): BasicRole {
+        return BasicRole(id = id.uppercase(), country = country.uppercase())
     }
 }
 
@@ -172,7 +172,7 @@ enum class InterfaceRole(val id: String) {
         }
         fun resolve(role: String): InterfaceRole {
             val values = values()
-            return values.find { it.id.toLowerCase() == role }
+            return values.find { it.id.lowercase() == role }
                     ?: throw OcpiClientInvalidParametersException("No interface $role found. Expected one of $values.")
         }
     }

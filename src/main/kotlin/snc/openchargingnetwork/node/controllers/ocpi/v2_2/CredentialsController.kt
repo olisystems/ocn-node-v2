@@ -31,8 +31,8 @@ import snc.openchargingnetwork.node.services.HttpService
 import snc.openchargingnetwork.node.services.RegistryService
 import snc.openchargingnetwork.node.tools.*
 
+@RequestMapping("\${ocn.node.apiPrefix}/ocpi/2.2/credentials")
 @RestController
-@RequestMapping("/ocpi/2.2/credentials")
 class CredentialsController(private val platformRepo: PlatformRepository,
                             private val roleRepo: RoleRepository,
                             private val endpointRepo: EndpointRepository,
@@ -96,8 +96,8 @@ class CredentialsController(private val platformRepo: PlatformRepository,
             if (roleRepo.existsByCountryCodeAndPartyIDAllIgnoreCase(basicRole.country, basicRole.id)) {
                 throw OcpiClientInvalidParametersException("Role with party_id=${basicRole.id} and country_code=${basicRole.country} already connected to this node!")
             }
-            if (networkClientInfoRepository.existsByPartyAndRole(basicRole.toUpperCase(), role.role)) {
-                networkClientInfoRepository.deleteByPartyAndRole(basicRole.toUpperCase(), role.role)
+            if (networkClientInfoRepository.existsByPartyAndRole(basicRole.uppercase(), role.role)) {
+                networkClientInfoRepository.deleteByPartyAndRole(basicRole.uppercase(), role.role)
             }
         }
 
