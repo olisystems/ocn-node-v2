@@ -5,9 +5,11 @@ import com.ninjasquad.springmockk.MockkBean
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
+import org.springframework.core.env.Environment
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*
@@ -25,6 +27,15 @@ class OcnRulesControllerTest(@Autowired val mockMvc: MockMvc) {
     @MockkBean
     lateinit var ocnRulesService: OcnRulesService
 
+    @Autowired
+    lateinit var env: Environment
+    lateinit var apiPrefix: String
+
+    @BeforeEach
+    fun setUp( ) {
+        apiPrefix = env.getProperty("ocn.node.apiPrefix") ?: ""
+    }
+
     @Test
     fun getRules() {
         val expected = OcnRules(
@@ -34,7 +45,7 @@ class OcnRulesControllerTest(@Autowired val mockMvc: MockMvc) {
 
         every { ocnRulesService.getRules("Token token-c") } returns expected
 
-        mockMvc.perform(get("/ocpi/receiver/2.2/ocnrules")
+        mockMvc.perform(get("/$apiPrefix/ocpi/receiver/2.2/ocnrules")
                 .header("authorization", "Token token-c"))
                 .andExpect(status().isOk)
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -52,7 +63,7 @@ class OcnRulesControllerTest(@Autowired val mockMvc: MockMvc) {
 
         every { ocnRulesService.updateWhitelist("Token token-c", body) } just Runs
 
-        mockMvc.perform(put("/ocpi/receiver/2.2/ocnrules/whitelist")
+        mockMvc.perform(put("/$apiPrefix/ocpi/receiver/2.2/ocnrules/whitelist")
                 .header("authorization", "Token token-c")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jacksonObjectMapper().writeValueAsString(body)))
@@ -71,7 +82,7 @@ class OcnRulesControllerTest(@Autowired val mockMvc: MockMvc) {
         every { ocnRulesService.updateBlacklist("Token token-c", body) } just Runs
 
 
-        mockMvc.perform(put("/ocpi/receiver/2.2/ocnrules/blacklist")
+        mockMvc.perform(put("/$apiPrefix/ocpi/receiver/2.2/ocnrules/blacklist")
                 .header("authorization", "Token token-c")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jacksonObjectMapper().writeValueAsString(body)))
@@ -87,7 +98,7 @@ class OcnRulesControllerTest(@Autowired val mockMvc: MockMvc) {
     fun blockAll() {
         every { ocnRulesService.blockAll("Token token-c") } just Runs
 
-        mockMvc.perform(put("/ocpi/receiver/2.2/ocnrules/block-all")
+        mockMvc.perform(put("/$apiPrefix/ocpi/receiver/2.2/ocnrules/block-all")
                 .header("authorization", "Token token-c"))
                 .andExpect(status().isOk)
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -104,7 +115,7 @@ class OcnRulesControllerTest(@Autowired val mockMvc: MockMvc) {
         every { ocnRulesService.appendToWhitelist("Token token-c", body) } just Runs
 
 
-        mockMvc.perform(post("/ocpi/receiver/2.2/ocnrules/whitelist")
+        mockMvc.perform(post("/$apiPrefix/ocpi/receiver/2.2/ocnrules/whitelist")
                 .header("authorization", "Token token-c")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jacksonObjectMapper().writeValueAsString(body)))
@@ -122,7 +133,7 @@ class OcnRulesControllerTest(@Autowired val mockMvc: MockMvc) {
 
         every { ocnRulesService.appendToBlacklist("Token token-c", body) } just Runs
 
-        mockMvc.perform(post("/ocpi/receiver/2.2/ocnrules/blacklist")
+        mockMvc.perform(post("/$apiPrefix/ocpi/receiver/2.2/ocnrules/blacklist")
                 .header("authorization", "Token token-c")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jacksonObjectMapper().writeValueAsString(body)))
@@ -140,7 +151,7 @@ class OcnRulesControllerTest(@Autowired val mockMvc: MockMvc) {
 
         every { ocnRulesService.deleteFromWhitelist("Token token-c", party) } just Runs
 
-        mockMvc.perform(delete("/ocpi/receiver/2.2/ocnrules/whitelist/de/abc")
+        mockMvc.perform(delete("/$apiPrefix/ocpi/receiver/2.2/ocnrules/whitelist/de/abc")
                 .header("authorization", "Token token-c"))
                 .andExpect(status().isOk)
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -156,7 +167,7 @@ class OcnRulesControllerTest(@Autowired val mockMvc: MockMvc) {
 
         every { ocnRulesService.deleteFromBlacklist("Token token-c", party) } just Runs
 
-        mockMvc.perform(delete("/ocpi/receiver/2.2/ocnrules/blacklist/de/abc")
+        mockMvc.perform(delete("/$apiPrefix/ocpi/receiver/2.2/ocnrules/blacklist/de/abc")
                 .header("authorization", "Token token-c"))
                 .andExpect(status().isOk)
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))

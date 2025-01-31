@@ -6,7 +6,9 @@ import io.mockk.every
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
+import org.springframework.core.env.Environment
 import org.springframework.http.MediaType
 import org.springframework.restdocs.RestDocumentationContextProvider
 import org.springframework.restdocs.RestDocumentationExtension
@@ -38,10 +40,15 @@ class AdminControllerTest {
     lateinit var roleRepo: RoleRepository
 
     @MockkBean
-    lateinit var endpointRepo: EndpointRepository // Mock the missing dependency
+    lateinit var endpointRepo: EndpointRepository
 
     @MockkBean
     lateinit var properties: NodeProperties
+
+    @Autowired
+    lateinit var env: Environment
+
+    lateinit var apiPrefix: String
 
     @BeforeEach
     fun setUp(webApplicationContext: WebApplicationContext,
@@ -50,6 +57,8 @@ class AdminControllerTest {
         this.mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
             .apply<DefaultMockMvcBuilder>(MockMvcRestDocumentation.documentationConfiguration(restDocumentation))
             .build()
+
+        apiPrefix = env.getProperty("ocn.node.apiPrefix") ?: ""
     }
 
     @Test
@@ -58,18 +67,19 @@ class AdminControllerTest {
         val role = BasicRole(country = "DE", id = "SNC")
         every { properties.apikey } returns "1234567890"
         every { properties.url } returns "https://node.ocn.org"
+        every { properties.apiPrefix } returns "/$apiPrefix"
         every { roleRepo.existsByCountryCodeAndPartyIDAllIgnoreCase(role.country, role.id) } returns false
         every { platformRepo.save<PlatformEntity>(any()) } returns platform
-        every { endpointRepo.findByPlatformID(any()) } returns emptyList() // Mock endpointRepo behavior as needed
+        every { endpointRepo.findByPlatformID(any()) } returns emptyList()
 
-        mockMvc.perform(post("/admin/generate-registration-token")
+        mockMvc.perform(post("/$apiPrefix/admin/generate-registration-token")
             .header("Authorization", "Token 1234567890")
             .contentType(MediaType.APPLICATION_JSON)
             .content(jacksonObjectMapper().writeValueAsString(arrayOf(role))))
             .andExpect(status().isOk)
             .andExpect(content().contentType(MediaType.APPLICATION_JSON))
             .andExpect(jsonPath("\$.token").isString)
-            .andExpect(jsonPath("\$.versions").value("https://node.ocn.org/ocpi/versions"))
+            .andExpect(jsonPath("\$.versions").value("https://node.ocn.org/$apiPrefix/ocpi/versions"))
             .andDo(document("admin/generate-registration-token"))
     }
 

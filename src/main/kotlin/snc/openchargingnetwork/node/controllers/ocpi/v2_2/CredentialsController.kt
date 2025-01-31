@@ -45,7 +45,7 @@ class CredentialsController(private val platformRepo: PlatformRepository,
     private fun myCredentials(token: String): Credentials {
         return Credentials(
                 token = token,
-                url = urlJoin(properties.url, "/ocpi/versions"),
+                url = urlJoin(properties.url, properties.apiPrefix, "/ocpi/versions"),
                 roles = listOf(CredentialsRole(
                         role = Role.HUB,
                         businessDetails = BusinessDetails(name = "Open Charging Network Node"),

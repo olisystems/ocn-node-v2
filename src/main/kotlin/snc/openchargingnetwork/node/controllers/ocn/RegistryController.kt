@@ -31,7 +31,7 @@ class RegistryController(private val properties: NodeProperties,
 
     @GetMapping("/node-info")
     fun getMyNodeInfo() = mapOf(
-            "url" to properties.url,
+            "url" to properties.url+"/"+properties.apiPrefix,
             "address" to Credentials.create(properties.privateKey).address)
 
     @GetMapping("/node/{countryCode}/{partyID}")

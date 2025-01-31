@@ -4,17 +4,24 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.ninjasquad.springmockk.MockkBean
 import io.mockk.every
 import io.mockk.mockk
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
+import org.springframework.core.env.Environment
 import org.springframework.http.HttpMethod
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
+import org.springframework.restdocs.RestDocumentationContextProvider
+import org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.documentationConfiguration
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import org.springframework.test.web.servlet.setup.DefaultMockMvcBuilder
+import org.springframework.test.web.servlet.setup.MockMvcBuilders
+import org.springframework.web.context.WebApplicationContext
 import snc.openchargingnetwork.node.data.exampleLocation2
 import snc.openchargingnetwork.node.models.*
 import snc.openchargingnetwork.node.models.ocpi.*
@@ -26,6 +33,15 @@ class MessageControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @MockkBean
     lateinit var requestHandlerBuilder: OcpiRequestHandlerBuilder
+
+    @Autowired
+    lateinit var env: Environment
+    lateinit var apiPrefix: String
+
+    @BeforeEach
+    fun setUp( ) {
+        apiPrefix = env.getProperty("ocn.node.apiPrefix") ?: ""
+    }
 
     @Test
     fun `When POST OCN message should forward the request to local recipient and return their OCPI response`() {
@@ -59,7 +75,7 @@ class MessageControllerTest(@Autowired val mockMvc: MockMvc) {
                 .status(200)
                 .body(OcpiResponse(1000, data = exampleLocation2))
 
-        mockMvc.perform(post("/ocn/message")
+        mockMvc.perform(post("/$apiPrefix/ocn/message")
                 .contentType(MediaType.APPLICATION_JSON)
                 .header("X-Request-ID", "xyz")
                 .header("OCN-Signature", "0x1234")

@@ -151,7 +151,7 @@ class OcpiRequestHandler<T: Any>(request: OcpiRequestVariables,
                 // save the original resource (response_url), returning a uid pointing to its location
                 val resourceID = routingService.setProxyResource(responseUrl, request.headers.receiver, request.headers.sender)
                 // use the callback to modify the original request with the new response_url
-                val modifiedRequest = modifyRequest(urlJoin(properties.url, proxyPath, resourceID))
+                val modifiedRequest = modifyRequest(urlJoin(properties.url, properties.apiPrefix, proxyPath, resourceID))
                 // use the notary to securely modify the request signature
                 modifiedRequest.headers.signature = rewriteAndSign(modifiedRequest.toSignedValues(), rewriteFields)
                 // send the request with the modified body

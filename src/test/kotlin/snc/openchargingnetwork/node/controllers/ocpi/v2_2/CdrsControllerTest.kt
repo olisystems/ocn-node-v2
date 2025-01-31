@@ -17,6 +17,8 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import snc.openchargingnetwork.node.data.exampleCDR
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
 import org.hamcrest.Matchers.hasSize
+import org.junit.jupiter.api.BeforeEach
+import org.springframework.core.env.Environment
 import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseEntity
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
@@ -32,6 +34,15 @@ class CdrsControllerTest(@Autowired val mockMvc: MockMvc) {
     @MockkBean
     lateinit var requestHandlerBuilder: OcpiRequestHandlerBuilder
 
+
+    @Autowired
+    lateinit var env: Environment
+    lateinit var apiPrefix: String
+
+    @BeforeEach
+    fun setUp( ) {
+        apiPrefix = env.getProperty("ocn.node.apiPrefix") ?: ""
+    }
 
     @Test
     fun `When GET sender CDRs should return paginated response`() {
@@ -64,7 +75,7 @@ class CdrsControllerTest(@Autowired val mockMvc: MockMvc) {
                 .headers(responseHeaders)
                 .body(OcpiResponse(statusCode = 1000, data = arrayOf(exampleCDR)))
 
-        mockMvc.perform(get("/ocpi/sender/2.2/cdrs")
+        mockMvc.perform(get("/$apiPrefix/ocpi/sender/2.2/cdrs")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -117,7 +128,7 @@ class CdrsControllerTest(@Autowired val mockMvc: MockMvc) {
                 .headers(responseHeaders)
                 .body(OcpiResponse(statusCode = 1000, data = arrayOf(exampleCDR)))
 
-        mockMvc.perform(get("/ocpi/sender/2.2/cdrs/page/${requestVariables.urlPath}")
+        mockMvc.perform(get("/$apiPrefix/ocpi/sender/2.2/cdrs/page/${requestVariables.urlPath}")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -165,7 +176,7 @@ class CdrsControllerTest(@Autowired val mockMvc: MockMvc) {
                 .status(200)
                 .body(OcpiResponse(statusCode = 1000, data = exampleCDR))
 
-        mockMvc.perform(get("/ocpi/receiver/2.2/cdrs/${requestVariables.urlPath}")
+        mockMvc.perform(get("/$apiPrefix/ocpi/receiver/2.2/cdrs/${requestVariables.urlPath}")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -212,7 +223,7 @@ class CdrsControllerTest(@Autowired val mockMvc: MockMvc) {
                 .headers(responseHeaders)
                 .body(OcpiResponse(statusCode = 1000))
 
-        mockMvc.perform(post("/ocpi/receiver/2.2/cdrs")
+        mockMvc.perform(post("/$apiPrefix/ocpi/receiver/2.2/cdrs")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
