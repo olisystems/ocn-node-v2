@@ -6,7 +6,9 @@ import io.mockk.every
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
+import org.springframework.core.env.Environment
 import org.springframework.restdocs.RestDocumentationContextProvider
 import org.springframework.restdocs.RestDocumentationExtension
 import org.springframework.restdocs.mockmvc.MockMvcRestDocumentation
@@ -33,6 +35,10 @@ class RegistryControllerTest {
     @MockkBean
     lateinit var registry: OcnRegistry
 
+    @Autowired
+    lateinit var env: Environment
+    lateinit var apiPrefix: String
+
     @BeforeEach
     fun setUp(webApplicationContext: WebApplicationContext,
               restDocumentation: RestDocumentationContextProvider) {
@@ -40,6 +46,8 @@ class RegistryControllerTest {
         this.mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
                 .apply<DefaultMockMvcBuilder>(MockMvcRestDocumentation.documentationConfiguration(restDocumentation))
                 .build()
+
+        apiPrefix = env.getProperty("ocn.node.apiPrefix") ?: ""
     }
 
     @Test
@@ -47,9 +55,10 @@ class RegistryControllerTest {
         val expectedUrl = "https://node.ocn.org"
         val expectedAddress = "0x9bC1169Ca09555bf2721A5C9eC6D69c8073bfeB4"
         every { properties.url } returns expectedUrl
+        every { properties.apiPrefix } returns "$apiPrefix"
         every { properties.privateKey } returns "0x1c3e5453c0f9aa74a8eb0216310b2b013f017813a648fce364bf41dbc0b37647"
-        mockMvc.perform(get("/ocn/registry/node-info"))
-                .andExpect(jsonPath("\$.url").value(expectedUrl))
+        mockMvc.perform(get("/$apiPrefix/ocn/registry/node-info"))
+                .andExpect(jsonPath("\$.url").value(expectedUrl+"/$apiPrefix"))
                 .andExpect(jsonPath("\$.address").value(expectedAddress.lowercase()))
                 .andDo(document("registry/node-info"))
     }
@@ -61,7 +70,7 @@ class RegistryControllerTest {
         val expectedUrl = "https://node.ocn.org"
         val expectedAddress = "0x22D44D286d219e1B55E6A5f1a3c82Af69716756A"
         every { registry.getOperatorByOcpi(country.toByteArray(), id.toByteArray()).sendAsync().get() } returns Tuple2(expectedAddress, expectedUrl)
-        mockMvc.perform(get("/ocn/registry/node/$country/$id"))
+        mockMvc.perform(get("/$apiPrefix/ocn/registry/node/$country/$id"))
                 .andExpect(jsonPath("\$.url").value(expectedUrl))
                 .andExpect(jsonPath("\$.address").value(expectedAddress))
                 .andDo(document("registry/node-of"))

@@ -4,9 +4,11 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.ninjasquad.springmockk.MockkBean
 import io.mockk.every
 import io.mockk.mockk
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
+import org.springframework.core.env.Environment
 import org.springframework.http.HttpMethod
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -28,6 +30,15 @@ class CommandsControllerTest(@Autowired val mockMvc: MockMvc) {
     @MockkBean
     lateinit var requestHandlerBuilder: OcpiRequestHandlerBuilder
 
+    @Autowired
+    lateinit var env: Environment
+    lateinit var apiPrefix: String
+
+
+    @BeforeEach
+    fun setUp( ) {
+        apiPrefix = env.getProperty("ocn.node.apiPrefix") ?: ""
+    }
 
     @Test
     fun `When POST sender Commands should return basic OCPI success response`() {
@@ -59,7 +70,7 @@ class CommandsControllerTest(@Autowired val mockMvc: MockMvc) {
                 .status(200)
                 .body(OcpiResponse(statusCode = 1000))
 
-        mockMvc.perform(MockMvcRequestBuilders.post("/ocpi/sender/2.2/commands/START_SESSION/$uid")
+        mockMvc.perform(MockMvcRequestBuilders.post("/$apiPrefix/ocpi/sender/2.2/commands/START_SESSION/$uid")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -110,7 +121,7 @@ class CommandsControllerTest(@Autowired val mockMvc: MockMvc) {
                             statusCode = 1000,
                             data = CommandResponse(CommandResponseType.ACCEPTED, timeout = 5)))
 
-        mockMvc.perform(MockMvcRequestBuilders.post("/ocpi/receiver/2.2/commands/CANCEL_RESERVATION")
+        mockMvc.perform(MockMvcRequestBuilders.post("/$apiPrefix/ocpi/receiver/2.2/commands/CANCEL_RESERVATION")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -165,7 +176,7 @@ class CommandsControllerTest(@Autowired val mockMvc: MockMvc) {
                         statusCode = 1000,
                         data = CommandResponse(CommandResponseType.ACCEPTED, timeout = 5)))
 
-        mockMvc.perform(MockMvcRequestBuilders.post("/ocpi/receiver/2.2/commands/RESERVE_NOW")
+        mockMvc.perform(MockMvcRequestBuilders.post("/$apiPrefix/ocpi/receiver/2.2/commands/RESERVE_NOW")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -218,7 +229,7 @@ class CommandsControllerTest(@Autowired val mockMvc: MockMvc) {
                         statusCode = 1000,
                         data = CommandResponse(CommandResponseType.ACCEPTED, timeout = 25)))
 
-        mockMvc.perform(MockMvcRequestBuilders.post("/ocpi/receiver/2.2/commands/START_SESSION")
+        mockMvc.perform(MockMvcRequestBuilders.post("/$apiPrefix/ocpi/receiver/2.2/commands/START_SESSION")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -270,7 +281,7 @@ class CommandsControllerTest(@Autowired val mockMvc: MockMvc) {
                         statusCode = 1000,
                         data = CommandResponse(CommandResponseType.ACCEPTED, timeout = 25)))
 
-        mockMvc.perform(MockMvcRequestBuilders.post("/ocpi/receiver/2.2/commands/STOP_SESSION")
+        mockMvc.perform(MockMvcRequestBuilders.post("/$apiPrefix/ocpi/receiver/2.2/commands/STOP_SESSION")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -324,7 +335,7 @@ class CommandsControllerTest(@Autowired val mockMvc: MockMvc) {
                         statusCode = 1000,
                         data = CommandResponse(CommandResponseType.ACCEPTED, timeout = 25)))
 
-        mockMvc.perform(MockMvcRequestBuilders.post("/ocpi/receiver/2.2/commands/UNLOCK_CONNECTOR")
+        mockMvc.perform(MockMvcRequestBuilders.post("/$apiPrefix/ocpi/receiver/2.2/commands/UNLOCK_CONNECTOR")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)

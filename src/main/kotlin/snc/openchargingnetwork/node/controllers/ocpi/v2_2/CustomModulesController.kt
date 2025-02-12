@@ -8,11 +8,11 @@ import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.ocpi.*
 import javax.servlet.http.HttpServletRequest
 
+@RequestMapping("\${ocn.node.apiPrefix}/ocpi/custom/")
 @RestController
-@RequestMapping("\${ocn.node.apiPrefix}/ocpi/custom")
 class CustomModulesController(private val requestHandlerBuilder: OcpiRequestHandlerBuilder) {
 
-    @RequestMapping("/{interfaceRole}/{module}", "/{interfaceRole}/{module}/**/*")
+    @RequestMapping("{interfaceRole}/{module}", "/{interfaceRole}/{module}/**/*")
     fun customModuleMapping(@RequestHeader("authorization") authorization: String,
                             @RequestHeader("OCN-Signature") signature: String? = null,
                             @RequestHeader("X-Request-ID") requestID: String,

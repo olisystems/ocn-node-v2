@@ -5,9 +5,11 @@ import com.ninjasquad.springmockk.MockkBean
 import io.mockk.every
 import io.mockk.mockk
 import org.hamcrest.Matchers
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
+import org.springframework.core.env.Environment
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.MediaType
@@ -31,6 +33,15 @@ class TariffsControllerTest(@Autowired val mockMvc: MockMvc) {
     @MockkBean
     lateinit var requestHandlerBuilder: OcpiRequestHandlerBuilder
 
+
+    @Autowired
+    lateinit var env: Environment
+    lateinit var apiPrefix: String
+
+    @BeforeEach
+    fun setUp( ) {
+        apiPrefix = env.getProperty("ocn.node.apiPrefix") ?: ""
+    }
 
     @Test
     fun `When GET sender tariffs return paginated tariffs list`() {
@@ -64,7 +75,7 @@ class TariffsControllerTest(@Autowired val mockMvc: MockMvc) {
                 .headers(responseHeaders)
                 .body(OcpiResponse(statusCode = 1000, data = arrayOf(exampleTariff)))
 
-        mockMvc.perform(get("/ocpi/sender/2.2/tariffs")
+        mockMvc.perform(get("/$apiPrefix/ocpi/sender/2.2/tariffs")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -118,7 +129,7 @@ class TariffsControllerTest(@Autowired val mockMvc: MockMvc) {
                 .headers(responseHeaders)
                 .body(OcpiResponse(statusCode = 1000, data = arrayOf(exampleTariff)))
 
-        mockMvc.perform(get("/ocpi/sender/2.2/tariffs/page/${requestVariables.urlPath}")
+        mockMvc.perform(get("/$apiPrefix/ocpi/sender/2.2/tariffs/page/${requestVariables.urlPath}")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -168,7 +179,7 @@ class TariffsControllerTest(@Autowired val mockMvc: MockMvc) {
                 .status(200)
                 .body(OcpiResponse(statusCode = 1000, data = exampleTariff))
 
-        mockMvc.perform(get("/ocpi/receiver/2.2/tariffs/${sender.country}/${sender.id}/$tariffID")
+        mockMvc.perform(get("/$apiPrefix/ocpi/receiver/2.2/tariffs/${sender.country}/${sender.id}/$tariffID")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -214,7 +225,7 @@ class TariffsControllerTest(@Autowired val mockMvc: MockMvc) {
                 .status(200)
                 .body(OcpiResponse(statusCode = 1000))
 
-        mockMvc.perform(put("/ocpi/receiver/2.2/tariffs/${sender.country}/${sender.id}/$tariffID")
+        mockMvc.perform(put("/$apiPrefix/ocpi/receiver/2.2/tariffs/${sender.country}/${sender.id}/$tariffID")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -260,7 +271,7 @@ class TariffsControllerTest(@Autowired val mockMvc: MockMvc) {
                 .status(200)
                 .body(OcpiResponse(statusCode = 1000))
 
-        mockMvc.perform(delete("/ocpi/receiver/2.2/tariffs/${sender.country}/${sender.id}/$tariffID")
+        mockMvc.perform(delete("/$apiPrefix/ocpi/receiver/2.2/tariffs/${sender.country}/${sender.id}/$tariffID")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)

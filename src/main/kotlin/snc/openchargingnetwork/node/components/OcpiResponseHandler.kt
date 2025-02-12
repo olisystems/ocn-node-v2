@@ -116,7 +116,7 @@ class OcpiResponseHandler<T: Any>(request: OcpiRequestVariables,
 
                         val id = routingService.setProxyResource(next, request.headers.sender, request.headers.receiver)
                         val proxyPaginationEndpoint = "/ocpi/${request.interfaceRole.id}/2.2/${request.module.id}/page"
-                        val link = urlJoin(properties.url, proxyPaginationEndpoint, id)
+                        val link = urlJoin(properties.url, properties.apiPrefix, proxyPaginationEndpoint, id)
                         headers["Link"] = "<$link>; rel=\"next\""
 
                         if (isSigningActive(request.headers.sender)) {

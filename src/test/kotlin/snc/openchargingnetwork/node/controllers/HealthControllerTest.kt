@@ -3,7 +3,9 @@ package snc.openchargingnetwork.node.controllers
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
+import org.springframework.core.env.Environment
 import org.springframework.restdocs.RestDocumentationContextProvider
 import org.springframework.restdocs.RestDocumentationExtension
 import org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document
@@ -22,6 +24,10 @@ class HealthControllerTest {
 
     lateinit var mockMvc: MockMvc
 
+    @Autowired
+    lateinit var env: Environment
+    lateinit var apiPrefix: String
+
     @BeforeEach
     fun setUp(webApplicationContext: WebApplicationContext,
                    restDocumentation: RestDocumentationContextProvider) {
@@ -29,11 +35,13 @@ class HealthControllerTest {
         this.mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
                 .apply<DefaultMockMvcBuilder>(documentationConfiguration(restDocumentation))
                 .build()
+
+        apiPrefix = env.getProperty("ocn.node.apiPrefix") ?: ""
     }
 
     @Test
     fun `When GET health should return OK`() {
-        mockMvc.perform(get("/health"))
+        mockMvc.perform(get("/$apiPrefix/health"))
                 .andExpect(status().isOk)
                 .andExpect(content().string("OK"))
                 .andDo(document("health"))

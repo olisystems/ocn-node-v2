@@ -5,9 +5,11 @@ import com.ninjasquad.springmockk.MockkBean
 import io.mockk.every
 import io.mockk.mockk
 import org.hamcrest.Matchers
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
+import org.springframework.core.env.Environment
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.MediaType
@@ -29,6 +31,15 @@ class TokensControllerTest(@Autowired val mockMvc: MockMvc) {
     @MockkBean
     lateinit var requestHandlerBuilder: OcpiRequestHandlerBuilder
 
+
+    @Autowired
+    lateinit var env: Environment
+    lateinit var apiPrefix: String
+
+    @BeforeEach
+    fun setUp( ) {
+        apiPrefix = env.getProperty("ocn.node.apiPrefix") ?: ""
+    }
 
     @Test
     fun `When GET sender tokens return paginated tokens list`() {
@@ -62,7 +73,7 @@ class TokensControllerTest(@Autowired val mockMvc: MockMvc) {
                 .headers(responseHeaders)
                 .body(OcpiResponse(statusCode = 1000, data = arrayOf(exampleToken)))
 
-        mockMvc.perform(get("/ocpi/sender/2.2/tokens")
+        mockMvc.perform(get("/$apiPrefix/ocpi/sender/2.2/tokens")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -119,7 +130,7 @@ class TokensControllerTest(@Autowired val mockMvc: MockMvc) {
                 .headers(responseHeaders)
                 .body(OcpiResponse(statusCode = 1000, data = arrayOf(exampleToken)))
 
-        mockMvc.perform(get("/ocpi/sender/2.2/tokens/page/$uid")
+        mockMvc.perform(get("/$apiPrefix/ocpi/sender/2.2/tokens/page/$uid")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -174,7 +185,7 @@ class TokensControllerTest(@Autowired val mockMvc: MockMvc) {
                         allowed = Allowed.ALLOWED,
                         token = exampleToken)))
 
-        mockMvc.perform(post("/ocpi/sender/2.2/tokens/1234567890/authorize")
+        mockMvc.perform(post("/$apiPrefix/ocpi/sender/2.2/tokens/1234567890/authorize")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -223,7 +234,7 @@ class TokensControllerTest(@Autowired val mockMvc: MockMvc) {
                 .status(200)
                 .body(OcpiResponse(statusCode = 1000, data = exampleToken))
 
-        mockMvc.perform(get("/ocpi/receiver/2.2/tokens/${sender.country}/${sender.id}/$tokenUID")
+        mockMvc.perform(get("/$apiPrefix/ocpi/receiver/2.2/tokens/${sender.country}/${sender.id}/$tokenUID")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -271,7 +282,7 @@ class TokensControllerTest(@Autowired val mockMvc: MockMvc) {
                 .status(200)
                 .body(OcpiResponse(statusCode = 1000))
 
-        mockMvc.perform(put("/ocpi/receiver/2.2/tokens/${sender.country}/${sender.id}/$tokenUID")
+        mockMvc.perform(put("/$apiPrefix/ocpi/receiver/2.2/tokens/${sender.country}/${sender.id}/$tokenUID")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -323,7 +334,7 @@ class TokensControllerTest(@Autowired val mockMvc: MockMvc) {
                 .status(200)
                 .body(OcpiResponse(statusCode = 1000))
 
-        mockMvc.perform(patch("/ocpi/receiver/2.2/tokens/${sender.country}/${sender.id}/$tokenUID")
+        mockMvc.perform(patch("/$apiPrefix/ocpi/receiver/2.2/tokens/${sender.country}/${sender.id}/$tokenUID")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)

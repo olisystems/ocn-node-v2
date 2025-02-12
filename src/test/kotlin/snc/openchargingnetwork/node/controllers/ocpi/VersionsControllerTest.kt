@@ -3,9 +3,11 @@ package snc.openchargingnetwork.node.controllers.ocpi
 import com.ninjasquad.springmockk.MockkBean
 import io.mockk.every
 import org.hamcrest.Matchers.hasSize
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
+import org.springframework.core.env.Environment
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
@@ -25,12 +27,23 @@ class VersionsControllerTest(@Autowired val mockMvc: MockMvc) {
     @MockkBean
     lateinit var properties: NodeProperties
 
+    @Autowired
+    lateinit var env: Environment
+
+    lateinit var apiPrefix: String
+
+    @BeforeEach
+    fun setUp( ) {
+        apiPrefix = env.getProperty("ocn.node.apiPrefix") ?: ""
+    }
+
     @Test
     fun `When GET versions then return version information`() {
         val platform = PlatformEntity()
         every { repository.existsByAuth_TokenA(platform.auth.tokenA) } returns true
         every { properties.url } returns "http://localhost:8070"
-        mockMvc.perform(get("/ocpi/versions")
+        every { properties.apiPrefix } returns "/$apiPrefix"
+        mockMvc.perform(get("/$apiPrefix/ocpi/versions")
                 .header("Authorization", "Token ${platform.auth.tokenA}"))
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("\$.status_code").value(OcpiStatus.SUCCESS.code))
@@ -39,7 +52,7 @@ class VersionsControllerTest(@Autowired val mockMvc: MockMvc) {
                 .andExpect(jsonPath("\$.data").isArray)
                 .andExpect(jsonPath("\$.data[0]").isMap)
                 .andExpect(jsonPath("\$.data[0].version").value("2.2"))
-                .andExpect(jsonPath("\$.data[0].url").value("http://localhost:8070/ocpi/2.2"))
+                .andExpect(jsonPath("\$.data[0].url").value("http://localhost:8070/$apiPrefix/ocpi/2.2"))
     }
 
     @Test
@@ -47,7 +60,8 @@ class VersionsControllerTest(@Autowired val mockMvc: MockMvc) {
         val platform = PlatformEntity()
         every { repository.existsByAuth_TokenA(platform.auth.tokenA) } returns true
         every { properties.url } returns "https://broker.provider.com"
-        mockMvc.perform(get("/ocpi/2.2")
+        every { properties.apiPrefix } returns "/$apiPrefix"
+        mockMvc.perform(get("/$apiPrefix/ocpi/2.2")
                 .header("Authorization", "Token ${platform.auth.tokenA}"))
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("\$.status_code").value(OcpiStatus.SUCCESS.code))
@@ -57,10 +71,10 @@ class VersionsControllerTest(@Autowired val mockMvc: MockMvc) {
                 .andExpect(jsonPath("\$.data.endpoints", hasSize<Array<Endpoint>>(19)))
                 .andExpect(jsonPath("\$.data.endpoints[0].identifier").value("cdrs"))
                 .andExpect(jsonPath("\$.data.endpoints[0].role").value("SENDER"))
-                .andExpect(jsonPath("\$.data.endpoints[0].url").value("https://broker.provider.com/ocpi/sender/2.2/cdrs"))
+                .andExpect(jsonPath("\$.data.endpoints[0].url").value("https://broker.provider.com/$apiPrefix/ocpi/sender/2.2/cdrs"))
                 .andExpect(jsonPath("\$.data.endpoints[1].identifier").value("cdrs"))
                 .andExpect(jsonPath("\$.data.endpoints[1].role").value("RECEIVER"))
-                .andExpect(jsonPath("\$.data.endpoints[1].url").value("https://broker.provider.com/ocpi/receiver/2.2/cdrs"))
+                .andExpect(jsonPath("\$.data.endpoints[1].url").value("https://broker.provider.com/$apiPrefix/ocpi/receiver/2.2/cdrs"))
     }
 
 }

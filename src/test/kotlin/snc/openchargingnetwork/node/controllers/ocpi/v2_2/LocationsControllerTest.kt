@@ -5,9 +5,11 @@ import com.ninjasquad.springmockk.MockkBean
 import io.mockk.every
 import io.mockk.mockk
 import org.hamcrest.Matchers.hasSize
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
+import org.springframework.core.env.Environment
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.MediaType
@@ -32,6 +34,15 @@ class LocationsControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @MockkBean
     lateinit var requestHandlerBuilder: OcpiRequestHandlerBuilder
+
+    @Autowired
+    lateinit var env: Environment
+    lateinit var apiPrefix: String
+
+    @BeforeEach
+    fun setUp( ) {
+        apiPrefix = env.getProperty("ocn.node.apiPrefix") ?: ""
+    }
 
 
     @Test
@@ -70,7 +81,7 @@ class LocationsControllerTest(@Autowired val mockMvc: MockMvc) {
                         statusCode = 1000,
                         data = arrayOf(exampleLocation1, exampleLocation2)))
 
-        mockMvc.perform(get("/ocpi/sender/2.2/locations")
+        mockMvc.perform(get("/$apiPrefix/ocpi/sender/2.2/locations")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -128,7 +139,7 @@ class LocationsControllerTest(@Autowired val mockMvc: MockMvc) {
                         statusCode = 1000,
                         data = arrayOf(exampleLocation2)))
 
-        mockMvc.perform(get("/ocpi/sender/2.2/locations/page/${requestVariables.urlPath}")
+        mockMvc.perform(get("/$apiPrefix/ocpi/sender/2.2/locations/page/${requestVariables.urlPath}")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -180,7 +191,7 @@ class LocationsControllerTest(@Autowired val mockMvc: MockMvc) {
                         statusCode = 1000,
                         data = exampleLocation1))
 
-        mockMvc.perform(get("/ocpi/sender/2.2/locations/$locationID")
+        mockMvc.perform(get("/$apiPrefix/ocpi/sender/2.2/locations/$locationID")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -228,7 +239,7 @@ class LocationsControllerTest(@Autowired val mockMvc: MockMvc) {
                         statusCode = 1000,
                         data = exampleLocation1.evses!![0]))
 
-        mockMvc.perform(get("/ocpi/sender/2.2/locations/$locationID/$evseUID")
+        mockMvc.perform(get("/$apiPrefix/ocpi/sender/2.2/locations/$locationID/$evseUID")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -277,7 +288,7 @@ class LocationsControllerTest(@Autowired val mockMvc: MockMvc) {
                         statusCode = 1000,
                         data = exampleLocation1.evses!![0].connectors[0]))
 
-        mockMvc.perform(get("/ocpi/sender/2.2/locations/$locationID/$evseUID/$connectorID")
+        mockMvc.perform(get("/$apiPrefix/ocpi/sender/2.2/locations/$locationID/$evseUID/$connectorID")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -324,7 +335,7 @@ class LocationsControllerTest(@Autowired val mockMvc: MockMvc) {
                         statusCode = 1000,
                         data = exampleLocation2))
 
-        mockMvc.perform(get("/ocpi/receiver/2.2/locations/${sender.country}/${sender.id}/$locationID")
+        mockMvc.perform(get("/$apiPrefix/ocpi/receiver/2.2/locations/${sender.country}/${sender.id}/$locationID")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -372,7 +383,7 @@ class LocationsControllerTest(@Autowired val mockMvc: MockMvc) {
                         statusCode = 1000,
                         data = exampleLocation2.evses!![0]))
 
-        mockMvc.perform(get("/ocpi/receiver/2.2/locations/${sender.country}/${sender.id}/$locationID/$evseUID")
+        mockMvc.perform(get("/$apiPrefix/ocpi/receiver/2.2/locations/${sender.country}/${sender.id}/$locationID/$evseUID")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -421,7 +432,7 @@ class LocationsControllerTest(@Autowired val mockMvc: MockMvc) {
                         statusCode = 1000,
                         data = exampleLocation2.evses!![0].connectors[0]))
 
-        mockMvc.perform(get("/ocpi/receiver/2.2/locations/${sender.country}/${sender.id}/$locationID/$evseUID/$connectorID")
+        mockMvc.perform(get("/$apiPrefix/ocpi/receiver/2.2/locations/${sender.country}/${sender.id}/$locationID/$evseUID/$connectorID")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -468,7 +479,7 @@ class LocationsControllerTest(@Autowired val mockMvc: MockMvc) {
                 .status(200)
                 .body(OcpiResponse(statusCode = 1000))
 
-        mockMvc.perform(put("/ocpi/receiver/2.2/locations/${sender.country}/${sender.id}/$locationID")
+        mockMvc.perform(put("/$apiPrefix/ocpi/receiver/2.2/locations/${sender.country}/${sender.id}/$locationID")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -517,7 +528,7 @@ class LocationsControllerTest(@Autowired val mockMvc: MockMvc) {
                 .status(200)
                 .body(OcpiResponse(statusCode = 1000))
 
-        mockMvc.perform(put("/ocpi/receiver/2.2/locations/${sender.country}/${sender.id}/$locationID/$evseUID")
+        mockMvc.perform(put("/$apiPrefix/ocpi/receiver/2.2/locations/${sender.country}/${sender.id}/$locationID/$evseUID")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -567,7 +578,7 @@ class LocationsControllerTest(@Autowired val mockMvc: MockMvc) {
                 .status(200)
                 .body(OcpiResponse(statusCode = 1000))
 
-        mockMvc.perform(put("/ocpi/receiver/2.2/locations/${sender.country}/${sender.id}/$locationID/$evseUID/$connectorID")
+        mockMvc.perform(put("/$apiPrefix/ocpi/receiver/2.2/locations/${sender.country}/${sender.id}/$locationID/$evseUID/$connectorID")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -615,7 +626,7 @@ class LocationsControllerTest(@Autowired val mockMvc: MockMvc) {
                 .status(200)
                 .body(OcpiResponse(statusCode = 1000))
 
-        mockMvc.perform(patch("/ocpi/receiver/2.2/locations/${sender.country}/${sender.id}/$locationID")
+        mockMvc.perform(patch("/$apiPrefix/ocpi/receiver/2.2/locations/${sender.country}/${sender.id}/$locationID")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -665,7 +676,7 @@ class LocationsControllerTest(@Autowired val mockMvc: MockMvc) {
                 .status(200)
                 .body(OcpiResponse(statusCode = 1000))
 
-        mockMvc.perform(patch("/ocpi/receiver/2.2/locations/${sender.country}/${sender.id}/$locationID/$evseUID")
+        mockMvc.perform(patch("/$apiPrefix/ocpi/receiver/2.2/locations/${sender.country}/${sender.id}/$locationID/$evseUID")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
@@ -716,7 +727,7 @@ class LocationsControllerTest(@Autowired val mockMvc: MockMvc) {
                 .status(200)
                 .body(OcpiResponse(statusCode = 1000))
 
-        mockMvc.perform(patch("/ocpi/receiver/2.2/locations/${sender.country}/${sender.id}/$locationID/$evseUID/$connectorID")
+        mockMvc.perform(patch("/$apiPrefix/ocpi/receiver/2.2/locations/${sender.country}/${sender.id}/$locationID/$evseUID/$connectorID")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)
