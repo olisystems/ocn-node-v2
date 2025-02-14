@@ -90,6 +90,10 @@ class CommandsController(private val requestHandlerBuilder: OcpiRequestHandlerBu
                 urlPath = "CANCEL_RESERVATION",
                 body = body)
 
+        requestHandlerBuilder
+            .build<Unit>(requestVariables)
+            .forwardHaas()
+
         return requestHandlerBuilder
                 .build<CommandResponse>(requestVariables)
                 .forwardAsync(body.responseURL) {
@@ -120,6 +124,10 @@ class CommandsController(private val requestHandlerBuilder: OcpiRequestHandlerBu
                 headers = OcnHeaders(authorization, signature, requestID, correlationID, sender, receiver),
                 urlPath = "RESERVE_NOW",
                 body = body)
+
+        requestHandlerBuilder
+            .build<Unit>(requestVariables)
+            .forwardHaas()
 
         return requestHandlerBuilder
                 .build<CommandResponse>(requestVariables)
@@ -152,6 +160,10 @@ class CommandsController(private val requestHandlerBuilder: OcpiRequestHandlerBu
                 urlPath = "START_SESSION",
                 body = body)
 
+        requestHandlerBuilder
+            .build<Unit>(requestVariables)
+            .forwardHaas()
+
         return requestHandlerBuilder
                 .build<CommandResponse>(requestVariables)
                 .forwardAsync(body.responseURL) {
@@ -183,6 +195,10 @@ class CommandsController(private val requestHandlerBuilder: OcpiRequestHandlerBu
                 urlPath = "STOP_SESSION",
                 body = body)
 
+        requestHandlerBuilder
+            .build<Unit>(requestVariables)
+            .forwardHaas()
+
         return requestHandlerBuilder
                 .build<CommandResponse>(requestVariables)
                 .forwardAsync(body.responseURL) {
@@ -213,6 +229,10 @@ class CommandsController(private val requestHandlerBuilder: OcpiRequestHandlerBu
                 headers = OcnHeaders(authorization, signature, requestID, correlationID, sender, receiver),
                 urlPath = "UNLOCK_CONNECTOR",
                 body = body)
+
+        requestHandlerBuilder
+            .build<Unit>(requestVariables)
+            .forwardHaas()
 
         return requestHandlerBuilder
                 .build<CommandResponse>(requestVariables)

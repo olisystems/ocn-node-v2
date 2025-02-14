@@ -147,6 +147,10 @@ class CdrsController(private val requestHandlerBuilder: OcpiRequestHandlerBuilde
                 headers = OcnHeaders(authorization, signature, requestID, correlationID, sender, receiver),
                 body = body)
 
+        requestHandlerBuilder
+            .build<Unit>(requestVariables)
+            .forwardHaas()
+
         return requestHandlerBuilder
                 .build<Unit>(requestVariables)
                 .forwardDefault()

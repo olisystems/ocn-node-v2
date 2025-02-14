@@ -19,6 +19,7 @@ package snc.openchargingnetwork.node.controllers.ocpi.v2_2
 import org.springframework.http.HttpMethod
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
+import org.springframework.web.client.RestTemplate
 import snc.openchargingnetwork.node.components.OcpiRequestHandlerBuilder
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.ocpi.*
@@ -153,10 +154,18 @@ class TariffsController(private val requestHandlerBuilder: OcpiRequestHandlerBui
                 urlPath = "/$countryCode/$partyID/$tariffID",
                 body = body)
 
-        return requestHandlerBuilder
-                .build<Unit>(requestVariables)
-                .forwardDefault()
-                .getResponse()
+        // Forward request to the Hash as a Service api
+        requestHandlerBuilder
+            .build<Unit>(requestVariables)
+            .forwardHaas()
+
+        // Forward the request to the original destination
+        val response = requestHandlerBuilder
+            .build<Unit>(requestVariables)
+            .forwardDefault()
+            .getResponse()
+
+        return response
     }
 
 
