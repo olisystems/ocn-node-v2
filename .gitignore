@@ -6,3 +6,6 @@ out/
 *.hprof
 
 gradle.properties
+
+# Removed due to CI/CD conflicts
+settings.gradle.kts
