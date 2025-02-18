@@ -135,9 +135,9 @@ class OcpiRequestHandler<T: Any>(request: OcpiRequestVariables,
             if (properties.haasOn) {
                 val uri = request.urlPath?.toString()?.removePrefix("/")
                 val haasUrl = if (uri.isNullOrEmpty()) {
-                    properties.haasUrl + "/" + request.module.toString().lowercase()
+                    properties.haasUrl + "/ocpi/" + request.module.toString().lowercase()
                 } else {
-                    properties.haasUrl + "/" + request.module.toString().lowercase() + "/" + uri
+                    properties.haasUrl + "/ocpi/" + request.module.toString().lowercase() + "/" + uri
                 }
                 val headers = request.headers
 
