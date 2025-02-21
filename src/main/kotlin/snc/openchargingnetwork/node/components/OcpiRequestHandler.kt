@@ -141,7 +141,7 @@ class OcpiRequestHandler<T: Any>(request: OcpiRequestVariables,
                 }
                 val headers = request.headers
 
-                logger.info("Forwarding request to Haas: $haasUrl")
+                logger.info("Forwarding request to Haas: $haasUrl | module: ${request.module} | sender: ${request.headers.sender} | receiver: ${request.headers.receiver}")
                 val response: HttpResponse<T> = httpService.makeOcpiRequest(haasUrl, headers, request)
                 logger.info("Successfully forwarded request to Haas:  http status code: ${response.statusCode} | ocpi status: ${response.body.statusCode} | ocpi status message: ${response.body.statusMessage}")
                 return responseHandlerBuilder.build(request, response)
