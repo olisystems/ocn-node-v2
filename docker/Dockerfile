@@ -6,3 +6,4 @@ WORKDIR /ocn-node
 
 
 # CMD ["java", "-jar", "./libs/ocn-node-1.2.0-rc2.jar"]
+ENTRYPOINT ["sh", "-c", "sleep 900 && java -jar ./libs/ocn-node-1.2.0-rc2.jar"]
