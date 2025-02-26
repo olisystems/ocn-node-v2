@@ -4,6 +4,5 @@ COPY build /ocn-node
 COPY src/main/resources/* /ocn-node/
 WORKDIR /ocn-node
 
-
-# CMD ["java", "-jar", "./libs/ocn-node-1.2.0-rc2.jar"]
-ENTRYPOINT ["sh", "-c", "sleep 900 && java -jar ./libs/ocn-node-1.2.0-rc2.jar"]
+# Run the application (first .jar file found in the ./libs directory)
+ENTRYPOINT ["sh", "-c", "sleep 900 && java -jar $(ls ./libs/*.jar | head -n 1)"]
