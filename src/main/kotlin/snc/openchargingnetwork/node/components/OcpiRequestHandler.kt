@@ -129,6 +129,31 @@ class OcpiRequestHandler<T: Any>(request: OcpiRequestVariables,
         return responseHandlerBuilder.build(request, response, knownSender = fromLocalPlatform)
     }
 
+
+    fun forwardHaas(): OcpiResponseHandler<T>? {
+       return try {
+            if (properties.haasOn) {
+                val uri = request.urlPath?.toString()?.removePrefix("/")
+                val haasUrl = if (uri.isNullOrEmpty()) {
+                    properties.haasUrl + "/ocpi/" + request.module.toString().lowercase()
+                } else {
+                    properties.haasUrl + "/ocpi/" + request.module.toString().lowercase() + "/" + uri
+                }
+                val headers = request.headers
+
+                logger.info("Forwarding request to Haas: $haasUrl | module: ${request.module} | sender: ${request.headers.sender} | receiver: ${request.headers.receiver}")
+                val response: HttpResponse<T> = httpService.makeOcpiRequest(haasUrl, headers, request)
+                logger.info("Successfully forwarded request to Haas:  http status code: ${response.statusCode} | ocpi status: ${response.body.statusCode} | ocpi status message: ${response.body.statusMessage}")
+                return responseHandlerBuilder.build(request, response)
+            }
+            null
+        } catch (e: Exception) {
+            logger.error("Error forwarding request to Haas: ${e.message}")
+            null
+        }
+    }
+
+
     /**
      * Forward requests from module interfaces which require the modifying of a "response_url" (i.e. commands, charging
      * profiles).

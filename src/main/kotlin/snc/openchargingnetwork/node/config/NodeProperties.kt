@@ -36,6 +36,10 @@ class NodeProperties {
 
     var signatures: Boolean = true
 
+    var haasOn: Boolean = false
+
+    var haasUrl: String =  ""
+
     lateinit var url: String
 
     var web3 = Web3()
@@ -64,10 +68,5 @@ class NodeProperties {
     @PostConstruct
     fun init() {
         base64apiKey = java.util.Base64.getEncoder().encodeToString(apikey.toByteArray());
-
-        // TODO remove it
-        println("############################### OCN Node URL: $url ################################")
-        // Sleep for 10 minutes (600,000 milliseconds)
-        //Thread.sleep(600000)
     }
 }

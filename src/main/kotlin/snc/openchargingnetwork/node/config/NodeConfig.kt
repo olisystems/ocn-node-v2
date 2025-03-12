@@ -21,6 +21,7 @@ import org.springframework.boot.ApplicationRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.scheduling.config.IntervalTask
+import org.springframework.web.client.RestTemplate
 import org.web3j.protocol.Web3j
 import org.web3j.tx.ClientTransactionManager
 import org.web3j.tx.TransactionManager
@@ -78,6 +79,7 @@ class NodeConfig(private val properties: NodeProperties) {
         }
         return taskList.toList()
     }
+
 //    // modify the default task executor (runs async tasks, not to be confused with scheduled tasks)
 //    @Bean
 //    fun taskExecutor(): TaskExecutor {
