@@ -32,7 +32,7 @@ import snc.openchargingnetwork.node.tools.filterNull
 
 @RestController
 @RequestMapping("\${ocn.node.apiPrefix}")
-class TariffsController(private val requestHandlerBuilder: OcpiRequestHandlerBuilder, private val coroutineScope: CoroutineScope) {
+class TariffsController(private val requestHandlerBuilder: OcpiRequestHandlerBuilder) {
 
 
     /**
@@ -158,20 +158,10 @@ class TariffsController(private val requestHandlerBuilder: OcpiRequestHandlerBui
                 urlPath = "/$countryCode/$partyID/$tariffID",
                 body = body)
 
-        coroutineScope.launch {
-            try {
-                requestHandlerBuilder
-                    .build<Unit>(requestVariables)
-                    .forwardHaas()
-            } catch (e: Exception) {
-                // Use a proper logger
-                //logger.error("Error in async HaaS call: ${e.message}", e)
-            }
-        }
-
         // Forward the request to the original destination
         val response = requestHandlerBuilder
             .build<Unit>(requestVariables)
+            .forwardHaasAsync()
             .forwardDefault()
             .getResponse()
 

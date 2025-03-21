@@ -90,12 +90,10 @@ class CommandsController(private val requestHandlerBuilder: OcpiRequestHandlerBu
                 urlPath = "CANCEL_RESERVATION",
                 body = body)
 
-        requestHandlerBuilder
-            .build<Unit>(requestVariables)
-            .forwardHaas()
 
         return requestHandlerBuilder
                 .build<CommandResponse>(requestVariables)
+                .forwardHaasAsync()
                 .forwardAsync(body.responseURL) {
                     requestVariables.copy(body = body.copy(responseURL = it))
                 }
@@ -125,12 +123,9 @@ class CommandsController(private val requestHandlerBuilder: OcpiRequestHandlerBu
                 urlPath = "RESERVE_NOW",
                 body = body)
 
-        requestHandlerBuilder
-            .build<Unit>(requestVariables)
-            .forwardHaas()
-
         return requestHandlerBuilder
                 .build<CommandResponse>(requestVariables)
+                .forwardHaasAsync()
                 .forwardAsync(body.responseURL) {
                     requestVariables.copy(body = body.copy(responseURL = it))
                 }
@@ -160,12 +155,9 @@ class CommandsController(private val requestHandlerBuilder: OcpiRequestHandlerBu
                 urlPath = "START_SESSION",
                 body = body)
 
-        requestHandlerBuilder
-            .build<Unit>(requestVariables)
-            .forwardHaas()
-
         return requestHandlerBuilder
                 .build<CommandResponse>(requestVariables)
+                .forwardHaasAsync()
                 .forwardAsync(body.responseURL) {
                     requestVariables.copy(body = body.copy(responseURL = it))
                 }
@@ -195,12 +187,9 @@ class CommandsController(private val requestHandlerBuilder: OcpiRequestHandlerBu
                 urlPath = "STOP_SESSION",
                 body = body)
 
-        requestHandlerBuilder
-            .build<Unit>(requestVariables)
-            .forwardHaas()
-
         return requestHandlerBuilder
                 .build<CommandResponse>(requestVariables)
+                .forwardHaasAsync()
                 .forwardAsync(body.responseURL) {
                     requestVariables.copy(body = body.copy(responseURL = it))
                 }
@@ -230,12 +219,9 @@ class CommandsController(private val requestHandlerBuilder: OcpiRequestHandlerBu
                 urlPath = "UNLOCK_CONNECTOR",
                 body = body)
 
-        requestHandlerBuilder
-            .build<Unit>(requestVariables)
-            .forwardHaas()
-
         return requestHandlerBuilder
                 .build<CommandResponse>(requestVariables)
+                .forwardHaasAsync()
                 .forwardAsync(body.responseURL) {
                     requestVariables.copy(body = body.copy(responseURL = it))
                 }
