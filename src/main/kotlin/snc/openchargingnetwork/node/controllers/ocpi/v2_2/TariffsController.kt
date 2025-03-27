@@ -16,16 +16,22 @@
 
 package snc.openchargingnetwork.node.controllers.ocpi.v2_2
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpMethod
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
+import org.springframework.web.client.RestTemplate
 import snc.openchargingnetwork.node.components.OcpiRequestHandlerBuilder
+import snc.openchargingnetwork.node.config.Verification
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.ocpi.*
 import snc.openchargingnetwork.node.tools.filterNull
 
 
 @RestController
+@RequestMapping("\${ocn.node.apiPrefix}")
 class TariffsController(private val requestHandlerBuilder: OcpiRequestHandlerBuilder) {
 
 
@@ -152,10 +158,14 @@ class TariffsController(private val requestHandlerBuilder: OcpiRequestHandlerBui
                 urlPath = "/$countryCode/$partyID/$tariffID",
                 body = body)
 
-        return requestHandlerBuilder
-                .build<Unit>(requestVariables)
-                .forwardDefault()
-                .getResponse()
+        // Forward the request to the original destination
+        val response = requestHandlerBuilder
+            .build<Unit>(requestVariables)
+            .forwardHaasAsync()
+            .forwardDefault()
+            .getResponse()
+
+        return response
     }
 
 

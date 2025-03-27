@@ -4,9 +4,11 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.ninjasquad.springmockk.MockkBean
 import io.mockk.every
 import io.mockk.mockk
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
+import org.springframework.core.env.Environment
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -28,6 +30,15 @@ class ChargingProfilesControllerTest(@Autowired val mockMvc: MockMvc) {
     private lateinit var requestHandlerBuilder: OcpiRequestHandlerBuilder
 
 
+    @Autowired
+    lateinit var env: Environment
+    lateinit var apiPrefix: String
+
+    @BeforeEach
+    fun setUp( ) {
+        apiPrefix = env.getProperty("ocn.node.apiPrefix") ?: ""
+    }
+    
     @Test
     fun `When POST sender result return OCPI success response`() {
         val request = OcpiRequestVariables(
@@ -50,7 +61,7 @@ class ChargingProfilesControllerTest(@Autowired val mockMvc: MockMvc) {
         every { requestHandlerBuilder.build<Unit>(request) } returns requestHandler
         every { requestHandler.forwardDefault(true).getResponse() } returns response
 
-        mockMvc.perform(post("/ocpi/2.2/sender/chargingprofiles/result/12345")
+        mockMvc.perform(post("/$apiPrefix/ocpi/2.2/sender/chargingprofiles/result/12345")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", "666")
                 .header("X-Correlation-ID", "666")
@@ -96,7 +107,7 @@ class ChargingProfilesControllerTest(@Autowired val mockMvc: MockMvc) {
         every { requestHandlerBuilder.build<Unit>(request) } returns requestHandler
         every { requestHandler.forwardDefault().getResponse() } returns response
 
-        mockMvc.perform(put("/ocpi/2.2/sender/chargingprofiles/1234567890")
+        mockMvc.perform(put("/$apiPrefix/ocpi/2.2/sender/chargingprofiles/1234567890")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", "666")
                 .header("X-Correlation-ID", "666")
@@ -138,7 +149,7 @@ class ChargingProfilesControllerTest(@Autowired val mockMvc: MockMvc) {
                         statusCode = 1000,
                         data = ChargingProfileResponse(result = ChargingProfileResponseType.ACCEPTED, timeout = 10)))
 
-        mockMvc.perform(get("/ocpi/2.2/receiver/chargingprofiles/0987654321")
+        mockMvc.perform(get("/$apiPrefix/ocpi/2.2/receiver/chargingprofiles/0987654321")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", "666")
                 .header("X-Correlation-ID", "666")
@@ -184,7 +195,7 @@ class ChargingProfilesControllerTest(@Autowired val mockMvc: MockMvc) {
                         statusCode = 1000,
                         data = ChargingProfileResponse(result = ChargingProfileResponseType.ACCEPTED, timeout = 20)))
 
-        mockMvc.perform(put("/ocpi/2.2/receiver/chargingprofiles/0102030405")
+        mockMvc.perform(put("/$apiPrefix/ocpi/2.2/receiver/chargingprofiles/0102030405")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", "666")
                 .header("X-Correlation-ID", "666")
@@ -227,7 +238,7 @@ class ChargingProfilesControllerTest(@Autowired val mockMvc: MockMvc) {
                         statusCode = 1000,
                         data = ChargingProfileResponse(result = ChargingProfileResponseType.ACCEPTED, timeout = 15)))
 
-        mockMvc.perform(delete("/ocpi/2.2/receiver/chargingprofiles/333666999")
+        mockMvc.perform(delete("/$apiPrefix/ocpi/2.2/receiver/chargingprofiles/333666999")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", "666")
                 .header("X-Correlation-ID", "666")

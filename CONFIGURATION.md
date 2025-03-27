@@ -20,6 +20,23 @@ Alternatively, it is possible to provide command line arguments for individual c
 java -jar -Dserver.port=8081 ocn-node-1.0.0.jar
 ```
 
+## Kotlin Build
+
+Rename or create a file named `settings.gradle.kts` with the following content:
+```kts
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+    }
+}
+rootProject.name = "ocn-node"
+// used in local dev only and overriden in CI
+gradle.beforeProject {
+    project.extensions.extraProperties["profile"] = "dev"
+}
+```
+Change the profile according to `main/resources/application.${PROFILE}.properties` deployment values. 
+
 ## Properties
 
 Various application properties can be configured, but only a subset of them are featured here. See

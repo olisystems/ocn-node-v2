@@ -16,6 +16,8 @@
 
 package snc.openchargingnetwork.node.components
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -41,14 +43,16 @@ class OcpiRequestHandlerBuilder(private val routingService: RoutingService,
                                 private val hubClientInfoService: HubClientInfoService,
                                 private val asyncTaskService: AsyncTaskService,
                                 private val responseHandlerBuilder: OcpiResponseHandlerBuilder,
-                                private val properties: NodeProperties) {
+                                private val properties: NodeProperties,
+                                private val coroutineScope: CoroutineScope
+) {
 
     /**
      * Build a RequestHandler object from an OcpiRequestVariables object.
      */
     fun <T: Any> build(requestVariables: OcpiRequestVariables): OcpiRequestHandler<T> {
         return OcpiRequestHandler(requestVariables, routingService, registryService, httpService, hubClientInfoService,
-                walletService, asyncTaskService, responseHandlerBuilder, properties)
+                walletService, asyncTaskService, responseHandlerBuilder, properties, coroutineScope)
     }
 
     /**
@@ -57,7 +61,7 @@ class OcpiRequestHandlerBuilder(private val routingService: RoutingService,
     fun <T: Any> build(requestVariablesString: String): OcpiRequestHandler<T> {
         val requestVariables = httpService.convertToRequestVariables(requestVariablesString)
         return OcpiRequestHandler(requestVariables, routingService, registryService, httpService, hubClientInfoService,
-                walletService, asyncTaskService, responseHandlerBuilder, properties)
+                walletService, asyncTaskService, responseHandlerBuilder, properties, coroutineScope)
     }
 
 }
@@ -90,7 +94,8 @@ class OcpiRequestHandler<T: Any>(request: OcpiRequestVariables,
                                  private val walletService: WalletService,
                                  private val asyncTaskService: AsyncTaskService,
                                  private val responseHandlerBuilder: OcpiResponseHandlerBuilder,
-                                 properties: NodeProperties): OcpiMessageHandler(request, properties, routingService, registryService) {
+                                 properties: NodeProperties,
+                                 private val coroutineScope: CoroutineScope): OcpiMessageHandler(request, properties, routingService, registryService) {
 
     companion object {
         private var logger: Logger = LoggerFactory.getLogger(OcpiRequestHandler::class.java)
@@ -129,6 +134,32 @@ class OcpiRequestHandler<T: Any>(request: OcpiRequestVariables,
         return responseHandlerBuilder.build(request, response, knownSender = fromLocalPlatform)
     }
 
+
+    fun forwardHaasAsync(): OcpiRequestHandler<T> {
+        coroutineScope.launch {
+            try {
+                if (properties.haasOn) {
+                    val uri = request.urlPath?.toString()?.removePrefix("/")
+                    val haasUrl = if (uri.isNullOrEmpty()) {
+                        properties.haasUrl + "/ocpi/" + request.module.toString().lowercase()
+                    } else {
+                        properties.haasUrl + "/ocpi/" + request.module.toString().lowercase() + "/" + uri
+                    }
+                    val headers = request.headers
+
+                    logger.info("Forwarding request to Haas: $haasUrl | module: ${request.module} | sender: ${request.headers.sender} | receiver: ${request.headers.receiver}")
+                    val response: HttpResponse<T> = httpService.makeOcpiRequest(haasUrl, headers, request)
+                    logger.info("Successfully forwarded request to Haas:  http status code: ${response.statusCode} | ocpi status: ${response.body.statusCode} | ocpi status message: ${response.body.statusMessage}")
+                }
+            } catch (e: Exception) {
+                logger.error("Error forwarding request to Haas: ${e.message}")
+            }
+        }
+
+        return this
+    }
+
+
     /**
      * Forward requests from module interfaces which require the modifying of a "response_url" (i.e. commands, charging
      * profiles).
@@ -151,7 +182,7 @@ class OcpiRequestHandler<T: Any>(request: OcpiRequestVariables,
                 // save the original resource (response_url), returning a uid pointing to its location
                 val resourceID = routingService.setProxyResource(responseUrl, request.headers.receiver, request.headers.sender)
                 // use the callback to modify the original request with the new response_url
-                val modifiedRequest = modifyRequest(urlJoin(properties.url, proxyPath, resourceID))
+                val modifiedRequest = modifyRequest(urlJoin(properties.url, properties.apiPrefix, proxyPath, resourceID))
                 // use the notary to securely modify the request signature
                 modifiedRequest.headers.signature = rewriteAndSign(modifiedRequest.toSignedValues(), rewriteFields)
                 // send the request with the modified body

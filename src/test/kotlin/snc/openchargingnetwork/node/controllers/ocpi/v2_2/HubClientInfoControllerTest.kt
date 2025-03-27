@@ -5,9 +5,11 @@ import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
 import org.hamcrest.Matchers
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
+import org.springframework.core.env.Environment
 import org.springframework.http.HttpMethod
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
@@ -29,6 +31,15 @@ class HubClientInfoControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @MockkBean
     lateinit var routingService: RoutingService
+
+    @Autowired
+    lateinit var env: Environment
+    lateinit var apiPrefix: String
+
+    @BeforeEach
+    fun setUp( ) {
+        apiPrefix = env.getProperty("ocn.node.apiPrefix") ?: ""
+    }
 
     @Test
     fun `When GET sender HubClientInfo return paginated clientInfo list`() {
@@ -53,7 +64,7 @@ class HubClientInfoControllerTest(@Autowired val mockMvc: MockMvc) {
         every { hubClientInfoService.getList(requestVariables.headers.authorization) } returns listOf(exampleClientInfo)
         every { routingService.checkSenderKnown(requestVariables.headers.authorization, sender) } just Runs
 
-        mockMvc.perform(MockMvcRequestBuilders.get("/ocpi/2.2/hubclientinfo")
+        mockMvc.perform(MockMvcRequestBuilders.get("/$apiPrefix/ocpi/2.2/hubclientinfo")
                 .header("Authorization", "Token token-c")
                 .header("X-Request-ID", requestVariables.headers.requestID)
                 .header("X-Correlation-ID", requestVariables.headers.correlationID)

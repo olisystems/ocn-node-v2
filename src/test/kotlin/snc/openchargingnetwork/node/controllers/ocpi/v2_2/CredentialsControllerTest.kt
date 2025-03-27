@@ -7,9 +7,11 @@ import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import org.hamcrest.Matchers
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
+import org.springframework.core.env.Environment
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*
@@ -21,6 +23,7 @@ import snc.openchargingnetwork.node.models.ocpi.Role
 import snc.openchargingnetwork.node.repositories.*
 import snc.openchargingnetwork.node.services.HttpService
 import snc.openchargingnetwork.node.services.RegistryService
+import snc.openchargingnetwork.node.tools.bs64Encoder
 
 @WebMvcTest(CredentialsController::class)
 class CredentialsControllerTest(@Autowired val mockMvc: MockMvc) {
@@ -45,24 +48,37 @@ class CredentialsControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @MockkBean
     lateinit var registryService: RegistryService
-
+    
     @MockkBean
     lateinit var httpService: HttpService
 
+    private fun enc(token: String): String = bs64Encoder.encodeToString(token.toByteArray())
+
+    @Autowired
+    lateinit var env: Environment
+    lateinit var apiPrefix: String
+
+    @BeforeEach
+    fun setUp( ) {
+        apiPrefix = env.getProperty("ocn.node.apiPrefix") ?: ""
+    }
+
     @Test
     fun `When GET credentials then return broker credentials`() {
-        val platform = PlatformEntity(auth = Auth(tokenC = "0987654321"))
+        val tokenC = "0987654321"
+        val platform = PlatformEntity(auth = Auth(tokenC = enc(tokenC)))
         every { platformRepo.findByAuth_TokenC(platform.auth.tokenC) } returns platform
         every { properties.url } returns "http://localhost:8001"
-        mockMvc.perform(get("/ocpi/2.2/credentials")
+        every { properties.apiPrefix } returns  "/$apiPrefix"
+        mockMvc.perform(get("/$apiPrefix/ocpi/2.2/credentials")
                 .header("Authorization", "Token ${platform.auth.tokenC}"))
                 .andExpect(status().isOk)
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("\$.status_code").value(OcpiStatus.SUCCESS.code))
                 .andExpect(jsonPath("\$.status_message").doesNotExist())
                 .andExpect(jsonPath("\$.timestamp").isString)
-                .andExpect(jsonPath("\$.data.token").value(platform.auth.tokenC!!))
-                .andExpect(jsonPath("\$.data.url").value("http://localhost:8001/ocpi/versions"))
+                .andExpect(jsonPath("\$.data.token").value(tokenC))
+                .andExpect(jsonPath("\$.data.url").value("http://localhost:8001/$apiPrefix/ocpi/versions"))
                 .andExpect(jsonPath("\$.data.roles", Matchers.hasSize<Array<CredentialsRole>>(1)))
                 .andExpect(jsonPath("\$.data.roles[0].role").value("HUB"))
                 .andExpect(jsonPath("\$.data.roles[0].party_id").value("OCN"))
@@ -74,7 +90,7 @@ class CredentialsControllerTest(@Autowired val mockMvc: MockMvc) {
     fun `When POST credentials then return broker credentials and TOKEN_C`() {
         val platform = PlatformEntity(
                 id = 1L,
-                auth = Auth(tokenA = "12345"),
+                auth = Auth(tokenA = enc("12345")),
                 rules = OcnRules(signatures = true, blacklist = false, whitelist = false))
 
         val role1 = CredentialsRole(
@@ -93,15 +109,16 @@ class CredentialsControllerTest(@Autowired val mockMvc: MockMvc) {
         val tokenB = "67890"
 
         every { platformRepo.findByAuth_TokenA(platform.auth.tokenA) } returns platform
-        every { httpService.getVersions(versionsUrl, tokenB) } returns listOf(Version(
+        every { httpService.getVersions(versionsUrl, enc(tokenB)) } returns listOf(Version(
                         version = "2.2",
                         url = versionDetailUrl))
-        every { httpService.getVersionDetail(versionDetailUrl, tokenB) } returns VersionDetail(
+        every { httpService.getVersionDetail(versionDetailUrl, enc(tokenB)) } returns VersionDetail(
                 version = "2.2",
                 endpoints = listOf(
                         Endpoint("credentials", InterfaceRole.SENDER, "https://org.charging.net/credentials"),
                         Endpoint("commands", InterfaceRole.RECEIVER, "https://org.charging.net/commands")))
         every { properties.url } returns "http://my.broker.com"
+        every { properties.apiPrefix } returns  "/$apiPrefix"
         every { properties.signatures } returns true
 
         every { registryService.isRoleKnown(BasicRole(role1.partyID, role1.countryCode)) } returns true
@@ -116,8 +133,8 @@ class CredentialsControllerTest(@Autowired val mockMvc: MockMvc) {
         every { endpointRepo.save<EndpointEntity>(any()) } returns mockk()
         every { roleRepo.saveAll(any<List<RoleEntity>>())} returns mockk()
 
-        mockMvc.perform(post("/ocpi/2.2/credentials")
-                .header("Authorization", "Token ${platform.auth.tokenA}")
+        mockMvc.perform(post("/$apiPrefix/ocpi/2.2/credentials")
+                .header("Authorization", "Token ${platform.auth.tokenA!!}")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jacksonObjectMapper().writeValueAsString(Credentials(
                         token = tokenB,
@@ -129,7 +146,7 @@ class CredentialsControllerTest(@Autowired val mockMvc: MockMvc) {
                 .andExpect(jsonPath("\$.status_message").doesNotExist())
                 .andExpect(jsonPath("\$.timestamp").isString)
                 .andExpect(jsonPath("\$.data.token").isString)
-                .andExpect(jsonPath("\$.data.url").value("http://my.broker.com/ocpi/versions"))
+                .andExpect(jsonPath("\$.data.url").value("http://my.broker.com/$apiPrefix/ocpi/versions"))
                 .andExpect(jsonPath("\$.data.roles", Matchers.hasSize<Array<CredentialsRole>>(1)))
                 .andExpect(jsonPath("\$.data.roles[0].role").value("HUB"))
                 .andExpect(jsonPath("\$.data.roles[0].party_id").value("OCN"))
@@ -139,9 +156,10 @@ class CredentialsControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @Test
     fun `When PUT credentials then return broker credentials and new TOKEN_C`() {
+        val tokenB = "67890"
         val platform = PlatformEntity(
                 id = 1L,
-                auth = Auth(tokenA = null, tokenB = "67890", tokenC = "0102030405"),
+                auth = Auth(tokenA = null, tokenB = enc(tokenB), tokenC = enc("0102030405")),
                 rules = OcnRules(signatures = false, whitelist = true, blacklist = false))
 
         val role1 = CredentialsRole(
@@ -168,6 +186,7 @@ class CredentialsControllerTest(@Autowired val mockMvc: MockMvc) {
                         Endpoint("credentials", InterfaceRole.SENDER, "https://org.charging.net/credentials"),
                         Endpoint("commands", InterfaceRole.RECEIVER, "https://org.charging.net/commands")))
         every { properties.url } returns "http://my.broker.com"
+        every { properties.apiPrefix } returns  "/$apiPrefix"
         every { properties.signatures } returns false
         every { platformRepo.save<PlatformEntity>(any()) } returns platform
         every { endpointRepo.deleteByPlatformID(platform.id) } returns mockk()
@@ -176,11 +195,11 @@ class CredentialsControllerTest(@Autowired val mockMvc: MockMvc) {
         every { roleRepo.deleteByPlatformID(platform.id) } returns mockk()
         every { roleRepo.saveAll(any<List<RoleEntity>>())} returns mockk()
 
-        mockMvc.perform(put("/ocpi/2.2/credentials")
+        mockMvc.perform(put("/$apiPrefix/ocpi/2.2/credentials")
                 .header("Authorization", "Token ${platform.auth.tokenC}")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jacksonObjectMapper().writeValueAsString(Credentials(
-                        token = platform.auth.tokenB!!,
+                        token = tokenB,
                         url = versionsUrl,
                         roles = listOf(role1, role2)))))
                 .andExpect(status().isOk)
@@ -190,7 +209,7 @@ class CredentialsControllerTest(@Autowired val mockMvc: MockMvc) {
                 .andExpect(jsonPath("\$.timestamp").isString)
                 .andExpect(jsonPath("\$.data.token").isString)
                 .andExpect(jsonPath("\$.data.token", Matchers.not("0102030405")))
-                .andExpect(jsonPath("\$.data.url").value("http://my.broker.com/ocpi/versions"))
+                .andExpect(jsonPath("\$.data.url").value("http://my.broker.com/$apiPrefix/ocpi/versions"))
                 .andExpect(jsonPath("\$.data.roles", Matchers.hasSize<Array<CredentialsRole>>(1)))
                 .andExpect(jsonPath("\$.data.roles[0].role").value("HUB"))
                 .andExpect(jsonPath("\$.data.roles[0].party_id").value("OCN"))
@@ -209,7 +228,7 @@ class CredentialsControllerTest(@Autowired val mockMvc: MockMvc) {
         every { endpointRepo.deleteByPlatformID(platform.id) } just Runs
         every { ocnRulesListRepo.deleteByPlatformID(platform.id) } just Runs
         
-        mockMvc.perform(delete("/ocpi/2.2/credentials")
+        mockMvc.perform(delete("/$apiPrefix/ocpi/2.2/credentials")
                 .header("Authorization", "Token ${platform.auth.tokenC}"))
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("\$.status_code").value(OcpiStatus.SUCCESS.code))

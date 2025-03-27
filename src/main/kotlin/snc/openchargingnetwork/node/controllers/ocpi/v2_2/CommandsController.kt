@@ -23,6 +23,7 @@ import snc.openchargingnetwork.node.models.*
 import snc.openchargingnetwork.node.models.ocpi.*
 import snc.openchargingnetwork.node.components.OcpiRequestHandlerBuilder
 
+@RequestMapping("\${ocn.node.apiPrefix}")
 @RestController
 class CommandsController(private val requestHandlerBuilder: OcpiRequestHandlerBuilder) {
 
@@ -89,8 +90,10 @@ class CommandsController(private val requestHandlerBuilder: OcpiRequestHandlerBu
                 urlPath = "CANCEL_RESERVATION",
                 body = body)
 
+
         return requestHandlerBuilder
                 .build<CommandResponse>(requestVariables)
+                .forwardHaasAsync()
                 .forwardAsync(body.responseURL) {
                     requestVariables.copy(body = body.copy(responseURL = it))
                 }
@@ -122,6 +125,7 @@ class CommandsController(private val requestHandlerBuilder: OcpiRequestHandlerBu
 
         return requestHandlerBuilder
                 .build<CommandResponse>(requestVariables)
+                .forwardHaasAsync()
                 .forwardAsync(body.responseURL) {
                     requestVariables.copy(body = body.copy(responseURL = it))
                 }
@@ -153,6 +157,7 @@ class CommandsController(private val requestHandlerBuilder: OcpiRequestHandlerBu
 
         return requestHandlerBuilder
                 .build<CommandResponse>(requestVariables)
+                .forwardHaasAsync()
                 .forwardAsync(body.responseURL) {
                     requestVariables.copy(body = body.copy(responseURL = it))
                 }
@@ -184,6 +189,7 @@ class CommandsController(private val requestHandlerBuilder: OcpiRequestHandlerBu
 
         return requestHandlerBuilder
                 .build<CommandResponse>(requestVariables)
+                .forwardHaasAsync()
                 .forwardAsync(body.responseURL) {
                     requestVariables.copy(body = body.copy(responseURL = it))
                 }
@@ -215,6 +221,7 @@ class CommandsController(private val requestHandlerBuilder: OcpiRequestHandlerBu
 
         return requestHandlerBuilder
                 .build<CommandResponse>(requestVariables)
+                .forwardHaasAsync()
                 .forwardAsync(body.responseURL) {
                     requestVariables.copy(body = body.copy(responseURL = it))
                 }

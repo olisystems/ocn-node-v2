@@ -5,7 +5,7 @@ out/
 
 *.hprof
 
-src/main/resources/application.*.properties
-!src/main/resources/application.dev.properties
-!src/main/resources/application.prod.properties
-!src/main/resources/application.docker.properties
+gradle.properties
+
+# Removed due to CI/CD conflicts
+settings.gradle.kts

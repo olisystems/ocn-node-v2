@@ -16,16 +16,19 @@
 
 package snc.openchargingnetwork.node.config
 
+import com.olisystems.ocnregistryv2_0.OcnRegistry
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import org.springframework.boot.ApplicationRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.scheduling.config.IntervalTask
+import org.springframework.web.client.RestTemplate
 import org.web3j.protocol.Web3j
 import org.web3j.tx.ClientTransactionManager
 import org.web3j.tx.TransactionManager
 import org.web3j.tx.gas.StaticGasProvider
-import snc.openchargingnetwork.contracts.Permissions
-import snc.openchargingnetwork.contracts.Registry
 import snc.openchargingnetwork.node.repositories.*
 import snc.openchargingnetwork.node.scheduledTasks.HubClientInfoStillAliveCheck
 import snc.openchargingnetwork.node.scheduledTasks.PlannedPartySearch
@@ -46,30 +49,28 @@ class NodeConfig(private val properties: NodeProperties) {
                             endpointRepo: EndpointRepository,
                             proxyResourceRepository: ProxyResourceRepository) = ApplicationRunner {}
 
+
+
     @Bean
-    fun registry(): Registry {
-        return Registry.load(
-                properties.web3.contracts.registry,
-                web3,
-                txManager,
-                gasProvider)
+    fun ocnRegistry(): OcnRegistry {
+        return OcnRegistry.load(
+            properties.web3.contracts.ocnRegistry,
+            web3,
+            txManager,
+            gasProvider)
     }
 
     @Bean
-    fun permissions(): Permissions {
-        return Permissions.load(
-                properties.web3.contracts.permissions,
-                web3,
-                txManager,
-                gasProvider)
+    fun coroutineScope(): CoroutineScope {
+        return CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
 
     @Bean
-    fun scheduledTasks(registry: Registry,
-                       httpService: OcnHttpService,
-                       platformRepo: PlatformRepository,
-                       roleRepo: RoleRepository,
-                       networkClientInfoRepo: NetworkClientInfoRepository): List<IntervalTask> {
+    fun newScheduledTasks(registry: OcnRegistry,
+                          httpService: OcnHttpService,
+                          platformRepo: PlatformRepository,
+                          roleRepo: RoleRepository,
+                          networkClientInfoRepo: NetworkClientInfoRepository): List<IntervalTask> {
 
         val taskList = mutableListOf<IntervalTask>()
         val hasPrivateKey = properties.privateKey !== null
@@ -84,9 +85,10 @@ class NodeConfig(private val properties: NodeProperties) {
             val plannedPartyTask = PlannedPartySearch(registry, roleRepo, networkClientInfoRepo, properties)
             taskList.add(IntervalTask(plannedPartyTask, properties.plannedPartySearchRate.toLong()))
         }
-
         return taskList.toList()
     }
+
+
 
 //    // modify the default task executor (runs async tasks, not to be confused with scheduled tasks)
 //    @Bean
@@ -98,3 +100,4 @@ class NodeConfig(private val properties: NodeProperties) {
 //    }
 
 }
+

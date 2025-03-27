@@ -31,7 +31,7 @@ import snc.openchargingnetwork.node.tools.extractToken
 import snc.openchargingnetwork.node.tools.urlJoin
 
 @RestController
-@RequestMapping("/ocpi")
+@RequestMapping("\${ocn.node.apiPrefix}/ocpi")
 class VersionsController(private val repository: PlatformRepository,
                          private val properties: NodeProperties) {
 
@@ -39,7 +39,7 @@ class VersionsController(private val repository: PlatformRepository,
     fun getVersions(@RequestHeader("Authorization") authorization: String): OcpiResponse<List<Version>> {
 
         val token = authorization.extractToken()
-        val endpoint = urlJoin(properties.url, "/ocpi/2.2")
+        val endpoint = urlJoin(properties.url, properties.apiPrefix, "/ocpi/2.2")
         val versions = listOf(Version("2.2", endpoint))
         val response = OcpiResponse(OcpiStatus.SUCCESS.code, data = versions)
 
@@ -76,7 +76,7 @@ class VersionsController(private val repository: PlatformRepository,
             Endpoint(
                     identifier = module.id,
                     role = it,
-                    url = urlJoin(properties.url, paths)
+                    url = urlJoin(properties.url, properties.apiPrefix, paths)
             )
         }
     }
@@ -92,7 +92,7 @@ class VersionsController(private val repository: PlatformRepository,
                  endpoints.add(Endpoint(
                         identifier = module.id,
                         role = InterfaceRole.SENDER,
-                        url = urlJoin(properties.url, "/ocpi/2.2/${module.id}")))
+                        url = urlJoin(properties.url, properties.apiPrefix, "/ocpi/2.2/${module.id}")))
             } else {
                 endpoints.addAll(getModuleEndpoints(module))
             }
@@ -102,7 +102,7 @@ class VersionsController(private val repository: PlatformRepository,
         endpoints.add(Endpoint(
                 identifier = "ocnrules",
                 role = InterfaceRole.RECEIVER,
-                url = urlJoin(properties.url, "/ocpi/2.2/receiver/ocnrules")
+                url = urlJoin(properties.url, properties.apiPrefix, "/ocpi/2.2/receiver/ocnrules")
         ))
 
         return endpoints

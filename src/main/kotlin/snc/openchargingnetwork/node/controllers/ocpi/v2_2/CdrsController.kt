@@ -16,6 +16,8 @@
 
 package snc.openchargingnetwork.node.controllers.ocpi.v2_2
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import org.springframework.http.HttpMethod
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
@@ -24,7 +26,7 @@ import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.ocpi.*
 import snc.openchargingnetwork.node.tools.filterNull
 
-
+@RequestMapping("\${ocn.node.apiPrefix}")
 @RestController
 class CdrsController(private val requestHandlerBuilder: OcpiRequestHandlerBuilder) {
 

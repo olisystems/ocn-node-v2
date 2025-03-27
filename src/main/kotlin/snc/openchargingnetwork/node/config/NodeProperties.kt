@@ -16,19 +16,29 @@
 
 package snc.openchargingnetwork.node.config
 
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.context.properties.ConfigurationProperties
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
+import javax.annotation.PostConstruct
 
 @ConfigurationProperties("ocn.node")
 class NodeProperties {
 
     var apikey: String = generateUUIDv4Token()
 
+    var apiPrefix: String? = null
+
+    var base64apiKey: String = "";
+
     var dev: Boolean = false
 
     var privateKey: String? = null
 
     var signatures: Boolean = true
+
+    var haasOn: Boolean = false
+
+    var haasUrl: String =  ""
 
     lateinit var url: String
 
@@ -41,8 +51,7 @@ class NodeProperties {
         var contracts = Contracts()
 
         class Contracts {
-            lateinit var registry: String
-            lateinit var permissions: String
+            lateinit var ocnRegistry: String
         }
     }
 
@@ -55,4 +64,9 @@ class NodeProperties {
     var plannedPartySearchEnabled: Boolean = true
 
     var serviceInterfaceEnabled: Boolean = true
+
+    @PostConstruct
+    fun init() {
+        base64apiKey = java.util.Base64.getEncoder().encodeToString(apikey.toByteArray());
+    }
 }
