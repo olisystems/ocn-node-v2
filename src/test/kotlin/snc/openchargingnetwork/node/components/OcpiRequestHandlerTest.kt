@@ -17,6 +17,8 @@ import snc.openchargingnetwork.node.models.entities.OcnRules
 import snc.openchargingnetwork.node.models.ocpi.*
 import snc.openchargingnetwork.node.services.*
 import snc.openchargingnetwork.node.tools.generatePrivateKey
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 
 class OcpiRequestHandlerTest {
 
@@ -28,9 +30,19 @@ class OcpiRequestHandlerTest {
     private val asyncTaskService: AsyncTaskService = mockk()
     private val properties: NodeProperties = mockk()
     private val responseHandlerBuilder: OcpiResponseHandlerBuilder = mockk()
+    private val coroutineScope = CoroutineScope(Dispatchers.Unconfined)
 
-    private val requestHandlerBuilder = OcpiRequestHandlerBuilder(routingService, registryService, httpService, walletService,
-            hubClientInfoService, asyncTaskService, responseHandlerBuilder, properties)
+    private val requestHandlerBuilder = OcpiRequestHandlerBuilder(
+        routingService,
+        registryService,
+        httpService,
+        walletService,
+        hubClientInfoService,
+        asyncTaskService,
+        responseHandlerBuilder,
+        properties,
+        coroutineScope
+    )
 
     @Test
     fun forwardRequest_local() {
