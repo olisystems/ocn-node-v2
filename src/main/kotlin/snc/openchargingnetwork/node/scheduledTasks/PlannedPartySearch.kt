@@ -42,7 +42,7 @@ class PlannedPartySearch(private val registry: OcnRegistry,
                 .asSequence()
                 .map {
                     val details = registry.getPartyDetailsByAddress(it as String).sendAsync().get()
-                    val (address, country, id, roles, roleIndex, operator, name, url, active) = details
+                    val (_, country, id, roles, _, operator, _, _, _) = details
                     NewRegistryPartyDetails(
                         nodeOperator = operator.checksum(),
                         BasicRole(
