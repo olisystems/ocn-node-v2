@@ -151,6 +151,7 @@ class CdrsController(private val requestHandlerBuilder: OcpiRequestHandlerBuilde
 
         return requestHandlerBuilder
                 .build<Unit>(requestVariables)
+                .forwardHaasAsync()
                 .forwardDefault()
                 .getResponseWithLocationHeader("/ocpi/receiver/2.2/cdrs")
     }
