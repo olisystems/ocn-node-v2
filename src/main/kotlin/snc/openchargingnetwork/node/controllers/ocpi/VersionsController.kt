@@ -39,8 +39,10 @@ class VersionsController(private val repository: PlatformRepository,
     fun getVersions(@RequestHeader("Authorization") authorization: String): OcpiResponse<List<Version>> {
 
         val token = authorization.extractToken()
-        val endpoint = urlJoin(properties.url, properties.apiPrefix, "/ocpi/2.2")
-        val versions = listOf(Version("2.2", endpoint))
+        val endpoint2_2 = urlJoin(properties.url, properties.apiPrefix, "/ocpi/2.2")
+        val endpoint2_2_1 = urlJoin(properties.url, properties.apiPrefix, "/ocpi/2.2.1")
+        val versions = listOf(Version("2.2", endpoint2_2),
+                              Version("2.2.1", endpoint2_2_1))
         val response = OcpiResponse(OcpiStatus.SUCCESS.code, data = versions)
 
         return when {
@@ -58,6 +60,22 @@ class VersionsController(private val repository: PlatformRepository,
         val response = OcpiResponse(
                     OcpiStatus.SUCCESS.code,
                     data = VersionDetail("2.2", endpoints))
+
+        return when {
+            repository.existsByAuth_TokenA(token) -> response
+            repository.existsByAuth_TokenC(token) -> response
+            else -> throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_A")
+        }
+    }
+
+    @GetMapping("/2.2.1")
+    fun getVersionsDetail2_2_1(@RequestHeader("Authorization") authorization: String): OcpiResponse<VersionDetail> {
+
+        val token = authorization.extractToken()
+        val endpoints = this.getAllEndpoints()
+        val response = OcpiResponse(
+            OcpiStatus.SUCCESS.code,
+            data = VersionDetail("2.2.1", endpoints))
 
         return when {
             repository.existsByAuth_TokenA(token) -> response
