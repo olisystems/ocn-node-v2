@@ -203,7 +203,7 @@ class HubClientInfoService(private val platformRepo: PlatformRepository,
      */
     @Async
     fun renewClientConnection(sender: BasicRole) {
-        val role = roleRepo.findByCountryCodeAndPartyIDAllIgnoreCase(countryCode = sender.country, partyID = sender.id)
+        val role = roleRepo.findFirstByCountryCodeAndPartyIDAllIgnoreCaseOrderByIdAsc(countryCode = sender.country, partyID = sender.id)
                 ?: throw IllegalArgumentException("sender could not be found")
 
         val client = platformRepo.findById(role.platformID).get()
