@@ -13,3 +13,4 @@ gradle.properties
 
 # Removed due to CI/CD conflicts
 settings.gradle.kts
+start.sh
