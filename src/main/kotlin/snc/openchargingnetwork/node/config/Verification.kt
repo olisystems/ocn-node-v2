@@ -1,5 +1,5 @@
 /*
-    Copyright 2019-2020 eMobilify GmbH
+    Copyright 2019-2020 eMobility GmbH
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -22,17 +22,24 @@ import org.springframework.stereotype.Component
 import snc.openchargingnetwork.node.tools.urlJoin
 import java.net.ConnectException
 import java.net.InetAddress
-import java.net.URL
 import java.net.UnknownHostException
-import javax.net.ssl.SSLException
 import org.slf4j.LoggerFactory
+import org.springframework.context.annotation.Profile
+import java.net.URI
+import javax.net.ssl.SSLException
 
 @Component
+@Profile("!test")
 class Verification(private val properties: NodeProperties) {
+    /**
+     * Self-Checks node basic health.
+     * Only executes when using profiles other than test.
+     */
 
 	companion object {
 		private val logger = LoggerFactory.getLogger(Verification::class.java)
     }
+
     @EventListener(ApplicationReadyEvent::class)
     fun testRegistry() {
         if (properties.privateKey == null) {
@@ -46,7 +53,7 @@ class Verification(private val properties: NodeProperties) {
 
     @EventListener(ApplicationReadyEvent::class)
     fun testPublicURL() {
-        val url = URL(this.properties.url  + "/" + this.properties.apiPrefix)
+        val url = URI(this.properties.url  + "/" + this.properties.apiPrefix).toURL()
 
         val inetAddress = try {
             InetAddress.getByName(url.host)

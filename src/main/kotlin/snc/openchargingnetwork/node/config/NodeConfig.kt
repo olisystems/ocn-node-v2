@@ -1,5 +1,5 @@
 /*
-    Copyright 2019-2020 eMobilify GmbH
+    Copyright 2019-2020 eMobility GmbH
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 
 package snc.openchargingnetwork.node.config
 
-import com.olisystems.ocnregistryv2_0.OcnRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,24 +23,15 @@ import org.springframework.boot.ApplicationRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.scheduling.config.IntervalTask
-import org.springframework.web.client.RestTemplate
-import org.web3j.protocol.Web3j
-import org.web3j.tx.ClientTransactionManager
-import org.web3j.tx.TransactionManager
-import org.web3j.tx.gas.StaticGasProvider
+import snc.openchargingnetwork.node.models.OcnRegistry
 import snc.openchargingnetwork.node.repositories.*
 import snc.openchargingnetwork.node.scheduledTasks.HubClientInfoStillAliveCheck
 import snc.openchargingnetwork.node.scheduledTasks.PlannedPartySearch
-import org.web3j.protocol.http.HttpService as Web3jHttpService
 import snc.openchargingnetwork.node.services.HttpService as OcnHttpService
 
 
 @Configuration
 class NodeConfig(private val properties: NodeProperties) {
-
-    private val web3: Web3j = Web3j.build(Web3jHttpService(properties.web3.provider))
-    private val txManager: TransactionManager = ClientTransactionManager(web3, null)
-    private val gasProvider = StaticGasProvider(0.toBigInteger(), 0.toBigInteger())
 
     @Bean
     fun databaseInitializer(platformRepo: PlatformRepository,
@@ -50,14 +40,10 @@ class NodeConfig(private val properties: NodeProperties) {
                             proxyResourceRepository: ProxyResourceRepository) = ApplicationRunner {}
 
 
-
+    // TODO: Use the indexer instead
     @Bean
     fun ocnRegistry(): OcnRegistry {
-        return OcnRegistry.load(
-            properties.web3.contracts.ocnRegistry,
-            web3,
-            txManager,
-            gasProvider)
+        return OcnRegistry(properties.registryIndexerUrl)
     }
 
     @Bean
@@ -65,6 +51,7 @@ class NodeConfig(private val properties: NodeProperties) {
         return CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
 
+    // TODO: Move away from deprecated method
     @Bean
     fun newScheduledTasks(registry: OcnRegistry,
                           httpService: OcnHttpService,
@@ -77,6 +64,7 @@ class NodeConfig(private val properties: NodeProperties) {
 
         if (properties.stillAliveEnabled && hasPrivateKey) {
             val stillAliveTask = HubClientInfoStillAliveCheck(httpService, platformRepo, properties)
+//            val interval = properties.stillAliveRate.toLong().toDuration(DurationUnit.MILLISECONDS)
             taskList.add(IntervalTask(stillAliveTask, properties.stillAliveRate.toLong()))
         }
 

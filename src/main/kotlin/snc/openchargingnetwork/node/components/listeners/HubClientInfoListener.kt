@@ -1,5 +1,5 @@
 /*
-    Copyright 2019-2020 eMobilify GmbH
+    Copyright 2019-2020 eMobility GmbH
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@ import snc.openchargingnetwork.node.models.events.*
 import snc.openchargingnetwork.node.models.ocpi.*
 import snc.openchargingnetwork.node.repositories.RoleRepository
 import snc.openchargingnetwork.node.services.HubClientInfoService
+
+// TODO: Re-create event streams and notifications system with modern Kotlin
 
 @Component
 class HubClientInfoListener(private val hubClientInfoService: HubClientInfoService,

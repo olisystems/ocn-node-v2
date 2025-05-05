@@ -239,7 +239,7 @@ What is still to be done here:
 ### Local setup for Development using IntelliJ
 - Install Java 13
 - Setup Gradle Settings
-![Gradle Settings](images/gradle-settings.png)
+![Gradle Settings](docs/images/gradle-settings.png)
 - Create a Run Configuration
-![Run Configuration](images/run-config.png)
+![Run Configuration](docs/images/run-config.png)
 

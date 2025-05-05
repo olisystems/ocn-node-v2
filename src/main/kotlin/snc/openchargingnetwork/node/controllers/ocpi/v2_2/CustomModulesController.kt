@@ -1,18 +1,18 @@
 package snc.openchargingnetwork.node.controllers.ocpi.v2_2
 
 import org.springframework.http.HttpMethod
+import org.springframework.http.HttpRequest
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import snc.openchargingnetwork.node.components.OcpiRequestHandlerBuilder
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.ocpi.*
-import javax.servlet.http.HttpServletRequest
 
 @RequestMapping("\${ocn.node.apiPrefix}/ocpi/custom/")
 @RestController
 class CustomModulesController(private val requestHandlerBuilder: OcpiRequestHandlerBuilder) {
 
-    @RequestMapping("{interfaceRole}/{module}", "/{interfaceRole}/{module}/**/*")
+    @RequestMapping("{interfaceRole}/{module}", "/{interfaceRole}/{module}/**")
     fun customModuleMapping(@RequestHeader("authorization") authorization: String,
                             @RequestHeader("OCN-Signature") signature: String? = null,
                             @RequestHeader("X-Request-ID") requestID: String,
@@ -25,13 +25,14 @@ class CustomModulesController(private val requestHandlerBuilder: OcpiRequestHand
                             @PathVariable module: String,
                             @RequestParam queryParams: Map<String, Any>,
                             @RequestBody body: String?,
-                            request: HttpServletRequest): ResponseEntity<OcpiResponse<Any>> {
+                            request: HttpRequest): ResponseEntity<OcpiResponse<Any>> {
 
         val sender = BasicRole(fromPartyID, fromCountryCode)
         val receiver = BasicRole(toPartyID, toCountryCode)
 
         val urlPath = try {
-            request.pathInfo.replace("/ocpi/custom/${interfaceRole}/${module}", "")
+            // TODO: Test this
+            request.uri.toString().replace("/ocpi/custom/${interfaceRole}/${module}", "")
         } catch (e: IllegalStateException) { // catch IllegalStateException: request.pathInfo must not be null
             null
         }
@@ -40,7 +41,7 @@ class CustomModulesController(private val requestHandlerBuilder: OcpiRequestHand
                 module = ModuleID.CUSTOM,
                 customModuleId = module,
                 interfaceRole = InterfaceRole.resolve(interfaceRole),
-                method = HttpMethod.valueOf(request.method),
+                method = HttpMethod.valueOf(request.method.toString()),
                 headers = OcnHeaders(authorization, signature, requestID, correlationID, sender, receiver),
                 urlPath = urlPath,
                 queryParams = queryParams,

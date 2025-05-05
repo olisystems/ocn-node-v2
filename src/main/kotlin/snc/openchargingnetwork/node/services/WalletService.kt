@@ -1,5 +1,5 @@
 /*
-    Copyright 2019-2020 eMobilify GmbH
+    Copyright 2019-2020 eMobility GmbH
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -17,18 +17,18 @@
 package snc.openchargingnetwork.node.services
 
 import com.fasterxml.jackson.module.kotlin.readValue
-import com.olisystems.ocnregistryv2_0.OcnRegistry
 import org.springframework.stereotype.Service
 import org.web3j.crypto.Credentials
 import org.web3j.crypto.Keys
 import org.web3j.crypto.Sign
 import org.web3j.utils.Numeric
 import snc.openchargingnetwork.node.config.NodeProperties
+import snc.openchargingnetwork.node.models.OcnRegistry
 import snc.openchargingnetwork.node.models.exceptions.InvalidOcnSignatureException
 import snc.openchargingnetwork.node.models.exceptions.OcpiHubConnectionProblemException
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
 import snc.openchargingnetwork.node.models.ocpi.ClientInfo
-import snc.openchargingnetwork.node.tools.checksum
+import snc.openchargingnetwork.node.tools.filterOperatorsByParty
 import java.nio.charset.StandardCharsets
 
 /**
@@ -82,8 +82,8 @@ class WalletService(private val properties: NodeProperties,
         val (r, s, v) = signatureStringToByteArray(signature)
         val signingKey = Sign.signedPrefixedMessageToKey(dataToVerify, Sign.SignatureData(v, r, s))
         val signingAddress = "0x${Keys.getAddress(signingKey)}"
-        val (operator, _) = registry.getOperatorByOcpi(sender.country.toByteArray(), sender.id.toByteArray()).sendAsync().get()
-        if (signingAddress.lowercase() != operator.lowercase()) {
+        val op = filterOperatorsByParty(registry, sender)
+        if (signingAddress.lowercase() != op.id) {
             throw OcpiHubConnectionProblemException("Could not verify OCN-Signature of request")
         }
     }
@@ -92,21 +92,18 @@ class WalletService(private val properties: NodeProperties,
      * Verify that a ClientInfo update belongs to the correct node of the party
      */
     fun verifyClientInfo(clientInfoString: String, signature: String): ClientInfo {
+        // Fetch Operator from the Registry
+        val clientInfo: ClientInfo = httpService.mapper.readValue(clientInfoString)
+        val role = BasicRole(clientInfo.partyID, clientInfo.countryCode)
+        val op = filterOperatorsByParty(registry, role)
+        // Verify if signature matches address
         val dataToVerify = clientInfoString.toByteArray(StandardCharsets.UTF_8)
         val (r, s, v) = signatureStringToByteArray(signature)
         val signingKey = Sign.signedPrefixedMessageToKey(dataToVerify, Sign.SignatureData(v, r, s))
         val signingAddress = "0x${Keys.getAddress(signingKey)}"
-
-        val clientInfo: ClientInfo = httpService.mapper.readValue(clientInfoString)
-
-        // validate party registered with signer
-        val countryCode = clientInfo.countryCode.toByteArray()
-        val partyID = clientInfo.partyID.toByteArray()
-
-        val operator = registry.getPartyDetailsByOcpi(countryCode, partyID).sendAsync().get().component6()
-
-        if (operator.checksum() != signingAddress.checksum()) {
-            throw InvalidOcnSignatureException("Invalid OCN-Signature header. Client registered with operator $operator but update signed by $signingAddress.")
+        if (signingAddress.lowercase() != op.id) {
+            throw InvalidOcnSignatureException("Invalid OCN-Signature header. " +
+                    "Client registered with operator $op but update signed by $signingAddress.")
         }
         return clientInfo
     }
