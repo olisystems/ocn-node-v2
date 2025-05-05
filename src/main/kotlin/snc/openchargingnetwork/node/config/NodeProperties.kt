@@ -1,5 +1,5 @@
 /*
-    Copyright 2019-2020 eMobilify GmbH
+    Copyright 2019-2020 eMobility GmbH
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -16,11 +16,11 @@
 
 package snc.openchargingnetwork.node.config
 
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.context.properties.ConfigurationProperties
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
-import javax.annotation.PostConstruct
 
+
+// TODO:  Clean-up
 @ConfigurationProperties("ocn.node")
 class NodeProperties {
 
@@ -28,7 +28,7 @@ class NodeProperties {
 
     var apiPrefix: String? = null
 
-    var base64apiKey: String = "";
+    var base64apiKey: String = ""
 
     var dev: Boolean = false
 
@@ -43,6 +43,8 @@ class NodeProperties {
     lateinit var url: String
 
     var web3 = Web3()
+
+    var registryIndexerUrl: String = ""
 
     class Web3 {
 
@@ -65,8 +67,4 @@ class NodeProperties {
 
     var serviceInterfaceEnabled: Boolean = true
 
-    @PostConstruct
-    fun init() {
-        base64apiKey = java.util.Base64.getEncoder().encodeToString(apikey.toByteArray());
-    }
 }

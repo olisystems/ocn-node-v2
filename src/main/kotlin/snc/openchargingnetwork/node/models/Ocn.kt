@@ -1,5 +1,5 @@
 /*
-    Copyright 2019-2020 eMobilify GmbH
+    Copyright 2019-2020 eMobility GmbH
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -102,7 +102,7 @@ data class OcnService(val provider: BasicRole, val permissions: List<OcnServiceP
 
 data class BasicRequestType(val moduleID: ModuleID, val interfaceRole: InterfaceRole)
 
-// each enum value takes a "matcher" which tests a given module/interface
+// each enum value takes a "matcher" which tests a given module or interface
 enum class OcnServicePermission(val matches: (request: BasicRequestType) -> Boolean) {
     FORWARD_ALL({true}),
     FORWARD_ALL_SENDER({it.interfaceRole == InterfaceRole.SENDER}),
@@ -137,3 +137,42 @@ enum class OcnServicePermission(val matches: (request: BasicRequestType) -> Bool
 fun OcnServicePermission.matches(moduleID: ModuleID, interfaceRole: InterfaceRole): Boolean {
     return matches(BasicRequestType(moduleID, interfaceRole))
 }
+
+enum class PaymentStatus {
+    NOT_PAID,
+    PAID,
+    PENDING
+}
+
+enum class CvStatus {
+    NOT_VERIFIED,
+    VERIFIED,
+    PENDING
+}
+
+data class Party(
+    var id: String,
+    var countryCode: String,
+    var partyId: String,
+    var partyAddress: String,
+    var roles: List<Role> = emptyList<Role>(),
+    var name: String,
+    var url: String,
+    var paymentStatus: PaymentStatus,
+    var cvStatus: CvStatus,
+    var active: Boolean = false,
+    var deleted: Boolean = false,
+    var operator: Operator
+)
+
+data class Operator(
+    var id: String,
+    var domain: String,
+    var parties: List<Party> = emptyList()
+)
+
+data class OcnRegistry(
+    var url: String,
+    var parties: List<Party> = emptyList(),
+    var operators: List<Operator> = emptyList()
+)

@@ -1,5 +1,5 @@
 /*
-    Copyright 2019-2020 eMobilify GmbH
+    Copyright 2019-2020 eMobility GmbH
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ package snc.openchargingnetwork.node.models.ocpi
 
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonProperty
+import jakarta.persistence.Embedded
+import jakarta.persistence.Embeddable
 import org.springframework.http.HttpMethod
 import shareandcharge.openchargingnetwork.notary.ValuesToSign
 import snc.openchargingnetwork.node.models.OcnHeaders
@@ -25,8 +27,6 @@ import snc.openchargingnetwork.node.models.exceptions.OcpiClientInvalidParameter
 import java.math.BigInteger
 import java.time.Instant
 import java.time.format.DateTimeFormatter
-import javax.persistence.Embeddable
-import javax.persistence.Embedded
 
 
 // TODO: rename to avoid confusion?

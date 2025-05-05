@@ -1,5 +1,5 @@
 /*
-    Copyright 2019-2020 eMobilify GmbH
+    Copyright 2019-2020 eMobility GmbH
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -22,12 +22,9 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
-import org.springframework.web.bind.MissingRequestHeaderException
-import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ControllerAdvice
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.context.request.WebRequest
-import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler
 import shareandcharge.openchargingnetwork.notary.Notary
 import shareandcharge.openchargingnetwork.notary.ValuesToSign
 import snc.openchargingnetwork.node.config.NodeProperties
@@ -38,7 +35,7 @@ import java.net.SocketTimeoutException
 
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @ControllerAdvice
-class ExceptionHandler(private val properties: NodeProperties): ResponseEntityExceptionHandler() {
+class ExceptionHandler(private val properties: NodeProperties) {
 
     private fun signError(body: OcpiResponse<Unit>): String {
         return Notary().sign(ValuesToSign(body = body), properties.privateKey!!).serialize()
@@ -48,26 +45,16 @@ class ExceptionHandler(private val properties: NodeProperties): ResponseEntityEx
      * GENERIC EXCEPTIONS
      */
 
-    override fun handleHttpMessageNotReadable(e: HttpMessageNotReadableException,
+    // TODO: Not critical, check behaviour when there are missing headers or parameters in the request.
+    //  This should not be handled with generic error handling but part of a request validation framework as per modern implementations.
+
+
+    @ExceptionHandler(HttpMessageNotReadableException::class)
+    fun handleHttpMessageNotReadable(e: HttpMessageNotReadableException,
                                               headers: HttpHeaders,
                                               status: HttpStatus,
                                               request: WebRequest): ResponseEntity<Any> {
         val body = OcpiResponse<Unit>(statusCode = OcpiStatus.CLIENT_INVALID_PARAMETERS.code, statusMessage = e.message)
-        body.signature = signError(body)
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body)
-    }
-
-    override fun handleMissingServletRequestParameter(e: MissingServletRequestParameterException, headers: HttpHeaders, status: HttpStatus, request: WebRequest): ResponseEntity<Any> {
-        val body = OcpiResponse<Unit>(statusCode = OcpiStatus.CLIENT_INVALID_PARAMETERS.code, statusMessage = e.message)
-        body.signature = signError(body)
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body)
-    }
-
-    @ExceptionHandler(MissingRequestHeaderException::class)
-    fun handleMissingRequestHeaderException(e: MissingRequestHeaderException): ResponseEntity<OcpiResponse<Unit>> {
-        val body = OcpiResponse<Unit>(
-                statusCode = OcpiStatus.CLIENT_INVALID_PARAMETERS.code,
-                statusMessage = e.message)
         body.signature = signError(body)
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body)
     }
