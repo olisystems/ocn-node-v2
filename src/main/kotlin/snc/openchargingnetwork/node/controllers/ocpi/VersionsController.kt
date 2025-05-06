@@ -117,11 +117,11 @@ class VersionsController(private val repository: PlatformRepository,
         }
 
         // add custom OcnRules module endpoint
-        endpoints.add(Endpoint(
-                identifier = "ocnrules",
-                role = InterfaceRole.RECEIVER,
-                url = urlJoin(properties.url, properties.apiPrefix, "/ocpi/2.2/receiver/ocnrules")
-        ))
+        //endpoints.add(Endpoint(
+        //        identifier = "ocnrules",
+        //        role = InterfaceRole.RECEIVER,
+        //        url = urlJoin(properties.url, properties.apiPrefix, "/ocpi/2.2/receiver/ocnrules")
+        //))
 
         return endpoints
     }
