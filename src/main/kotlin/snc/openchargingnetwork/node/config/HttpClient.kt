@@ -1,42 +1,55 @@
-/*
-    Copyright 2019-2020 eMobility GmbH
-
-    Licensed under the Apache License, Version 2.0 (the "License");
-    you may not use this file except in compliance with the License.
-    You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-    Unless required by applicable law or agreed to in writing, software
-    distributed under the License is distributed on an "AS IS" BASIS,
-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    See the License for the specific language governing permissions and
-    limitations under the License.
-*/
-
-package snc.openchargingnetwork.node.services
+package snc.openchargingnetwork.node.config
 
 import com.fasterxml.jackson.core.JsonParseException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
+import io.ktor.http.contentType
+import khttp.delete
+import khttp.get
+import khttp.patch
+import khttp.put
+import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.springframework.http.HttpMethod
-import org.springframework.stereotype.Service
-import snc.openchargingnetwork.node.models.*
+import org.springframework.stereotype.Component
+import snc.openchargingnetwork.node.models.ControllerResponse
+import snc.openchargingnetwork.node.models.GqlQuery
+import snc.openchargingnetwork.node.models.GqlResponse
+import snc.openchargingnetwork.node.models.HttpResponse
+import snc.openchargingnetwork.node.models.OcnHeaders
+import snc.openchargingnetwork.node.models.OcnMessageHeaders
+import snc.openchargingnetwork.node.models.Party
 import snc.openchargingnetwork.node.models.exceptions.OcpiServerGenericException
 import snc.openchargingnetwork.node.models.exceptions.OcpiServerUnusableApiException
-import snc.openchargingnetwork.node.models.ocpi.*
+import snc.openchargingnetwork.node.models.ocpi.ClientInfo
+import snc.openchargingnetwork.node.models.ocpi.ModuleID
+import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
+import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
+import snc.openchargingnetwork.node.models.ocpi.Version
+import snc.openchargingnetwork.node.models.ocpi.VersionDetail
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
 import snc.openchargingnetwork.node.tools.urlJoin
 
-
-@Service
-class HttpService {
+@Component
+class HttpClient {
 
     val mapper = jacksonObjectMapper()
 
     val configurationModules: List<ModuleID> = listOf(ModuleID.CREDENTIALS, ModuleID.HUB_CLIENT_INFO)
 
     fun convertToRequestVariables(stringBody: String): OcpiRequestVariables = mapper.readValue(stringBody)
+
+    val client = HttpClient(CIO)
 
 
     /**
@@ -45,19 +58,20 @@ class HttpService {
     fun <T : Any> makeOcpiRequest(method: HttpMethod, url: String, headers: Map<String, String?>, params: Map<String, Any?>? = null, data: String? = null): HttpResponse<T> {
         val paramsWithStringValues = params?.mapValues { (_, value) -> value.toString() } ?: mapOf()
         val response = when (method) {
-            HttpMethod.GET -> khttp.get(url, headers, paramsWithStringValues)
+            HttpMethod.GET -> get(url, headers, paramsWithStringValues)
             HttpMethod.POST -> khttp.post(url, headers, paramsWithStringValues, data = data)
-            HttpMethod.PUT -> khttp.put(url, headers, paramsWithStringValues, data = data)
-            HttpMethod.PATCH -> khttp.patch(url, headers, paramsWithStringValues, data = data)
-            HttpMethod.DELETE -> khttp.delete(url, headers)
+            HttpMethod.PUT -> put(url, headers, paramsWithStringValues, data = data)
+            HttpMethod.PATCH -> patch(url, headers, paramsWithStringValues, data = data)
+            HttpMethod.DELETE -> delete(url, headers)
             else -> throw IllegalStateException("Invalid method: $method")
         }
 
         try {
             return HttpResponse(
-                    statusCode = response.statusCode,
-                    headers = response.headers,
-                    body = mapper.readValue(response.text))
+                statusCode = response.statusCode,
+                headers = response.headers,
+                body = mapper.readValue(response.text)
+            )
         } catch (e: JsonParseException) {
             throw OcpiServerGenericException("Could not parse JSON response of forwarded OCPI request: ${e.message}")
         }
@@ -69,7 +83,8 @@ class HttpService {
      */
     final fun <T: Any> makeOcpiRequest(url: String,
                                        ocnHeaders: OcnHeaders,
-                                       requestVariables: OcpiRequestVariables): HttpResponse<T> {
+                                       requestVariables: OcpiRequestVariables
+    ): HttpResponse<T> {
 
         // includes or excludes routing headers based on module type (functional or configuration)
         // TODO: credentials and versions must also include X-Request-ID/X-Correlation-ID
@@ -97,7 +112,7 @@ class HttpService {
      */
     fun getVersions(url: String, authorization: String): List<Version> {
         try {
-            val response = khttp.get(url = url, headers = mapOf(
+            val response = get(url = url, headers = mapOf(
                 "Authorization" to "Token $authorization",
                 "X-Correlation-ID" to generateUUIDv4Token(),
                 "X-Request-ID" to generateUUIDv4Token()
@@ -122,7 +137,7 @@ class HttpService {
      */
     fun getVersionDetail(url: String, authorization: String): VersionDetail {
         try {
-            val response = khttp.get(url = url, headers = mapOf(
+            val response = get(url = url, headers = mapOf(
                 "Authorization" to "Token $authorization",
                 "X-Correlation-ID" to generateUUIDv4Token(),
                 "X-Request-ID" to generateUUIDv4Token()
@@ -156,16 +171,62 @@ class HttpService {
         val response = khttp.post(fullURL, headersMap, data = body)
 
         return HttpResponse(
-                statusCode = response.statusCode,
-                headers = response.headers,
-                body = mapper.readValue(response.text))
+            statusCode = response.statusCode,
+            headers = response.headers,
+            body = mapper.readValue(response.text)
+        )
     }
 
     fun putOcnClientInfo(url: String, signature: String, body: ClientInfo) {
         val headers = mapOf("OCN-Signature" to signature)
         val endpoint = urlJoin(url, "/ocn/client-info")
         val bodyString = mapper.writeValueAsString(body)
-        khttp.put(endpoint, headers, data = bodyString)
+        put(endpoint, headers, data = bodyString)
+    }
+
+    /**
+     * Get all Parties registered on-chain.
+     */
+    fun getIndexedOcnRegistry(url: String, authorization: String): ControllerResponse<List<Party>> {
+        val graphQLQuery = "{parties {countryCode cvStatus id name operator {id domain } " +
+                "partyAddress partyId paymentStatus roles url } }"
+        return runBlocking {
+            var body: String? = Json.Default.encodeToString(
+                GqlQuery(
+                    graphQLQuery,
+                    "Subgraphs",
+                    mapOf()
+                )
+            )
+            val response = client.post(url) {
+                contentType(ContentType.Application.Json)
+                header(HttpHeaders.Authorization, "Bearer $authorization")
+                setBody(body)
+            }
+            val quertResult: GqlResponse = Json.Default.decodeFromString(response.bodyAsText())
+
+            if (response.status.value == 200 && quertResult.errors == null) {
+                return@runBlocking ControllerResponse(true, quertResult.data!!.parties!!)
+            } else {
+                val message = "Returned HTTP ${response.status}; Error: ${quertResult.errors} "
+                return@runBlocking ControllerResponse(false, null, message)
+            }
+        }
+    }
+
+    /**
+     * General purpose Http get
+     */
+    fun get(url: String): ControllerResponse<String> {
+        return runBlocking {
+            val response = client.get(url)
+            if (response.status.value == 200) {
+                return@runBlocking ControllerResponse(true, response.bodyAsText())
+            } else {
+                val message = "Returned HTTP ${response.status}; Error: ${response.bodyAsText()} "
+                return@runBlocking ControllerResponse(false, null, message)
+            }
+        }
     }
 
 }

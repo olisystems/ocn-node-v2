@@ -18,6 +18,7 @@ package snc.openchargingnetwork.node.services
 
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
+import snc.openchargingnetwork.node.config.HttpClient
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.OcnMessageHeaders
 import snc.openchargingnetwork.node.models.Receiver
@@ -46,7 +47,7 @@ class RoutingService(private val platformRepo: PlatformRepository,
                      private val endpointRepo: EndpointRepository,
                      private val proxyResourceRepo: ProxyResourceRepository,
                      private val registryService: RegistryService,
-                     private val httpService: HttpService,
+                     private val httpClient: HttpClient,
                      private val walletService: WalletService,
                      private val ocnRulesService: OcnRulesService) {
 
@@ -211,7 +212,7 @@ class RoutingService(private val platformRepo: PlatformRepository,
         // strip authorization
         modifiedBody = modifiedBody.copy(headers = modifiedBody.headers.copy(authorization = ""))
 
-        val bodyString = httpService.mapper.writeValueAsString(modifiedBody)
+        val bodyString = httpClient.mapper.writeValueAsString(modifiedBody)
 
         val headers = OcnMessageHeaders(
                 requestID = generateUUIDv4Token(),

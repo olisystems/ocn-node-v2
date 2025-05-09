@@ -38,7 +38,6 @@ class NodeInfoLogger(private val properties: NodeProperties, private val dataSou
         val border = "=".repeat(borderLength)
 
         val addressText = getAddressText()
-        val registryStage = getRegistryStage()
         val stillAliveText = getStillAliveText()
         val plannedPartyText = getPlannedPartyText()
 
@@ -47,9 +46,8 @@ class NodeInfoLogger(private val properties: NodeProperties, private val dataSou
                 " ADDRESS | $addressText\n" +
                 " API KEY | ${properties.apikey}")
 
-        println("${border.substring(0, 3)} NETWORK ${border.substring(15)}\n" +
-                " ETHEREUM RPC | ${properties.web3.provider}\n" +
-                " OCN_REGISTRY     | ${properties.web3.contracts.ocnRegistry} [$registryStage]\n")
+        println("${border.substring(0, 3)} REGISTRY ${border.substring(15)}\n" +
+                " REGISTRY SUBGRAPH | ${properties.registryIndexerUrl}\n")
 
         println("${border.substring(0, 3)} FEATURES ${border.substring(16)}\n" +
                 " DEV MODE             | ${properties.dev}\n" +
@@ -82,13 +80,6 @@ class NodeInfoLogger(private val properties: NodeProperties, private val dataSou
         } else {
             "Please set \"ocn.node.privateKey\" in your application properties."
         }
-    }
-
-    // TODO update this when redeploying the ocn registry smart contract
-    private fun getRegistryStage(): String = when (properties.web3.contracts.ocnRegistry) {
-        "0xd57595D5FA1F94725C426739C449b15D92758D55" -> "test"
-        "0x184aeD70F2aaB0Cd1FC62261C1170560cBfd0776" -> "prod"
-        else -> "custom"
     }
 
     private fun getStillAliveText(): String = if (properties.stillAliveEnabled && hasPrivateKey) {

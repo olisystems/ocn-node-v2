@@ -27,7 +27,7 @@ import snc.openchargingnetwork.node.models.exceptions.OcpiServerNoMatchingEndpoi
 import snc.openchargingnetwork.node.models.ocpi.*
 import snc.openchargingnetwork.node.models.ocpi.Role
 import snc.openchargingnetwork.node.repositories.*
-import snc.openchargingnetwork.node.services.HttpService
+import snc.openchargingnetwork.node.config.HttpClient
 import snc.openchargingnetwork.node.services.RegistryService
 import snc.openchargingnetwork.node.tools.*
 
@@ -40,7 +40,7 @@ class CredentialsController(private val platformRepo: PlatformRepository,
                             private val ocnRulesListRepo: OcnRulesListRepository,
                             private val properties: NodeProperties,
                             private val registryService: RegistryService,
-                            private val httpService: HttpService) {
+                            private val httpClient: HttpClient) {
 
     private fun myCredentials(token: String): Credentials {
         return Credentials(
@@ -78,14 +78,14 @@ class CredentialsController(private val platformRepo: PlatformRepository,
                 ?: throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_A")
 
         // GET versions information endpoint with TOKEN_B (both provided in request body)
-        val versionsInfo = httpService.getVersions(body.url, body.token.toBs64String())
+        val versionsInfo = httpClient.getVersions(body.url, body.token.toBs64String())
 
         // try to match version 2.2
         val correctVersion = versionsInfo.firstOrNull { it.version == "2.2" || it.version == "2.2.1" }
                 ?: throw OcpiServerNoMatchingEndpointsException("Expected version 2.2 or 2.2.1 from $versionsInfo")
 
         // GET 2.2 version details
-        val versionDetail = httpService.getVersionDetail(correctVersion.url, body.token.toBs64String())
+        val versionDetail = httpClient.getVersionDetail(correctVersion.url, body.token.toBs64String())
 
         // ensure each role does not already exist; delete if planned
         for (role in body.roles) {
@@ -153,14 +153,14 @@ class CredentialsController(private val platformRepo: PlatformRepository,
                 ?: throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_C")
 
         // GET versions information endpoint with TOKEN_B (both provided in request body)
-        val versionsInfo: List<Version> = httpService.getVersions(body.url, body.token.toBs64String())
+        val versionsInfo: List<Version> = httpClient.getVersions(body.url, body.token.toBs64String())
 
         // try to match version 2.2 or 2.2.1
         val correctVersion = versionsInfo.firstOrNull { it.version == "2.2" || it.version == "2.2.1" }
             ?: throw OcpiServerNoMatchingEndpointsException("Expected version 2.2 or 2.2.1 from $versionsInfo")
 
         // GET version details
-        val versionDetail = httpService.getVersionDetail(correctVersion.url, body.token.toBs64String())
+        val versionDetail = httpClient.getVersionDetail(correctVersion.url, body.token.toBs64String())
 
         // generate TOKEN_C
         val tokenC = generateUUIDv4Token()

@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.http.HttpMethod
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
+import snc.openchargingnetwork.node.config.HttpClient
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.entities.NetworkClientInfoEntity
 import snc.openchargingnetwork.node.models.entities.PlatformEntity
@@ -38,7 +39,7 @@ class HubClientInfoService(private val platformRepo: PlatformRepository,
                            private val roleRepo: RoleRepository,
                            private val endpointRepo: EndpointRepository,
                            private val networkClientInfoRepo: NetworkClientInfoRepository,
-                           private val httpService: HttpService,
+                           private val httpClient: HttpClient,
                            private val routingService: RoutingService,
                            private val walletService: WalletService,
                            private val ocnRulesService: OcnRulesService,
@@ -173,7 +174,7 @@ class HubClientInfoService(private val platformRepo: PlatformRepository,
             val (url, headers) = routingService.prepareLocalPlatformRequest(requestVariables, proxied = false)
 
             try {
-                httpService.makeOcpiRequest<Unit>(url, headers, requestVariables)
+                httpClient.makeOcpiRequest<Unit>(url, headers, requestVariables)
             } catch (e: Exception) { // fire and forget; catch any error and log
                 logger.warn("Error notifying $receiver of client info change: ${e.message}")
             }
@@ -184,14 +185,14 @@ class HubClientInfoService(private val platformRepo: PlatformRepository,
      * Send a notification of a ClientInfo change to other nodes on the network
      */
     fun notifyNodesOfClientInfoChange(changedClientInfo: ClientInfo) {
-        val requestBodyString = httpService.mapper.writeValueAsString(changedClientInfo)
+        val requestBodyString = httpClient.mapper.writeValueAsString(changedClientInfo)
         val signature = walletService.sign(requestBodyString)
 
         val nodes = registryService.getNodes(omitMine = true)
 
         for (node in nodes) {
             try {
-                httpService.putOcnClientInfo(node.url, signature, changedClientInfo)
+                httpClient.putOcnClientInfo(node.url, signature, changedClientInfo)
             } catch (e: Exception) { // fire and forget; catch any error and log
                 logger.warn("Error notifying $node of client info change: ${e.message}")
             }

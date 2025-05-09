@@ -19,6 +19,7 @@ package snc.openchargingnetwork.node.models
 
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonProperty
+import kotlinx.serialization.*
 import shareandcharge.openchargingnetwork.notary.SignableHeaders
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
 import snc.openchargingnetwork.node.models.ocpi.InterfaceRole
@@ -138,41 +139,3 @@ fun OcnServicePermission.matches(moduleID: ModuleID, interfaceRole: InterfaceRol
     return matches(BasicRequestType(moduleID, interfaceRole))
 }
 
-enum class PaymentStatus {
-    NOT_PAID,
-    PAID,
-    PENDING
-}
-
-enum class CvStatus {
-    NOT_VERIFIED,
-    VERIFIED,
-    PENDING
-}
-
-data class Party(
-    var id: String,
-    var countryCode: String,
-    var partyId: String,
-    var partyAddress: String,
-    var roles: List<Role> = emptyList<Role>(),
-    var name: String,
-    var url: String,
-    var paymentStatus: PaymentStatus,
-    var cvStatus: CvStatus,
-    var active: Boolean = false,
-    var deleted: Boolean = false,
-    var operator: Operator
-)
-
-data class Operator(
-    var id: String,
-    var domain: String,
-    var parties: List<Party> = emptyList()
-)
-
-data class OcnRegistry(
-    var url: String,
-    var parties: List<Party> = emptyList(),
-    var operators: List<Operator> = emptyList()
-)
