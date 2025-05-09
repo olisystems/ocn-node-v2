@@ -16,6 +16,8 @@
 
 package snc.openchargingnetwork.node.models
 
+import kotlinx.datetime.Instant
+import kotlinx.serialization.Serializable
 import shareandcharge.openchargingnetwork.notary.SignableHeaders
 import shareandcharge.openchargingnetwork.notary.ValuesToSign
 import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
@@ -34,3 +36,8 @@ data class HttpResponse<T: Any>(val statusCode: Int,
                 body = body)
     }
 }
+
+@Serializable
+data class SpringErrorResponse(val timestamp: Instant, val status: Int, val error: String, val path: String? = null)
+
+data class ControllerResponse<T>(val success: Boolean, val data: T? = null, val error: String? = null)

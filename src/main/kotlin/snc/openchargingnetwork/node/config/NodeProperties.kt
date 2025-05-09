@@ -42,20 +42,9 @@ class NodeProperties {
 
     lateinit var url: String
 
-    var web3 = Web3()
-
     var registryIndexerUrl: String = ""
 
-    class Web3 {
-
-        lateinit var provider: String
-
-        var contracts = Contracts()
-
-        class Contracts {
-            lateinit var ocnRegistry: String
-        }
-    }
+    var registryIndexerToken: String = ""
 
     var stillAliveRate: String = "900000" // defaults to 15 minutes
 

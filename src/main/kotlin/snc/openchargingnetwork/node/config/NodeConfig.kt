@@ -27,7 +27,6 @@ import snc.openchargingnetwork.node.models.OcnRegistry
 import snc.openchargingnetwork.node.repositories.*
 import snc.openchargingnetwork.node.scheduledTasks.HubClientInfoStillAliveCheck
 import snc.openchargingnetwork.node.scheduledTasks.PlannedPartySearch
-import snc.openchargingnetwork.node.services.HttpService as OcnHttpService
 
 
 @Configuration
@@ -54,7 +53,7 @@ class NodeConfig(private val properties: NodeProperties) {
     // TODO: Move away from deprecated method
     @Bean
     fun newScheduledTasks(registry: OcnRegistry,
-                          httpService: OcnHttpService,
+                          httpClient: HttpClient,
                           platformRepo: PlatformRepository,
                           roleRepo: RoleRepository,
                           networkClientInfoRepo: NetworkClientInfoRepository): List<IntervalTask> {
@@ -63,7 +62,7 @@ class NodeConfig(private val properties: NodeProperties) {
         val hasPrivateKey = properties.privateKey !== null
 
         if (properties.stillAliveEnabled && hasPrivateKey) {
-            val stillAliveTask = HubClientInfoStillAliveCheck(httpService, platformRepo, properties)
+            val stillAliveTask = HubClientInfoStillAliveCheck(httpClient, platformRepo, properties)
 //            val interval = properties.stillAliveRate.toLong().toDuration(DurationUnit.MILLISECONDS)
             taskList.add(IntervalTask(stillAliveTask, properties.stillAliveRate.toLong()))
         }

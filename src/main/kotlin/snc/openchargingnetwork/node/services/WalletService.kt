@@ -22,6 +22,7 @@ import org.web3j.crypto.Credentials
 import org.web3j.crypto.Keys
 import org.web3j.crypto.Sign
 import org.web3j.utils.Numeric
+import snc.openchargingnetwork.node.config.HttpClient
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.OcnRegistry
 import snc.openchargingnetwork.node.models.exceptions.InvalidOcnSignatureException
@@ -37,7 +38,8 @@ import java.nio.charset.StandardCharsets
 @Service
 class WalletService(private val properties: NodeProperties,
                     private val registry: OcnRegistry,
-                    private val httpService: HttpService) {
+                    private val httpClient: HttpClient
+) {
 
     /**
      * Take a component of a signature (r,s,v) and convert it to a string to include as an OCN-Signature header
@@ -93,7 +95,7 @@ class WalletService(private val properties: NodeProperties,
      */
     fun verifyClientInfo(clientInfoString: String, signature: String): ClientInfo {
         // Fetch Operator from the Registry
-        val clientInfo: ClientInfo = httpService.mapper.readValue(clientInfoString)
+        val clientInfo: ClientInfo = httpClient.mapper.readValue(clientInfoString)
         val role = BasicRole(clientInfo.partyID, clientInfo.countryCode)
         val op = filterOperatorsByParty(registry, role)
         // Verify if signature matches address

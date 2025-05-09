@@ -1,0 +1,58 @@
+package snc.openchargingnetwork.node.models
+
+import kotlinx.serialization.Serializable
+import snc.openchargingnetwork.node.models.ocpi.Role
+
+enum class PaymentStatus {
+    NOT_PAID,
+    PAID,
+    PENDING
+}
+
+enum class CvStatus {
+    NOT_VERIFIED,
+    VERIFIED,
+    PENDING
+}
+
+@Serializable
+data class Party(
+    var id: String,
+    var countryCode: String,
+    var partyId: String,
+    var partyAddress: String,
+    var roles: List<Role> = emptyList<Role>(),
+    var name: String,
+    var url: String,
+    var paymentStatus: PaymentStatus,
+    var cvStatus: CvStatus,
+    var active: Boolean = false,
+    var deleted: Boolean = false,
+    var operator: Operator
+)
+
+@Serializable
+data class Operator(
+    var id: String,
+    var domain: String,
+    var parties: List<Party> = emptyList()
+)
+
+@Serializable
+data class OcnRegistry(
+    var url: String,
+    var parties: List<Party> = emptyList(),
+    var operators: List<Operator> = emptyList()
+)
+
+@Serializable
+data class GqlQuery(val query: String, val operationName: String, val variables: Map<String, String>)
+
+@Serializable
+data class GqlData(val parties: List<Party>? = null, val operators: List<Operator>? = null)
+
+@Serializable
+data class GqlError(val message: String? = null)
+
+@Serializable
+data class GqlResponse(val data: GqlData? = null, val errors: List<GqlError>? = null)

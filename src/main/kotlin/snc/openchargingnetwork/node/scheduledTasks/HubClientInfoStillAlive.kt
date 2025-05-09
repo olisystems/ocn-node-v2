@@ -21,12 +21,12 @@ import snc.openchargingnetwork.node.models.entities.PlatformEntity
 import snc.openchargingnetwork.node.models.exceptions.OcpiServerUnusableApiException
 import snc.openchargingnetwork.node.models.ocpi.ConnectionStatus
 import snc.openchargingnetwork.node.repositories.PlatformRepository
-import snc.openchargingnetwork.node.services.HttpService
+import snc.openchargingnetwork.node.config.HttpClient
 import snc.openchargingnetwork.node.tools.getInstant
 import java.time.Instant
 
 
-class HubClientInfoStillAliveCheck(private val httpService: HttpService,
+class HubClientInfoStillAliveCheck(private val httpClient: HttpClient,
                                    private val platformRepo: PlatformRepository,
                                    private val properties: NodeProperties): Runnable {
 
@@ -65,7 +65,7 @@ class HubClientInfoStillAliveCheck(private val httpService: HttpService,
                 return false // Client not configured. Assume not available
             }
             // If no exception thrown during versions request, assume that request was successful
-            httpService.getVersions(client.versionsUrl!!, client.auth.tokenB!!)
+            httpClient.getVersions(client.versionsUrl!!, client.auth.tokenB!!)
             return true
         } catch (e: OcpiServerUnusableApiException) {
             return false

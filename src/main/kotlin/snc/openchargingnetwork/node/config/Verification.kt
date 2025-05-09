@@ -25,12 +25,13 @@ import java.net.InetAddress
 import java.net.UnknownHostException
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Profile
+import snc.openchargingnetwork.node.models.ControllerResponse
+import snc.openchargingnetwork.node.models.Party
 import java.net.URI
 import javax.net.ssl.SSLException
 
 @Component
-@Profile("!test")
-class Verification(private val properties: NodeProperties) {
+class Verification(private val properties: NodeProperties, private val httpClient: HttpClient) {
     /**
      * Self-Checks node basic health.
      * Only executes when using profiles other than test.
@@ -49,6 +50,7 @@ class Verification(private val properties: NodeProperties) {
                 throw IllegalStateException("No private key set. Unable to verify registry configuration.")
             }
         }
+        this.testRegistryAccess()
     }
 
     @EventListener(ApplicationReadyEvent::class)
@@ -77,14 +79,26 @@ class Verification(private val properties: NodeProperties) {
         val healthURL = urlJoin(this.properties.url, this.properties.apiPrefix, "/health")
 
         try {
-            val response = khttp.get(healthURL)
-            if (response.statusCode != 200) {
-				logger.warn("Received status code ${response.statusCode} from $healthURL application may not be healthy.")
+            val response = httpClient.get(healthURL)
+            if (!response.success) {
+				logger.warn("${response.error}. Application stack may not be healthy.")
             }
         } catch (e: ConnectException) {
             throw IllegalArgumentException("Unable to connect. Ensure $healthURL is reachable.")
         } catch (e: SSLException) {
             throw IllegalArgumentException("Experienced SSL exception. Ensure $healthURL has correct certificates.")
+        }
+    }
+
+    private fun testRegistryAccess() {
+        val response: ControllerResponse<List<Party>> = httpClient.getIndexedOcnRegistry(
+            properties.registryIndexerUrl,
+            properties.registryIndexerToken
+        )
+        println(response)
+        if (!response.success) {
+            throw IllegalArgumentException("Unable to connect to Registry Indexer. " +
+                    "Ensure ${properties.registryIndexerUrl} is reachable.")
         }
     }
 
