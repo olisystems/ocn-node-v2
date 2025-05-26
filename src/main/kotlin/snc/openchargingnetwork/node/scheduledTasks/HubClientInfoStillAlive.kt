@@ -16,19 +16,21 @@
 
 package snc.openchargingnetwork.node.scheduledTasks
 
+import snc.openchargingnetwork.node.config.HttpClientComponent
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.entities.PlatformEntity
 import snc.openchargingnetwork.node.models.exceptions.OcpiServerUnusableApiException
 import snc.openchargingnetwork.node.models.ocpi.ConnectionStatus
 import snc.openchargingnetwork.node.repositories.PlatformRepository
-import snc.openchargingnetwork.node.config.HttpClient
 import snc.openchargingnetwork.node.tools.getInstant
 import java.time.Instant
 
 
-class HubClientInfoStillAliveCheck(private val httpClient: HttpClient,
-                                   private val platformRepo: PlatformRepository,
-                                   private val properties: NodeProperties): Runnable {
+class HubClientInfoStillAliveCheck(
+    private val httpClientComponent: HttpClientComponent,
+    private val platformRepo: PlatformRepository,
+    private val properties: NodeProperties
+) : Runnable {
 
     override fun run() {
         val checkExecutionInstant = Instant.now()
@@ -65,7 +67,7 @@ class HubClientInfoStillAliveCheck(private val httpClient: HttpClient,
                 return false // Client not configured. Assume not available
             }
             // If no exception thrown during versions request, assume that request was successful
-            httpClient.getVersions(client.versionsUrl!!, client.auth.tokenB!!)
+            httpClientComponent.getVersions(client.versionsUrl!!, client.auth.tokenB!!)
             return true
         } catch (e: OcpiServerUnusableApiException) {
             return false

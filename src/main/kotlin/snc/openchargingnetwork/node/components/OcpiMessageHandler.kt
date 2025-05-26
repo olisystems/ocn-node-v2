@@ -26,10 +26,12 @@ import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
 import snc.openchargingnetwork.node.services.RegistryService
 import snc.openchargingnetwork.node.services.RoutingService
 
-open class OcpiMessageHandler(val request: OcpiRequestVariables,
-                              val properties: NodeProperties,
-                              val routingService: RoutingService,
-                              val registryService: RegistryService) {
+open class OcpiMessageHandler(
+    val request: OcpiRequestVariables,
+    val properties: NodeProperties,
+    val routingService: RoutingService,
+    val registryService: RegistryService
+) {
 
     /**
      * Notary object instantiated after validating a request.
@@ -61,7 +63,12 @@ open class OcpiMessageHandler(val request: OcpiRequestVariables,
      * @param signer expected signatory of the signature
      * @param receiver optional receiver of message (checks their OcnRules for signature verification requirement)
      */
-    fun validateOcnSignature(signature: String?, signedValues: ValuesToSign<*>, signer: BasicRole, receiver: BasicRole? = null) {
+    fun validateOcnSignature(
+        signature: String?,
+        signedValues: ValuesToSign<*>,
+        signer: BasicRole,
+        receiver: BasicRole? = null
+    ) {
         if (isSigningActive(receiver)) {
             val result = signature?.let {
                 notary = Notary.deserialize(it)
@@ -100,6 +107,7 @@ open class OcpiMessageHandler(val request: OcpiRequestVariables,
      * Check notary exists. Throws UnsupportedOperationException if request has not yet been validated.
      */
     private fun validateNotary(): Notary {
-        return notary ?: throw UnsupportedOperationException("Non-canonical method chaining: must call a validating method first")
+        return notary
+            ?: throw UnsupportedOperationException("Non-canonical method chaining: must call a validating method first")
     }
 }

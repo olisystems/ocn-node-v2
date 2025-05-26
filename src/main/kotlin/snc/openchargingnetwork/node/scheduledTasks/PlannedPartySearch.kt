@@ -16,23 +16,18 @@
 
 package snc.openchargingnetwork.node.scheduledTasks
 
-import org.web3j.crypto.Credentials
 import snc.openchargingnetwork.node.config.NodeProperties
-import snc.openchargingnetwork.node.models.NewRegistryPartyDetails
 import snc.openchargingnetwork.node.models.OcnRegistry
-import snc.openchargingnetwork.node.models.entities.NetworkClientInfoEntity
-import snc.openchargingnetwork.node.models.ocpi.BasicRole
-import snc.openchargingnetwork.node.models.ocpi.ConnectionStatus
-import snc.openchargingnetwork.node.models.ocpi.Role
 import snc.openchargingnetwork.node.repositories.NetworkClientInfoRepository
 import snc.openchargingnetwork.node.repositories.RoleRepository
-import snc.openchargingnetwork.node.tools.checksum
 
 
-class PlannedPartySearch(private val registry: OcnRegistry,
-                         private val roleRepo: RoleRepository,
-                         private val networkClientInfoRepo: NetworkClientInfoRepository,
-                         private val properties: NodeProperties): Runnable {
+class PlannedPartySearch(
+    private val registry: OcnRegistry,
+    private val roleRepo: RoleRepository,
+    private val networkClientInfoRepo: NetworkClientInfoRepository,
+    private val properties: NodeProperties
+) : Runnable {
 
     override fun run() {
         // TODO: registry.getParties() returns list of party ethereum addresses which can be used to get full party details

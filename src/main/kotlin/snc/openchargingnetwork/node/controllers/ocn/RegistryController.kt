@@ -23,10 +23,10 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ResponseStatusException
 import org.web3j.crypto.Credentials
+import snc.openchargingnetwork.node.config.HttpClientComponent
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.ControllerResponse
 import snc.openchargingnetwork.node.models.Party
-import snc.openchargingnetwork.node.config.HttpClient
 
 
 // TODO: Fix OCN registry
@@ -35,7 +35,7 @@ import snc.openchargingnetwork.node.config.HttpClient
 @RequestMapping("\${ocn.node.apiPrefix}/ocn/registry")
 class RegistryController(
     private val properties: NodeProperties,
-    private val httpClient: HttpClient,
+    private val httpClientComponent: HttpClientComponent,
 ) {
 
     @GetMapping("/node-info")
@@ -47,7 +47,7 @@ class RegistryController(
     // TODO: Nodes data as per OLISYS-4243
     @GetMapping("/nodes")
     fun getRegisteredNodes(): List<Party>? {
-        val response: ControllerResponse<List<Party>> = httpClient.getIndexedOcnRegistry(
+        val response: ControllerResponse<List<Party>> = httpClientComponent.getIndexedOcnRegistry(
             properties.registryIndexerUrl,
             properties.registryIndexerToken
         )

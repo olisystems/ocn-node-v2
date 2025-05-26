@@ -18,7 +18,7 @@ package snc.openchargingnetwork.node.services
 
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
-import snc.openchargingnetwork.node.config.HttpClient
+import snc.openchargingnetwork.node.config.HttpClientComponent
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.OcnMessageHeaders
 import snc.openchargingnetwork.node.models.Receiver
@@ -42,14 +42,16 @@ import snc.openchargingnetwork.node.tools.generateUUIDv4Token
 import snc.openchargingnetwork.node.tools.urlJoin
 
 @Service
-class RoutingService(private val platformRepo: PlatformRepository,
-                     private val roleRepo: RoleRepository,
-                     private val endpointRepo: EndpointRepository,
-                     private val proxyResourceRepo: ProxyResourceRepository,
-                     private val registryService: RegistryService,
-                     private val httpClient: HttpClient,
-                     private val walletService: WalletService,
-                     private val ocnRulesService: OcnRulesService) {
+class RoutingService(
+    private val platformRepo: PlatformRepository,
+    private val roleRepo: RoleRepository,
+    private val endpointRepo: EndpointRepository,
+    private val proxyResourceRepo: ProxyResourceRepository,
+    private val registryService: RegistryService,
+    private val httpClientComponent: HttpClientComponent,
+    private val walletService: WalletService,
+    private val ocnRulesService: OcnRulesService
+) {
 
     /**
      * check database to see if basic role is connected to the node
@@ -63,7 +65,7 @@ class RoutingService(private val platformRepo: PlatformRepository,
     fun getPlatform(role: BasicRole): PlatformEntity {
         val platformID = getPlatformID(role)
         return platformRepo.findByIdOrNull(platformID)
-                ?: throw IllegalStateException("Platform with id=$platformID does not exist, but has roles.")
+            ?: throw IllegalStateException("Platform with id=$platformID does not exist, but has roles.")
     }
 
     /**
@@ -71,7 +73,7 @@ class RoutingService(private val platformRepo: PlatformRepository,
      */
     fun getPlatformID(role: BasicRole): Long {
         return roleRepo.findAllByCountryCodeAndPartyIDAllIgnoreCase(role.country, role.id).firstOrNull()?.platformID
-                ?: throw OcpiHubUnknownReceiverException("Could not find platform ID of $role")
+            ?: throw OcpiHubUnknownReceiverException("Could not find platform ID of $role")
     }
 
     /**
@@ -80,7 +82,7 @@ class RoutingService(private val platformRepo: PlatformRepository,
     fun getPlatformRules(role: BasicRole): OcnRules {
         val platformID = getPlatformID(role)
         return platformRepo.findByIdOrNull(platformID)?.rules
-                ?: throw IllegalStateException("Platform with id=$platformID does not exist, but has roles.")
+            ?: throw IllegalStateException("Platform with id=$platformID does not exist, but has roles.")
     }
 
 
@@ -89,7 +91,7 @@ class RoutingService(private val platformRepo: PlatformRepository,
      */
     fun getPlatformEndpoint(platformID: Long?, moduleID: String, interfaceRole: InterfaceRole): EndpointEntity {
         return endpointRepo.findByPlatformIDAndIdentifierAndRole(platformID, moduleID, interfaceRole)
-                ?: throw OcpiClientInvalidParametersException("Receiver does not support the requested module")
+            ?: throw OcpiClientInvalidParametersException("Receiver does not support the requested module")
     }
 
 
@@ -110,10 +112,15 @@ class RoutingService(private val platformRepo: PlatformRepository,
 
         // sender platform exists by auth token
         val senderPlatform = platformRepo.findByAuth_TokenC(authorization.extractToken())
-                ?: throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_C")
+            ?: throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_C")
 
         // role exists on registered platform
-        if (!roleRepo.existsByPlatformIDAndCountryCodeAndPartyIDAllIgnoreCase(senderPlatform.id, sender.country, sender.id)) {
+        if (!roleRepo.existsByPlatformIDAndCountryCodeAndPartyIDAllIgnoreCase(
+                senderPlatform.id,
+                sender.country,
+                sender.id
+            )
+        ) {
             throw OcpiClientInvalidParametersException("Could not find role on sending platform using OCPI-from-* headers")
         }
     }
@@ -165,17 +172,22 @@ class RoutingService(private val platformRepo: PlatformRepository,
             // save the resource and return standard OCPI module URL of recipient
             request.proxyUID != null && request.proxyResource != null -> {
                 setProxyResource(
-                        resource = request.proxyResource,
-                        sender = request.headers.receiver,
-                        receiver = request.headers.sender,
-                        alternativeUID = request.proxyUID)
+                    resource = request.proxyResource,
+                    sender = request.headers.receiver,
+                    receiver = request.headers.sender,
+                    alternativeUID = request.proxyUID
+                )
                 val endpoint = getPlatformEndpoint(platformID, request.resolveModuleId(), request.interfaceRole)
                 urlJoin(endpoint.url, request.urlPath)
             }
 
             // return standard OCPI module URL of recipient
             else -> {
-                val endpoint = getPlatformEndpoint(platformID, request.resolveModuleId(), request.interfaceRole) // could replace with request.resolveModuleId()...
+                val endpoint = getPlatformEndpoint(
+                    platformID,
+                    request.resolveModuleId(),
+                    request.interfaceRole
+                ) // could replace with request.resolveModuleId()...
                 urlJoin(endpoint.url, request.urlPath)
             }
 
@@ -193,7 +205,11 @@ class RoutingService(private val platformRepo: PlatformRepository,
      * Used after validating a receiver: find the remote recipient's OCN Node server address (url) and prepare
      * the OCN message body and headers (containing the new X-Request-ID and the signature of the OCN message body).
      */
-    fun prepareRemotePlatformRequest(request: OcpiRequestVariables, proxied: Boolean = false, alterBody: ((url: String) -> OcpiRequestVariables)? = null): Triple<String, OcnMessageHeaders, String> {
+    fun prepareRemotePlatformRequest(
+        request: OcpiRequestVariables,
+        proxied: Boolean = false,
+        alterBody: ((url: String) -> OcpiRequestVariables)? = null
+    ): Triple<String, OcnMessageHeaders, String> {
 
         val url = registryService.getRemoteNodeUrlOf(request.headers.receiver)
 
@@ -212,11 +228,12 @@ class RoutingService(private val platformRepo: PlatformRepository,
         // strip authorization
         modifiedBody = modifiedBody.copy(headers = modifiedBody.headers.copy(authorization = ""))
 
-        val bodyString = httpClient.mapper.writeValueAsString(modifiedBody)
+        val bodyString = httpClientComponent.mapper.writeValueAsString(modifiedBody)
 
         val headers = OcnMessageHeaders(
-                requestID = generateUUIDv4Token(),
-                signature = walletService.sign(bodyString))
+            requestID = generateUUIDv4Token(),
+            signature = walletService.sign(bodyString)
+        )
 
         return Triple(url, headers, bodyString)
     }
@@ -230,8 +247,8 @@ class RoutingService(private val platformRepo: PlatformRepository,
             id?.let {
                 // first check by proxy UID (sender and receiver should be reversed in this case) then by ID
                 return proxyResourceRepo.findByAlternativeUIDAndSenderAndReceiver(it, sender, receiver)?.resource
-                        ?: proxyResourceRepo.findByIdAndSenderAndReceiver(it.toLong(), sender, receiver)?.resource
-                        ?: throw Exception()
+                    ?: proxyResourceRepo.findByIdAndSenderAndReceiver(it.toLong(), sender, receiver)?.resource
+                    ?: throw Exception()
             }
             throw Exception()
         } catch (_: Exception) {
@@ -243,12 +260,18 @@ class RoutingService(private val platformRepo: PlatformRepository,
     /**
      * Save a given resource in order to proxy it (identified by the entity's generated ID).
      */
-    fun setProxyResource(resource: String, sender: BasicRole, receiver: BasicRole, alternativeUID: String? = null): String {
+    fun setProxyResource(
+        resource: String,
+        sender: BasicRole,
+        receiver: BasicRole,
+        alternativeUID: String? = null
+    ): String {
         val proxyResource = ProxyResourceEntity(
-                resource = resource,
-                sender = sender,
-                receiver = receiver,
-                alternativeUID = alternativeUID)
+            resource = resource,
+            sender = sender,
+            receiver = receiver,
+            alternativeUID = alternativeUID
+        )
         val savedEntity = proxyResourceRepo.save(proxyResource)
         return alternativeUID ?: savedEntity.id!!.toString()
     }

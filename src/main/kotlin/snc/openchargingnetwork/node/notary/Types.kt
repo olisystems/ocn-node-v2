@@ -20,16 +20,18 @@ import com.fasterxml.jackson.annotation.JsonProperty
 
 /**
  * Possible OCPI request/response headers
- */ 
-data class SignableHeaders(@JsonProperty("x-correlation-id")        var correlationId: String? = null,
-                           @JsonProperty("ocpi-from-country-code")  var fromCountryCode: String? = null,
-                           @JsonProperty("ocpi-from-party-id")      var fromPartyId: String? = null,
-                           @JsonProperty("ocpi-to-country-code")    var toCountryCode: String? = null,
-                           @JsonProperty("ocpi-to-party-id")        var toPartyId: String? = null,
-                           @JsonProperty("x-limit")                 var limit: String? = null,
-                           @JsonProperty("x-total-count")           var totalCount: String? = null,
-                           @JsonProperty("link")                    var link: String? = null,
-                           @JsonProperty("location")                var location: String? = null)
+ */
+data class SignableHeaders(
+    @JsonProperty("x-correlation-id") var correlationId: String? = null,
+    @JsonProperty("ocpi-from-country-code") var fromCountryCode: String? = null,
+    @JsonProperty("ocpi-from-party-id") var fromPartyId: String? = null,
+    @JsonProperty("ocpi-to-country-code") var toCountryCode: String? = null,
+    @JsonProperty("ocpi-to-party-id") var toPartyId: String? = null,
+    @JsonProperty("x-limit") var limit: String? = null,
+    @JsonProperty("x-total-count") var totalCount: String? = null,
+    @JsonProperty("link") var link: String? = null,
+    @JsonProperty("location") var location: String? = null
+)
 
 /**
  * ValuesToSign provides the values which should be signed.
@@ -38,9 +40,11 @@ data class SignableHeaders(@JsonProperty("x-correlation-id")        var correlat
  * @property body generic body for the appropriate OCPI request
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
-data class ValuesToSign<T>(var headers: SignableHeaders? = null,
-                           var params: Map<String, Any?>? = null,
-                           var body: T? = null)
+data class ValuesToSign<T>(
+    var headers: SignableHeaders? = null,
+    var params: Map<String, Any?>? = null,
+    var body: T? = null
+)
 
 /**
  * Result of the verify method.
@@ -55,6 +59,8 @@ data class VerifyResult(val isValid: Boolean, val error: String? = null)
  * @property error optional error message if verification not successful
  * @property previousValues optional re-built ValuesToSign if verification successful
  */
-data class RewriteVerifyResult(val isValid: Boolean,
-                               val error: String? = null,
-                               val previousValues: ValuesToSign<*>? = null)
+data class RewriteVerifyResult(
+    val isValid: Boolean,
+    val error: String? = null,
+    val previousValues: ValuesToSign<*>? = null
+)

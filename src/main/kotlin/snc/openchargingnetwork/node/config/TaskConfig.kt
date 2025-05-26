@@ -23,7 +23,7 @@ import org.springframework.scheduling.config.ScheduledTaskRegistrar
 
 
 @Configuration
-class TaskConfig(private val scheduledTasks: List<IntervalTask>): SchedulingConfigurer {
+class TaskConfig(private val scheduledTasks: List<IntervalTask>) : SchedulingConfigurer {
 
     override fun configureTasks(taskRegistrar: ScheduledTaskRegistrar) {
         // override default thread pool task scheduler as follows:

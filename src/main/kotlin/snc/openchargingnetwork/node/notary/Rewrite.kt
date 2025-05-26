@@ -27,10 +27,12 @@ import org.web3j.crypto.Hash
  * @property rsv the concatenated signature of the overwritten message
  * @property signatory the signer of the overwritten message
  */
-class Rewrite(val rewrittenFields: Map<String, Any?>,
-              val hash: String,
-              val rsv: String,
-              val signatory: String) {
+class Rewrite(
+    val rewrittenFields: Map<String, Any?>,
+    val hash: String,
+    val rsv: String,
+    val signatory: String
+) {
 
     /**
      * Verify a rewrite given a modified request.
@@ -38,7 +40,12 @@ class Rewrite(val rewrittenFields: Map<String, Any?>,
      * @param modifiedValues the newly modified request used to build the old request
      * @returns RewriteVerifyResult with message validity and optional error message / re-built message
      */
-    fun verify(fields: List<String>, modifiedValues: ValuesToSign<*>, jsonPath: ParseContext, objectMapper: ObjectMapper): RewriteVerifyResult {
+    fun verify(
+        fields: List<String>,
+        modifiedValues: ValuesToSign<*>,
+        jsonPath: ParseContext,
+        objectMapper: ObjectMapper
+    ): RewriteVerifyResult {
         val valuesAsJsonString = objectMapper.writeValueAsString(modifiedValues)
         val parser = jsonPath.parse(valuesAsJsonString)
 
