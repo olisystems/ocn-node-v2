@@ -16,29 +16,30 @@
 
 package snc.openchargingnetwork.node.config
 
+import io.ktor.http.isSuccess
+import org.slf4j.LoggerFactory
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
+import org.springframework.http.HttpMethod
 import org.springframework.stereotype.Component
+import snc.openchargingnetwork.node.models.ControllerResponse
+import snc.openchargingnetwork.node.models.Party
 import snc.openchargingnetwork.node.tools.urlJoin
 import java.net.ConnectException
 import java.net.InetAddress
-import java.net.UnknownHostException
-import org.slf4j.LoggerFactory
-import org.springframework.context.annotation.Profile
-import snc.openchargingnetwork.node.models.ControllerResponse
-import snc.openchargingnetwork.node.models.Party
 import java.net.URI
+import java.net.UnknownHostException
 import javax.net.ssl.SSLException
 
 @Component
-class Verification(private val properties: NodeProperties, private val httpClient: HttpClient) {
+class Verification(private val properties: NodeProperties, private val httpClientComponent: HttpClientComponent) {
     /**
      * Self-Checks node basic health.
      * Only executes when using profiles other than test.
      */
 
-	companion object {
-		private val logger = LoggerFactory.getLogger(Verification::class.java)
+    companion object {
+        private val logger = LoggerFactory.getLogger(Verification::class.java)
     }
 
     @EventListener(ApplicationReadyEvent::class)
@@ -55,7 +56,7 @@ class Verification(private val properties: NodeProperties, private val httpClien
 
     @EventListener(ApplicationReadyEvent::class)
     fun testPublicURL() {
-        val url = URI(this.properties.url  + "/" + this.properties.apiPrefix).toURL()
+        val url = URI(this.properties.url + "/" + this.properties.apiPrefix).toURL()
 
         val inetAddress = try {
             InetAddress.getByName(url.host)
@@ -79,26 +80,30 @@ class Verification(private val properties: NodeProperties, private val httpClien
         val healthURL = urlJoin(this.properties.url, this.properties.apiPrefix, "/health")
 
         try {
-            val response = httpClient.get(healthURL)
-            if (!response.success) {
-				logger.warn("${response.error}. Application stack may not be healthy.")
+            val response = httpClientComponent.sendHttpRequest(healthURL.toString(), HttpMethod.GET)
+            if (!response.statusCode.isSuccess()) {
+                logger.warn("${response.body}. Application stack may not be healthy.")
             }
         } catch (e: ConnectException) {
             throw IllegalArgumentException("Unable to connect. Ensure $healthURL is reachable.")
         } catch (e: SSLException) {
             throw IllegalArgumentException("Experienced SSL exception. Ensure $healthURL has correct certificates.")
+        } catch (e: Exception) {
+            throw e
         }
     }
 
     private fun testRegistryAccess() {
-        val response: ControllerResponse<List<Party>> = httpClient.getIndexedOcnRegistry(
+        val response: ControllerResponse<List<Party>> = httpClientComponent.getIndexedOcnRegistry(
             properties.registryIndexerUrl,
             properties.registryIndexerToken
         )
         println(response)
         if (!response.success) {
-            throw IllegalArgumentException("Unable to connect to Registry Indexer. " +
-                    "Ensure ${properties.registryIndexerUrl} is reachable.")
+            throw IllegalArgumentException(
+                "Unable to connect to Registry Indexer. " +
+                        "Ensure ${properties.registryIndexerUrl} is reachable."
+            )
         }
     }
 

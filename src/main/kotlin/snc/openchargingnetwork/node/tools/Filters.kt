@@ -11,7 +11,9 @@ import snc.openchargingnetwork.node.models.ocpi.BasicRole
 fun filterOperatorsByParty(registry: OcnRegistry, role: BasicRole): Operator {
     val operators = registry.operators.filter {
         it.parties.any {
-            it.partyId == role.id && it.countryCode == role.country } }
+            it.partyId == role.id && it.countryCode == role.country
+        }
+    }
     if (operators.isEmpty()) throw OcpiHubUnknownReceiverException("Recipient not registered on OCN")
     return operators.first()
 }

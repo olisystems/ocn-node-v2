@@ -33,10 +33,12 @@ import snc.openchargingnetwork.node.scheduledTasks.PlannedPartySearch
 class NodeConfig(private val properties: NodeProperties) {
 
     @Bean
-    fun databaseInitializer(platformRepo: PlatformRepository,
-                            roleRepo: RoleRepository,
-                            endpointRepo: EndpointRepository,
-                            proxyResourceRepository: ProxyResourceRepository) = ApplicationRunner {}
+    fun databaseInitializer(
+        platformRepo: PlatformRepository,
+        roleRepo: RoleRepository,
+        endpointRepo: EndpointRepository,
+        proxyResourceRepository: ProxyResourceRepository
+    ) = ApplicationRunner {}
 
 
     // TODO: Use the indexer instead
@@ -52,17 +54,19 @@ class NodeConfig(private val properties: NodeProperties) {
 
     // TODO: Move away from deprecated method
     @Bean
-    fun newScheduledTasks(registry: OcnRegistry,
-                          httpClient: HttpClient,
-                          platformRepo: PlatformRepository,
-                          roleRepo: RoleRepository,
-                          networkClientInfoRepo: NetworkClientInfoRepository): List<IntervalTask> {
+    fun newScheduledTasks(
+        registry: OcnRegistry,
+        httpClientComponent: HttpClientComponent,
+        platformRepo: PlatformRepository,
+        roleRepo: RoleRepository,
+        networkClientInfoRepo: NetworkClientInfoRepository
+    ): List<IntervalTask> {
 
         val taskList = mutableListOf<IntervalTask>()
         val hasPrivateKey = properties.privateKey !== null
 
         if (properties.stillAliveEnabled && hasPrivateKey) {
-            val stillAliveTask = HubClientInfoStillAliveCheck(httpClient, platformRepo, properties)
+            val stillAliveTask = HubClientInfoStillAliveCheck(httpClientComponent, platformRepo, properties)
 //            val interval = properties.stillAliveRate.toLong().toDuration(DurationUnit.MILLISECONDS)
             taskList.add(IntervalTask(stillAliveTask, properties.stillAliveRate.toLong()))
         }
@@ -74,7 +78,6 @@ class NodeConfig(private val properties: NodeProperties) {
         }
         return taskList.toList()
     }
-
 
 
 //    // modify the default task executor (runs async tasks, not to be confused with scheduled tasks)

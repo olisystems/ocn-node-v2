@@ -50,7 +50,6 @@ dependencies {
 
 	// Project-Specific
 	implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
-	implementation("org.danilopianini:khttp:1.6.3")
 	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
 	implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
 	implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")

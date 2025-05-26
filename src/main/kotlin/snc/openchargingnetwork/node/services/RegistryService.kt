@@ -16,8 +16,10 @@ import snc.openchargingnetwork.node.tools.filterOperatorsByParty
  * TODO: review tests
  */
 @Service
-class RegistryService(private val registry: OcnRegistry,
-                      private val properties: NodeProperties) {
+class RegistryService(
+    private val registry: OcnRegistry,
+    private val properties: NodeProperties
+) {
 
     /**
      * Get nodes listed in registry

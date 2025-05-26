@@ -23,7 +23,7 @@ import snc.openchargingnetwork.node.models.ocpi.ConnectionStatus
 import snc.openchargingnetwork.node.models.ocpi.InterfaceRole
 import snc.openchargingnetwork.node.models.ocpi.Role
 
-interface PlatformRepository: CrudRepository<PlatformEntity, Long> {
+interface PlatformRepository : CrudRepository<PlatformEntity, Long> {
     fun existsByAuth_TokenA(tokenA: String?): Boolean
     fun existsByAuth_TokenC(tokenC: String?): Boolean
     fun findByAuth_TokenA(tokenA: String?): PlatformEntity?
@@ -31,11 +31,17 @@ interface PlatformRepository: CrudRepository<PlatformEntity, Long> {
     fun findByStatusIn(connectionStatusList: List<ConnectionStatus>): Iterable<PlatformEntity>
 }
 
-interface RoleRepository: CrudRepository<RoleEntity, Long> {
+interface RoleRepository : CrudRepository<RoleEntity, Long> {
     // used in registration to prevent multiple roles of the same country_code/party_id combination
     fun existsByCountryCodeAndPartyIDAllIgnoreCase(countryCode: String, partyID: String): Boolean
+
     // used to ensure sender's role is registered to a platform on the broker (hub)
-    fun existsByPlatformIDAndCountryCodeAndPartyIDAllIgnoreCase(platformID: Long?, countryCode: String, partyID: String): Boolean
+    fun existsByPlatformIDAndCountryCodeAndPartyIDAllIgnoreCase(
+        platformID: Long?,
+        countryCode: String,
+        partyID: String
+    ): Boolean
+
     // used in routing to find roles registered with broker (hub)
     fun findFirstByCountryCodeAndPartyIDAllIgnoreCaseOrderByIdAsc(countryCode: String, partyID: String): RoleEntity?
     fun findAllByCountryCodeAndPartyIDAllIgnoreCase(countryCode: String, partyID: String): Iterable<RoleEntity>
@@ -43,25 +49,34 @@ interface RoleRepository: CrudRepository<RoleEntity, Long> {
     fun deleteByPlatformID(platformID: Long?)
 }
 
-interface EndpointRepository: CrudRepository<EndpointEntity, Long> {
+interface EndpointRepository : CrudRepository<EndpointEntity, Long> {
     fun findByPlatformID(platformID: Long?): Iterable<EndpointEntity>
-    fun findByPlatformIDAndIdentifierAndRole(platformID: Long?, identifier: String, Role: InterfaceRole): EndpointEntity?
+    fun findByPlatformIDAndIdentifierAndRole(
+        platformID: Long?,
+        identifier: String,
+        Role: InterfaceRole
+    ): EndpointEntity?
+
     fun deleteByPlatformID(platformID: Long?)
 }
 
-interface ProxyResourceRepository: CrudRepository<ProxyResourceEntity, Long> {
+interface ProxyResourceRepository : CrudRepository<ProxyResourceEntity, Long> {
     fun findByIdAndSenderAndReceiver(id: Long?, sender: BasicRole, receiver: BasicRole): ProxyResourceEntity?
-    fun findByAlternativeUIDAndSenderAndReceiver(alternativeUID: String, sender: BasicRole, receiver: BasicRole): ProxyResourceEntity?
+    fun findByAlternativeUIDAndSenderAndReceiver(
+        alternativeUID: String,
+        sender: BasicRole,
+        receiver: BasicRole
+    ): ProxyResourceEntity?
 }
 
-interface OcnRulesListRepository: CrudRepository<OcnRulesListEntity, Long> {
+interface OcnRulesListRepository : CrudRepository<OcnRulesListEntity, Long> {
     fun existsByCounterparty(party: BasicRole): Boolean
     fun findAllByPlatformID(platformID: Long?): Iterable<OcnRulesListEntity>
     fun deleteByPlatformID(platformID: Long?)
     fun deleteByPlatformIDAndCounterparty(platformID: Long?, party: BasicRole)
 }
 
-interface NetworkClientInfoRepository: CrudRepository<NetworkClientInfoEntity, Long> {
+interface NetworkClientInfoRepository : CrudRepository<NetworkClientInfoEntity, Long> {
     fun existsByPartyAndRole(party: BasicRole, role: Role): Boolean
     fun findByPartyAndRole(party: BasicRole, role: Role): NetworkClientInfoEntity?
     fun deleteByPartyAndRole(party: BasicRole, role: Role)

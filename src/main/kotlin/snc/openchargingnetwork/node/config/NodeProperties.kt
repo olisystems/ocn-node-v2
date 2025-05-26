@@ -38,7 +38,7 @@ class NodeProperties {
 
     var haasOn: Boolean = false
 
-    var haasUrl: String =  ""
+    var haasUrl: String = ""
 
     lateinit var url: String
 

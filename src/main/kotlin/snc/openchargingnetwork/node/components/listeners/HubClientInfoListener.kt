@@ -23,15 +23,18 @@ import snc.openchargingnetwork.node.models.entities.NetworkClientInfoEntity
 import snc.openchargingnetwork.node.models.entities.PlatformEntity
 import snc.openchargingnetwork.node.models.entities.RoleEntity
 import snc.openchargingnetwork.node.models.events.*
-import snc.openchargingnetwork.node.models.ocpi.*
+import snc.openchargingnetwork.node.models.ocpi.ClientInfo
+import snc.openchargingnetwork.node.models.ocpi.ConnectionStatus
 import snc.openchargingnetwork.node.repositories.RoleRepository
 import snc.openchargingnetwork.node.services.HubClientInfoService
 
 // TODO: Re-create event streams and notifications system with modern Kotlin
 
 @Component
-class HubClientInfoListener(private val hubClientInfoService: HubClientInfoService,
-                            private val roleRepo: RoleRepository) {
+class HubClientInfoListener(
+    private val hubClientInfoService: HubClientInfoService,
+    private val roleRepo: RoleRepository
+) {
 
     @Async
     @TransactionalEventListener
@@ -71,11 +74,12 @@ class HubClientInfoListener(private val hubClientInfoService: HubClientInfoServi
     private fun notifyNetworkOfChanges(changedPlatform: PlatformEntity, changedRoles: Iterable<RoleEntity>) {
         for (platformRole in changedRoles) {
             val updatedClientInfo = ClientInfo(
-                    partyID = platformRole.partyID,
-                    countryCode = platformRole.countryCode,
-                    role = platformRole.role,
-                    status = changedPlatform.status,
-                    lastUpdated = changedPlatform.lastUpdated)
+                partyID = platformRole.partyID,
+                countryCode = platformRole.countryCode,
+                role = platformRole.role,
+                status = changedPlatform.status,
+                lastUpdated = changedPlatform.lastUpdated
+            )
 
             val parties = hubClientInfoService.getPartiesToNotifyOfClientInfoChange(changedPlatform, updatedClientInfo)
             hubClientInfoService.notifyPartiesOfClientInfoChange(parties, updatedClientInfo)
@@ -87,11 +91,12 @@ class HubClientInfoListener(private val hubClientInfoService: HubClientInfoServi
 
     private fun notifyNetworkOfNewlyPlannedRole(plannedRole: NetworkClientInfoEntity) {
         val clientInfo = ClientInfo(
-                partyID = plannedRole.party.id,
-                countryCode = plannedRole.party.country,
-                role = plannedRole.role,
-                status = ConnectionStatus.PLANNED,
-                lastUpdated = plannedRole.lastUpdated)
+            partyID = plannedRole.party.id,
+            countryCode = plannedRole.party.country,
+            role = plannedRole.role,
+            status = ConnectionStatus.PLANNED,
+            lastUpdated = plannedRole.lastUpdated
+        )
         val parties = hubClientInfoService.getPartiesToNotifyOfClientInfoChange(clientInfo = clientInfo)
         hubClientInfoService.notifyPartiesOfClientInfoChange(parties, clientInfo)
 

@@ -18,12 +18,18 @@ package snc.openchargingnetwork.node.models.ocpi
 
 import com.fasterxml.jackson.annotation.JsonProperty
 
-data class Version(@JsonProperty("version") val version: String,
-                   @JsonProperty("url") val url: String)
+data class Version(
+    @JsonProperty("version") val version: String,
+    @JsonProperty("url") val url: String
+)
 
-data class VersionDetail(@JsonProperty("version") val version: String,
-                         @JsonProperty("endpoints") val endpoints: List<Endpoint>)
+data class VersionDetail(
+    @JsonProperty("version") val version: String,
+    @JsonProperty("endpoints") val endpoints: List<Endpoint>
+)
 
-data class Endpoint(@JsonProperty("identifier") val identifier: String,
-                    @JsonProperty("role") val role: InterfaceRole,
-                    @JsonProperty("url") val url: String)
+data class Endpoint(
+    @JsonProperty("identifier") val identifier: String,
+    @JsonProperty("role") val role: InterfaceRole,
+    @JsonProperty("url") val url: String
+)

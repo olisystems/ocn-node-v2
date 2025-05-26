@@ -41,24 +41,32 @@ class NodeInfoLogger(private val properties: NodeProperties, private val dataSou
         val stillAliveText = getStillAliveText()
         val plannedPartyText = getPlannedPartyText()
 
-        println("\n${border.substring(0, 3)} NODE INFO ${border.substring(17)}\n" +
-                " URL     | ${properties.url}/${properties.apiPrefix}\n" +
-                " ADDRESS | $addressText\n" +
-                " API KEY | ${properties.apikey}")
+        println(
+            "\n${border.substring(0, 3)} NODE INFO ${border.substring(17)}\n" +
+                    " URL     | ${properties.url}/${properties.apiPrefix}\n" +
+                    " ADDRESS | $addressText\n" +
+                    " API KEY | ${properties.apikey}"
+        )
 
-        println("${border.substring(0, 3)} REGISTRY ${border.substring(15)}\n" +
-                " REGISTRY SUBGRAPH | ${properties.registryIndexerUrl}\n")
+        println(
+            "${border.substring(0, 3)} REGISTRY ${border.substring(15)}\n" +
+                    " REGISTRY SUBGRAPH | ${properties.registryIndexerUrl}\n"
+        )
 
-        println("${border.substring(0, 3)} FEATURES ${border.substring(16)}\n" +
-                " DEV MODE             | ${properties.dev}\n" +
-                " SIGNATURES           | ${properties.signatures}\n" +
-                " STILL ALIVE CHECK    | $stillAliveText\n" +
-                " PLANNED PARTY SEARCH | $plannedPartyText\n")
+        println(
+            "${border.substring(0, 3)} FEATURES ${border.substring(16)}\n" +
+                    " DEV MODE             | ${properties.dev}\n" +
+                    " SIGNATURES           | ${properties.signatures}\n" +
+                    " STILL ALIVE CHECK    | $stillAliveText\n" +
+                    " PLANNED PARTY SEARCH | $plannedPartyText\n"
+        )
 
-        println("${border.substring(0, 3)} DATABASE ${border.substring(16)}\n" +
-                " URL      | ${dataSourceProperties.url}\n" +
-                " USERNAME | ${dataSourceProperties.username}\n" +
-                " PASSWORD | ${maskPassword(dataSourceProperties.password)}\n")
+        println(
+            "${border.substring(0, 3)} DATABASE ${border.substring(16)}\n" +
+                    " URL      | ${dataSourceProperties.url}\n" +
+                    " USERNAME | ${dataSourceProperties.username}\n" +
+                    " PASSWORD | ${maskPassword(dataSourceProperties.password)}\n"
+        )
     }
 
     private fun calculateBorderLength(url: Int, apikey: Int): Int {

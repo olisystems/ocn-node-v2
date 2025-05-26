@@ -38,19 +38,23 @@ import snc.openchargingnetwork.node.tools.urlJoin
 
 @RestController
 @RequestMapping("\${ocn.node.apiPrefix}/admin")
-class AdminController(private val platformRepo: PlatformRepository,
-                      private val roleRepo: RoleRepository,
-                      private val endpointRepo: EndpointRepository,
-                      private val properties: NodeProperties) {
+class AdminController(
+    private val platformRepo: PlatformRepository,
+    private val roleRepo: RoleRepository,
+    private val endpointRepo: EndpointRepository,
+    private val properties: NodeProperties
+) {
 
     fun isAuthorized(authorization: String): Boolean {
         return authorization == "Token ${properties.apikey}" || authorization == "Token ${properties.base64apiKey}"
     }
 
     @GetMapping("/connection-status/{countryCode}/{partyID}")
-    fun getConnectionStatus(@RequestHeader("Authorization") authorization: String,
-                            @PathVariable countryCode: String,
-                            @PathVariable partyID: String): ResponseEntity<String> {
+    fun getConnectionStatus(
+        @RequestHeader("Authorization") authorization: String,
+        @PathVariable countryCode: String,
+        @PathVariable partyID: String
+    ): ResponseEntity<String> {
 
         // check admin is authorized
         if (!isAuthorized(authorization)) {
@@ -58,18 +62,19 @@ class AdminController(private val platformRepo: PlatformRepository,
         }
 
         val role = roleRepo.findAllByCountryCodeAndPartyIDAllIgnoreCase(countryCode, partyID).firstOrNull()
-                ?: return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Role not found")
+            ?: return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Role not found")
 
         val platform = platformRepo.findByIdOrNull(role.platformID)
-                        ?: return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Could not find connection status")
+            ?: return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Could not find connection status")
 
         return ResponseEntity.ok().body(platform.status.toString())
     }
 
     @PostMapping("/generate-registration-token")
     @Transactional
-    fun generateRegistrationToken(@RequestHeader("Authorization") authorization: String,
-                                  @RequestBody body: Array<BasicRole>
+    fun generateRegistrationToken(
+        @RequestHeader("Authorization") authorization: String,
+        @RequestBody body: Array<BasicRole>
     ): ResponseEntity<Any> {
 
         // check admin is authorized
@@ -95,9 +100,11 @@ class AdminController(private val platformRepo: PlatformRepository,
     }
 
     @GetMapping("/platform/{countryCode}/{partyID}")
-    fun getPlatform(@RequestHeader("Authorization") authorization: String,
-                            @PathVariable countryCode: String,
-                            @PathVariable partyID: String): ResponseEntity<PlatformEntity> {
+    fun getPlatform(
+        @RequestHeader("Authorization") authorization: String,
+        @PathVariable countryCode: String,
+        @PathVariable partyID: String
+    ): ResponseEntity<PlatformEntity> {
 
         // check admin is authorized
         if (!isAuthorized(authorization)) {
@@ -114,9 +121,11 @@ class AdminController(private val platformRepo: PlatformRepository,
     }
 
     @GetMapping("/role/{countryCode}/{partyID}")
-    fun getRole(@RequestHeader("Authorization") authorization: String,
-                    @PathVariable countryCode: String,
-                    @PathVariable partyID: String): ResponseEntity<RoleEntity> {
+    fun getRole(
+        @RequestHeader("Authorization") authorization: String,
+        @PathVariable countryCode: String,
+        @PathVariable partyID: String
+    ): ResponseEntity<RoleEntity> {
 
         // check admin is authorized
         if (!isAuthorized(authorization)) {
@@ -130,9 +139,11 @@ class AdminController(private val platformRepo: PlatformRepository,
 
 
     @GetMapping("/endpoints/{countryCode}/{partyID}")
-    fun getEndpoints(@RequestHeader("Authorization") authorization: String,
-                @PathVariable countryCode: String,
-                @PathVariable partyID: String): ResponseEntity<Iterable<EndpointEntity>> {
+    fun getEndpoints(
+        @RequestHeader("Authorization") authorization: String,
+        @PathVariable countryCode: String,
+        @PathVariable partyID: String
+    ): ResponseEntity<Iterable<EndpointEntity>> {
 
         // check admin is authorized
         if (!isAuthorized(authorization)) {
@@ -152,9 +163,11 @@ class AdminController(private val platformRepo: PlatformRepository,
 
     @DeleteMapping("/party/{countryCode}/{partyID}")
     @Transactional
-    fun deleteParty(@RequestHeader("Authorization") authorization: String,
-                     @PathVariable countryCode: String,
-                     @PathVariable partyID: String): ResponseEntity<String> {
+    fun deleteParty(
+        @RequestHeader("Authorization") authorization: String,
+        @PathVariable countryCode: String,
+        @PathVariable partyID: String
+    ): ResponseEntity<String> {
 
         // check admin is authorized
         if (!isAuthorized(authorization)) {
@@ -163,12 +176,12 @@ class AdminController(private val platformRepo: PlatformRepository,
 
         var responseMessage = "No role found for party $partyID in country $countryCode"
         val role = roleRepo.findAllByCountryCodeAndPartyIDAllIgnoreCase(countryCode, partyID).firstOrNull()
-        if(role != null) {
+        if (role != null) {
             roleRepo.delete(role)
             responseMessage = "Role deleted successfully"
 
             val platform = platformRepo.findByIdOrNull(role.platformID)
-            if(platform != null) {
+            if (platform != null) {
                 platformRepo.delete(platform)
                 responseMessage += " | Platform deleted successfully"
 

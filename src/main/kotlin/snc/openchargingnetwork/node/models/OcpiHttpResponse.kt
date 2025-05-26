@@ -16,24 +16,36 @@
 
 package snc.openchargingnetwork.node.models
 
+import io.ktor.http.*
 import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 import shareandcharge.openchargingnetwork.notary.SignableHeaders
 import shareandcharge.openchargingnetwork.notary.ValuesToSign
 import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
 
-data class HttpResponse<T: Any>(val statusCode: Int,
-                                val headers: Map<String, String>,
-                                val body: OcpiResponse<T>) {
+data class SyncedHttpResponse(
+    val statusCode: HttpStatusCode,
+    val headers: Headers,
+    val contentType: ContentType?,
+    val contentLength: Long?,
+    val body: String,
+    )
+
+data class OcpiHttpResponse<T : Any>(
+    val statusCode: Int,
+    val headers: Map<String, String>,
+    val body: OcpiResponse<T>? = null
+) {
     fun toSignedValues(): ValuesToSign<OcpiResponse<T>> {
         return ValuesToSign(
-                headers = SignableHeaders(
-                        limit = headers["X-Limit"] ?: headers["x-limit"],
-                        totalCount = headers["X-Total-Count"] ?: headers["x-total-count"],
-                        link = headers["Link"] ?: headers["link"],
-                        location = headers["Location"] ?: headers["location"]
-                ),
-                body = body)
+            headers = SignableHeaders(
+                limit = headers["X-Limit"] ?: headers["x-limit"],
+                totalCount = headers["X-Total-Count"] ?: headers["x-total-count"],
+                link = headers["Link"] ?: headers["link"],
+                location = headers["Location"] ?: headers["location"]
+            ),
+            body = body
+        )
     }
 }
 

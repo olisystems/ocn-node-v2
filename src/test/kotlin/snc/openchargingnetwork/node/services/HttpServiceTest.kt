@@ -7,7 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.client.TestRestTemplate
 import org.springframework.test.context.ActiveProfiles
-import snc.openchargingnetwork.node.config.HttpClient
+import snc.openchargingnetwork.node.config.HttpClientComponent
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.Party
 import snc.openchargingnetwork.node.models.SpringErrorResponse
@@ -19,7 +19,7 @@ import snc.openchargingnetwork.node.models.SpringErrorResponse
 @ActiveProfiles("test")
 class HttpServiceTest(@Autowired val restTemplate: TestRestTemplate,
                       @Autowired val properties: NodeProperties,
-                      @Autowired val httpClient: HttpClient,) {
+                      @Autowired val httpClientComponent: HttpClientComponent,) {
     @Test
     fun getMapper() {
     }

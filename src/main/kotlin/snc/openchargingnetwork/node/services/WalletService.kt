@@ -22,7 +22,7 @@ import org.web3j.crypto.Credentials
 import org.web3j.crypto.Keys
 import org.web3j.crypto.Sign
 import org.web3j.utils.Numeric
-import snc.openchargingnetwork.node.config.HttpClient
+import snc.openchargingnetwork.node.config.HttpClientComponent
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.OcnRegistry
 import snc.openchargingnetwork.node.models.exceptions.InvalidOcnSignatureException
@@ -36,9 +36,10 @@ import java.nio.charset.StandardCharsets
  * Provides methods for the node's wallet; sign and verify messages sent between nodes
  */
 @Service
-class WalletService(private val properties: NodeProperties,
-                    private val registry: OcnRegistry,
-                    private val httpClient: HttpClient
+class WalletService(
+    private val properties: NodeProperties,
+    private val registry: OcnRegistry,
+    private val httpClientComponent: HttpClientComponent
 ) {
 
     /**
@@ -95,7 +96,7 @@ class WalletService(private val properties: NodeProperties,
      */
     fun verifyClientInfo(clientInfoString: String, signature: String): ClientInfo {
         // Fetch Operator from the Registry
-        val clientInfo: ClientInfo = httpClient.mapper.readValue(clientInfoString)
+        val clientInfo: ClientInfo = httpClientComponent.mapper.readValue(clientInfoString)
         val role = BasicRole(clientInfo.partyID, clientInfo.countryCode)
         val op = filterOperatorsByParty(registry, role)
         // Verify if signature matches address
@@ -104,8 +105,10 @@ class WalletService(private val properties: NodeProperties,
         val signingKey = Sign.signedPrefixedMessageToKey(dataToVerify, Sign.SignatureData(v, r, s))
         val signingAddress = "0x${Keys.getAddress(signingKey)}"
         if (signingAddress.lowercase() != op.id) {
-            throw InvalidOcnSignatureException("Invalid OCN-Signature header. " +
-                    "Client registered with operator $op but update signed by $signingAddress.")
+            throw InvalidOcnSignatureException(
+                "Invalid OCN-Signature header. " +
+                        "Client registered with operator $op but update signed by $signingAddress."
+            )
         }
         return clientInfo
     }

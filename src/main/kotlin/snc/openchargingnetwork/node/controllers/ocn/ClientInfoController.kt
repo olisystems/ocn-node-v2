@@ -6,12 +6,16 @@ import snc.openchargingnetwork.node.services.WalletService
 
 @RestController
 @RequestMapping("\${ocn.node.apiPrefix}/ocn/message/ocn/client-info")
-class ClientInfoController(private val hubClientInfoService: HubClientInfoService,
-                           private val walletService: WalletService) {
+class ClientInfoController(
+    private val hubClientInfoService: HubClientInfoService,
+    private val walletService: WalletService
+) {
 
     @PutMapping
-    fun updateClientInfo(@RequestHeader("OCN-Signature") signature: String,
-                         @RequestBody body: String) {
+    fun updateClientInfo(
+        @RequestHeader("OCN-Signature") signature: String,
+        @RequestBody body: String
+    ) {
 
         val clientInfo = walletService.verifyClientInfo(body, signature)
 
