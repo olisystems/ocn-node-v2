@@ -25,16 +25,16 @@ import org.springframework.web.server.ResponseStatusException
 import org.web3j.crypto.Credentials
 import snc.openchargingnetwork.node.config.HttpClientComponent
 import snc.openchargingnetwork.node.config.NodeProperties
+import snc.openchargingnetwork.node.config.RegistryIndexerProperties
 import snc.openchargingnetwork.node.models.ControllerResponse
 import snc.openchargingnetwork.node.models.Party
 
-
-// TODO: Fix OCN registry
 
 @RestController
 @RequestMapping("\${ocn.node.apiPrefix}/ocn/registry")
 class RegistryController(
     private val properties: NodeProperties,
+    private val registryIndexerProperties: RegistryIndexerProperties,
     private val httpClientComponent: HttpClientComponent,
 ) {
 
@@ -44,12 +44,12 @@ class RegistryController(
         "address" to Credentials.create(properties.privateKey).address
     )
 
-    // TODO: Nodes data as per OLISYS-4243
     @GetMapping("/nodes")
     fun getRegisteredNodes(): List<Party>? {
         val response: ControllerResponse<List<Party>> = httpClientComponent.getIndexedOcnRegistry(
-            properties.registryIndexerUrl,
-            properties.registryIndexerToken
+            registryIndexerProperties.url,
+            registryIndexerProperties.token,
+            registryIndexerProperties.partiesQuery
         )
         if (response.success) {
             return response.data!!
@@ -62,19 +62,18 @@ class RegistryController(
     fun getNodeOf(
         @PathVariable countryCode: String,
         @PathVariable partyID: String
-    ): Any {
-//        val countryBytes = countryCode.uppercase().toByteArray()
-//        val idBytes = partyID.uppercase().toByteArray()
-
-//        val (address, url) = registry.getOperatorByOcpi(countryBytes, idBytes).sendAsync().get()
-//
-//        if (url == "" || address == "0x0000000000000000000000000000000000000000") {
-//            return "Party not registered on OCN"
-//        }
-        val address = "https://test.com"
-        val url = "0xdeadbeef"
-
-        return mapOf("url" to url, "address" to address)
+    ): Party? {
+        val partyID = "${countryCode}/${partyID}"
+        val response: ControllerResponse<Party> = httpClientComponent.getIndexedOcnRegistry(
+            registryIndexerProperties.url,
+            registryIndexerProperties.token,
+            registryIndexerProperties.singlePartyQuery.format(partyID)
+        )
+        if (response.success) {
+            return response.data!!
+        } else {
+            throw ResponseStatusException(HttpStatus.METHOD_FAILURE, response.error)
+        }
     }
 
 }

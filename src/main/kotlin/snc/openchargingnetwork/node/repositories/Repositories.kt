@@ -35,7 +35,7 @@ interface RoleRepository : CrudRepository<RoleEntity, Long> {
     // used in registration to prevent multiple roles of the same country_code/party_id combination
     fun existsByCountryCodeAndPartyIDAllIgnoreCase(countryCode: String, partyID: String): Boolean
 
-    // used to ensure sender's role is registered to a platform on the broker (hub)
+    // used to ensure the sender's role is registered to a platform on the broker (hub)
     fun existsByPlatformIDAndCountryCodeAndPartyIDAllIgnoreCase(
         platformID: Long?,
         countryCode: String,

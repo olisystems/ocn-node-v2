@@ -19,6 +19,7 @@ package snc.openchargingnetwork.node.config
 import io.ktor.http.isSuccess
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.event.ApplicationReadyEvent
+import org.springframework.context.annotation.Profile
 import org.springframework.context.event.EventListener
 import org.springframework.http.HttpMethod
 import org.springframework.stereotype.Component
@@ -31,8 +32,13 @@ import java.net.URI
 import java.net.UnknownHostException
 import javax.net.ssl.SSLException
 
+@Profile("!test")
 @Component
-class Verification(private val properties: NodeProperties, private val httpClientComponent: HttpClientComponent) {
+class Verification(
+    private val properties: NodeProperties,
+    private val httpClientComponent: HttpClientComponent,
+    private val registryIndexerProperties: RegistryIndexerProperties
+) {
     /**
      * Self-Checks node basic health.
      * Only executes when using profiles other than test.
@@ -94,15 +100,18 @@ class Verification(private val properties: NodeProperties, private val httpClien
     }
 
     private fun testRegistryAccess() {
+        val query = """{party(id: "DE/OLI"){active}}"""
         val response: ControllerResponse<List<Party>> = httpClientComponent.getIndexedOcnRegistry(
-            properties.registryIndexerUrl,
-            properties.registryIndexerToken
+            registryIndexerProperties.url,
+            registryIndexerProperties.token,
+            query
+
         )
         println(response)
         if (!response.success) {
             throw IllegalArgumentException(
                 "Unable to connect to Registry Indexer. " +
-                        "Ensure ${properties.registryIndexerUrl} is reachable."
+                        "Ensure ${registryIndexerProperties.url} is reachable."
             )
         }
     }

@@ -20,40 +20,30 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
 
 
-// TODO:  Clean-up
 @ConfigurationProperties("ocn.node")
 class NodeProperties {
 
-    var apikey: String = generateUUIDv4Token()
-
-    var apiPrefix: String? = null
-
-    var base64apiKey: String = ""
-
+    // development mode
     var dev: Boolean = false
 
+    // admin key used for remote management
+    var apikey: String = generateUUIDv4Token()
+
+    // i.e., ocn-node/v2.1
+    var apiPrefix: String? = null
+
+    // Ethereum account to sign messages and txs
     var privateKey: String? = null
 
+    // Enable signature checking from communicating parties and nodes
     var signatures: Boolean = true
 
-    var haasOn: Boolean = false
-
-    var haasUrl: String = ""
-
+    // OCN Node public URL, used for health checking and broadcasting
     lateinit var url: String
 
-    var registryIndexerUrl: String = ""
-
-    var registryIndexerToken: String = ""
-
-    var stillAliveRate: String = "900000" // defaults to 15 minutes
-
+    // If Enabled keeps a record of live and unresponsive parties
     var stillAliveEnabled: Boolean = true
 
-    var plannedPartySearchRate: String = "3600000" // defaults to 1 hour
-
+    // If Enabled keeps a record of registered OCPI Parties
     var plannedPartySearchEnabled: Boolean = true
-
-    var serviceInterfaceEnabled: Boolean = true
-
 }

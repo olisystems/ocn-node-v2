@@ -13,7 +13,7 @@ import snc.openchargingnetwork.node.tools.filterOperatorsByParty
 
 /**
  * Simplifies calls to the Registry (registry and permissions smart contracts)
- * TODO: review tests
+ * TODO: Modify to live check against the indexer
  */
 @Service
 class RegistryService(

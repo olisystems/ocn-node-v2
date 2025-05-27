@@ -20,9 +20,14 @@ import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import org.web3j.crypto.Credentials
+import snc.openchargingnetwork.node.config.NodeBootstrap.ScheduledTasks.Companion.PLANNED_PARTY_SEARCH_RATE
+import snc.openchargingnetwork.node.config.NodeBootstrap.ScheduledTasks.Companion.STILL_ALIVE_RATE
 
 @Component
-class NodeInfoLogger(private val properties: NodeProperties, private val dataSourceProperties: DataSourceProperties) {
+class NodeInfoLogger(
+    private val properties: NodeProperties,
+    private val dataSourceProperties: DataSourceProperties,
+    private val registryIndexerProperties: RegistryIndexerProperties) {
 
     val hasPrivateKey = properties.privateKey != null
 
@@ -50,7 +55,7 @@ class NodeInfoLogger(private val properties: NodeProperties, private val dataSou
 
         println(
             "${border.substring(0, 3)} REGISTRY ${border.substring(15)}\n" +
-                    " REGISTRY SUBGRAPH | ${properties.registryIndexerUrl}\n"
+                    " REGISTRY SUBGRAPH | ${registryIndexerProperties.url}\n"
         )
 
         println(
@@ -91,13 +96,13 @@ class NodeInfoLogger(private val properties: NodeProperties, private val dataSou
     }
 
     private fun getStillAliveText(): String = if (properties.stillAliveEnabled && hasPrivateKey) {
-        "true (${properties.stillAliveRate.toLong() / 1000}s)"
+        "true (${STILL_ALIVE_RATE/ 1000}s)"
     } else {
         "false"
     }
 
     private fun getPlannedPartyText(): String = if (properties.plannedPartySearchEnabled && hasPrivateKey) {
-        "true (${properties.plannedPartySearchRate.toLong() / 1000}s)"
+        "true (${PLANNED_PARTY_SEARCH_RATE / 1000}s)"
     } else {
         "false"
     }

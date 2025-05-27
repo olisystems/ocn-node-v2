@@ -43,25 +43,6 @@ class HttpClientComponent {
 
     private companion object {
         const val OCN_MESSAGE_ENDPOINT = "/ocn/message"
-        const val PARTIES_QUERY = """
-            {
-                parties {
-                    countryCode
-                    cvStatus
-                    id
-                    name
-                    operator {
-                        id
-                        domain
-                    }
-                    partyAddress
-                    partyId
-                    paymentStatus
-                    roles
-                    url
-                }
-            }
-        """
     }
 
     /**
@@ -210,14 +191,17 @@ class HttpClientComponent {
             )
 
             val body: OcpiResponse<List<Version>> = mapper.readValue(response.body)
-            
+
             when {
-                !response.statusCode.toString().startsWith("2") -> 
+                !response.statusCode.toString().startsWith("2") ->
                     throw OcpiServerUnusableApiException("Unexpected HTTP status code: ${response.statusCode}")
-                body.statusCode != 1000 -> 
+
+                body.statusCode != 1000 ->
                     throw OcpiServerUnusableApiException("Unexpected OCPI status code: ${body.statusCode} - ${body.statusMessage}")
-                body.data == null -> 
+
+                body.data == null ->
                     throw OcpiServerUnusableApiException("No version data received")
+
                 else -> return body.data
             }
         } catch (e: JsonProcessingException) {
@@ -248,16 +232,19 @@ class HttpClientComponent {
                     "X-Request-ID" to generateUUIDv4Token()
                 )
             )
-            
+
             val body: OcpiResponse<VersionDetail> = mapper.readValue(response.body)
 
             when {
                 !response.statusCode.toString().startsWith("2") ->
                     throw OcpiServerUnusableApiException("Unexpected HTTP status code: ${response.statusCode}")
+
                 body.statusCode != 1000 ->
                     throw OcpiServerUnusableApiException("Unexpected OCPI status code: ${body.statusCode} - ${body.statusMessage}")
+
                 body.data == null ->
                     throw OcpiServerUnusableApiException("No version detail data received")
+
                 else -> return body.data
             }
         } catch (e: JsonProcessingException) {
@@ -283,7 +270,7 @@ class HttpClientComponent {
         body: String
     ): OcpiHttpResponse<T> {
         val fullUrl = urlJoin(url, OCN_MESSAGE_ENDPOINT)
-        
+
         try {
             val response = sendHttpRequest(
                 endpoint = fullUrl,
@@ -291,7 +278,7 @@ class HttpClientComponent {
                 body = body,
                 headers = headers.toMap()
             )
-            
+
             return OcpiHttpResponse(
                 statusCode = response.statusCode.value,
                 headers = response.headers.toMap().mapValues { it.value.toString() },
@@ -326,14 +313,15 @@ class HttpClientComponent {
      * @return A ControllerResponse containing a list of Party objects if the operation is successful,
      *         or an error message in case of failure.
      */
-    fun getIndexedOcnRegistry(url: String, authorization: String): ControllerResponse<List<Party>> = runBlocking {
+    fun <T: Any> getIndexedOcnRegistry(url: String, authorization: String, query: String):
+            ControllerResponse<T> = runBlocking {
         try {
             val query = GqlQuery(
-                query = PARTIES_QUERY.trimIndent(),
+                query = query.trimIndent(),
                 operationName = "Subgraphs",
                 variables = emptyMap()
             )
-            
+
             val response = sendHttpRequest(
                 endpoint = url,
                 method = HttpMethod.POST,
@@ -351,21 +339,20 @@ class HttpClientComponent {
             }
 
             val queryResult: GqlResponse = Json.Default.decodeFromString(response.body)
-            
+
             return@runBlocking when {
-                queryResult.errors != null -> createErrorResponse("getIndexedOcnRegistry query error: ${queryResult.errors}")
-                queryResult.data?.parties != null -> ControllerResponse(true, queryResult.data.parties)
-                else -> createErrorResponse("No data received from the GraphQL query")
+                queryResult.errors != null -> createErrorResponse<T>("getIndexedOcnRegistry query error: ${queryResult.errors}")
+                queryResult.data != null -> ControllerResponse(true, queryResult.data.parties as T)
+                else -> createErrorResponse<T>("No data received from the GraphQL query")
             }
-            
+
         } catch (e: Exception) {
-            createErrorResponse("Unexpected error: ${e.message}")
+            createErrorResponse<T>("Unexpected error: ${e.message}")
         }
     }
 
-    private fun createErrorResponse(message: String): ControllerResponse<List<Party>> =
+    private fun <T> createErrorResponse(message: String): ControllerResponse<T> =
         ControllerResponse(success = false, data = null, error = message)
-
 
 
 }

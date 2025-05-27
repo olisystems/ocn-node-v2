@@ -28,7 +28,6 @@ import snc.openchargingnetwork.node.models.ocpi.ConnectionStatus
 import snc.openchargingnetwork.node.repositories.RoleRepository
 import snc.openchargingnetwork.node.services.HubClientInfoService
 
-// TODO: Re-create event streams and notifications system with modern Kotlin
 
 @Component
 class HubClientInfoListener(

@@ -195,14 +195,13 @@ Gradle tasks are configured in `build.gradle.kts` using the Kotlin DSL. The proj
 
 ### Run integration tests
 
-Integration tests depend on `ganache-cli`, a local development blockchain, which is installed using NPM. In one terminal
-window, run the following task, which will attempt to install ganache if not already present and then run it:
-```
-./gradlew ganache
+```shell
+docker-compose build --no-cache
+docker-compose up
 ```
 
 Then, run the tests:
-```
+```shell
 ./gradlew integrationTest
 ```
 

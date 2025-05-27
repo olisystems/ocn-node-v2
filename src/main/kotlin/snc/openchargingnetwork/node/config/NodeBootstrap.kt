@@ -22,15 +22,22 @@ import kotlinx.coroutines.SupervisorJob
 import org.springframework.boot.ApplicationRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.scheduling.config.IntervalTask
 import snc.openchargingnetwork.node.models.OcnRegistry
 import snc.openchargingnetwork.node.repositories.*
 import snc.openchargingnetwork.node.scheduledTasks.HubClientInfoStillAliveCheck
 import snc.openchargingnetwork.node.scheduledTasks.PlannedPartySearch
+import org.springframework.scheduling.annotation.EnableScheduling
+import org.springframework.stereotype.Component
+import org.springframework.scheduling.annotation.Scheduled
+
 
 
 @Configuration
-class NodeConfig(private val properties: NodeProperties) {
+@EnableScheduling
+class NodeBootstrap(
+    private val properties: NodeProperties,
+    private val registryIndexerProperties: RegistryIndexerProperties
+) {
 
     @Bean
     fun databaseInitializer(
@@ -44,7 +51,7 @@ class NodeConfig(private val properties: NodeProperties) {
     // TODO: Use the indexer instead
     @Bean
     fun ocnRegistry(): OcnRegistry {
-        return OcnRegistry(properties.registryIndexerUrl)
+        return OcnRegistry(registryIndexerProperties.url)
     }
 
     @Bean
@@ -52,42 +59,33 @@ class NodeConfig(private val properties: NodeProperties) {
         return CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
 
-    // TODO: Move away from deprecated method
-    @Bean
-    fun newScheduledTasks(
-        registry: OcnRegistry,
-        httpClientComponent: HttpClientComponent,
-        platformRepo: PlatformRepository,
-        roleRepo: RoleRepository,
-        networkClientInfoRepo: NetworkClientInfoRepository
-    ): List<IntervalTask> {
-
-        val taskList = mutableListOf<IntervalTask>()
-        val hasPrivateKey = properties.privateKey !== null
-
-        if (properties.stillAliveEnabled && hasPrivateKey) {
-            val stillAliveTask = HubClientInfoStillAliveCheck(httpClientComponent, platformRepo, properties)
-//            val interval = properties.stillAliveRate.toLong().toDuration(DurationUnit.MILLISECONDS)
-            taskList.add(IntervalTask(stillAliveTask, properties.stillAliveRate.toLong()))
+    @Component
+    class ScheduledTasks(
+        private val httpClientComponent: HttpClientComponent,
+        private val platformRepo: PlatformRepository,
+        private val networkClientInfoRepo: NetworkClientInfoRepository,
+        private val properties: NodeProperties,
+        private val registryIndexerProperties: RegistryIndexerProperties
+    ) {
+        companion object {
+            const val STILL_ALIVE_RATE: Long = 900000 // defaults to 15 minutes
+            const val PLANNED_PARTY_SEARCH_RATE: Long = 3600000 // defaults to 1 hour
         }
 
-        //
-        if (properties.plannedPartySearchEnabled && hasPrivateKey) {
-            val plannedPartyTask = PlannedPartySearch(registry, roleRepo, networkClientInfoRepo, properties)
-            taskList.add(IntervalTask(plannedPartyTask, properties.plannedPartySearchRate.toLong()))
+        @Scheduled(fixedRate = STILL_ALIVE_RATE)
+        fun runStillAliveCheck() {
+            if (properties.stillAliveEnabled) {
+                val stillAliveTask = HubClientInfoStillAliveCheck(httpClientComponent, platformRepo, properties)
+                stillAliveTask.run()
+            }
         }
-        return taskList.toList()
+
+        @Scheduled(fixedRate = PLANNED_PARTY_SEARCH_RATE)
+        fun runPlannedPartySearch() {
+            if (properties.plannedPartySearchEnabled) {
+                val plannedPartyTask = PlannedPartySearch(httpClientComponent, networkClientInfoRepo, registryIndexerProperties)
+                plannedPartyTask.run()
+            }
+        }
     }
-
-
-//    // modify the default task executor (runs async tasks, not to be confused with scheduled tasks)
-//    @Bean
-//    fun taskExecutor(): TaskExecutor {
-//        val taskExecutor = ThreadPoolTaskExecutor()
-//        taskExecutor.corePoolSize = 100
-//        taskExecutor.setThreadNamePrefix("worker-")
-//        return taskExecutor
-//    }
-
 }
-
