@@ -27,6 +27,7 @@ import snc.openchargingnetwork.node.config.HttpClientComponent
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.config.RegistryIndexerProperties
 import snc.openchargingnetwork.node.models.ControllerResponse
+import snc.openchargingnetwork.node.models.GqlData
 import snc.openchargingnetwork.node.models.Party
 
 
@@ -46,13 +47,13 @@ class RegistryController(
 
     @GetMapping("/nodes")
     fun getRegisteredNodes(): List<Party>? {
-        val response: ControllerResponse<List<Party>> = httpClientComponent.getIndexedOcnRegistry(
+        val response: ControllerResponse = httpClientComponent.getIndexedOcnRegistry(
             registryIndexerProperties.url,
             registryIndexerProperties.token,
             registryIndexerProperties.partiesQuery
         )
         if (response.success) {
-            return response.data!!
+            return response.data!!.parties!!
         } else {
             throw ResponseStatusException(HttpStatus.METHOD_FAILURE, response.error)
         }
@@ -64,13 +65,13 @@ class RegistryController(
         @PathVariable partyID: String
     ): Party? {
         val partyID = "${countryCode}/${partyID}"
-        val response: ControllerResponse<Party> = httpClientComponent.getIndexedOcnRegistry(
+        val response: ControllerResponse = httpClientComponent.getIndexedOcnRegistry(
             registryIndexerProperties.url,
             registryIndexerProperties.token,
             registryIndexerProperties.singlePartyQuery.format(partyID)
         )
         if (response.success) {
-            return response.data!!
+            return response.data!!.party!!
         } else {
             throw ResponseStatusException(HttpStatus.METHOD_FAILURE, response.error)
         }
