@@ -101,13 +101,13 @@ class Verification(
 
     private fun testRegistryAccess() {
         val query = """{party(id: "DE/OLI"){active}}"""
-        val response: ControllerResponse<List<Party>> = httpClientComponent.getIndexedOcnRegistry(
+        val response: ControllerResponse = httpClientComponent.getIndexedOcnRegistry(
             registryIndexerProperties.url,
             registryIndexerProperties.token,
             query
 
         )
-        println(response)
+        println(response.data)
         if (!response.success) {
             throw IllegalArgumentException(
                 "Unable to connect to Registry Indexer. " +

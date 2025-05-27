@@ -7,7 +7,6 @@ import io.ktor.client.engine.cio.CIO
 import io.ktor.client.request.header
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
-import io.ktor.client.statement.bodyAsBytes
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentLength
@@ -313,8 +312,8 @@ class HttpClientComponent {
      * @return A ControllerResponse containing a list of Party objects if the operation is successful,
      *         or an error message in case of failure.
      */
-    fun <T: Any> getIndexedOcnRegistry(url: String, authorization: String, query: String):
-            ControllerResponse<T> = runBlocking {
+    fun getIndexedOcnRegistry(url: String, authorization: String, query: String):
+            ControllerResponse = runBlocking {
         try {
             val query = GqlQuery(
                 query = query.trimIndent(),
@@ -333,7 +332,8 @@ class HttpClientComponent {
             )
 
             if (!response.statusCode.isSuccess()) {
-                return@runBlocking createErrorResponse(
+                return@runBlocking ControllerResponse(
+                    false, null,
                     "getIndexedOcnRegistry returned HTTP ${response.statusCode}; Error: ${response.body}"
                 )
             }
@@ -341,18 +341,20 @@ class HttpClientComponent {
             val queryResult: GqlResponse = Json.Default.decodeFromString(response.body)
 
             return@runBlocking when {
-                queryResult.errors != null -> createErrorResponse<T>("getIndexedOcnRegistry query error: ${queryResult.errors}")
-                queryResult.data != null -> ControllerResponse(true, queryResult.data.parties as T)
-                else -> createErrorResponse<T>("No data received from the GraphQL query")
+                // Error
+                queryResult.errors != null -> ControllerResponse(false, null,
+                    "getIndexedOcnRegistry query error: ${queryResult.errors}")
+                // Success
+                queryResult.data != null -> ControllerResponse(true, queryResult.data)
+                // Undefined behaviour
+                else -> ControllerResponse(false, null,
+                    "No data received from the GraphQL query")
             }
 
         } catch (e: Exception) {
-            createErrorResponse<T>("Unexpected error: ${e.message}")
+            ControllerResponse(false, null,"Unexpected error: ${e.message}")
         }
     }
-
-    private fun <T> createErrorResponse(message: String): ControllerResponse<T> =
-        ControllerResponse(success = false, data = null, error = message)
 
 
 }

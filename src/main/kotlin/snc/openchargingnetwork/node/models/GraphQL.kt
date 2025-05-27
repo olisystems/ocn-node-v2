@@ -49,7 +49,12 @@ data class OcnRegistry(
 data class GqlQuery(val query: String, val operationName: String, val variables: Map<String, String>)
 
 @Serializable
-data class GqlData(val parties: List<Party>? = null, val operators: List<Operator>? = null)
+data class GqlData(
+    val parties: List<Party>? = null,
+    val party: Party? = null,
+    val operators: List<Operator>? = null,
+    val operator: Operator? = null,
+)
 
 @Serializable
 data class GqlError(val message: String? = null)

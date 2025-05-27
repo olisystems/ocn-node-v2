@@ -37,7 +37,7 @@ class PlannedPartySearch(
 
     override fun run() {
 
-        val response: ControllerResponse<List<Party>> = httpClientComponent.getIndexedOcnRegistry(
+        val response: ControllerResponse = httpClientComponent.getIndexedOcnRegistry(
             registryIndexerProperties.url,
             registryIndexerProperties.token,
             registryIndexerProperties.partiesQuery
@@ -46,7 +46,7 @@ class PlannedPartySearch(
             throw ResponseStatusException(HttpStatus.METHOD_FAILURE, response.error)
         }
 
-        for (party in response.data!!) {
+        for (party in response.data!!.parties!!) {
             for (role in party.roles) {
                 val partyId = BasicRole(party.partyId, party.countryCode)
                 if (!networkClientInfoRepo.existsByPartyAndRole(partyId, role)) {

@@ -52,4 +52,4 @@ data class OcpiHttpResponse<T : Any>(
 @Serializable
 data class SpringErrorResponse(val timestamp: Instant, val status: Int, val error: String, val path: String? = null)
 
-data class ControllerResponse<T>(val success: Boolean, val data: T? = null, val error: String? = null)
+data class ControllerResponse(val success: Boolean, val data: GqlData? = null, val error: String? = null)
