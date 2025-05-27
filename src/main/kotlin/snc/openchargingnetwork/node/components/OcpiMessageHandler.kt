@@ -19,6 +19,7 @@ package snc.openchargingnetwork.node.components
 import org.web3j.crypto.Keys
 import shareandcharge.openchargingnetwork.notary.Notary
 import shareandcharge.openchargingnetwork.notary.ValuesToSign
+import snc.openchargingnetwork.node.config.HaasProperties
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.exceptions.OcpiClientInvalidParametersException
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
@@ -29,6 +30,7 @@ import snc.openchargingnetwork.node.services.RoutingService
 open class OcpiMessageHandler(
     val request: OcpiRequestVariables,
     val properties: NodeProperties,
+    val haasProperties: HaasProperties,
     val routingService: RoutingService,
     val registryService: RegistryService
 ) {

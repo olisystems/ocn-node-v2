@@ -21,6 +21,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Component
+import snc.openchargingnetwork.node.config.HaasProperties
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.OcpiHttpResponse
 import snc.openchargingnetwork.node.models.exceptions.OcpiClientInvalidParametersException
@@ -42,7 +43,8 @@ class OcpiResponseHandlerBuilder(
     private val routingService: RoutingService,
     private val registryService: RegistryService,
     private val hubClientInfoService: HubClientInfoService,
-    private val properties: NodeProperties
+    private val properties: NodeProperties,
+    private val haasProperties: HaasProperties,
 ) {
 
     /**
@@ -58,8 +60,8 @@ class OcpiResponseHandlerBuilder(
         knownSender: Boolean = true
     ): OcpiResponseHandler<T> {
         return OcpiResponseHandler(
-            request, response, knownSender, routingService, registryService, properties,
-            hubClientInfoService
+            request, response, knownSender, routingService, registryService,
+            properties, haasProperties, hubClientInfoService
         )
     }
 
@@ -77,9 +79,10 @@ class OcpiResponseHandler<T : Any>(
     routingService: RoutingService,
     registryService: RegistryService,
     properties: NodeProperties,
+    haasProperties: HaasProperties,
     hubClientInfoService: HubClientInfoService
 ) :
-    OcpiMessageHandler(request, properties, routingService, registryService) {
+    OcpiMessageHandler(request, properties, haasProperties, routingService, registryService) {
 
     companion object {
         private var logger: Logger = LoggerFactory.getLogger(OcpiResponseHandler::class.java)

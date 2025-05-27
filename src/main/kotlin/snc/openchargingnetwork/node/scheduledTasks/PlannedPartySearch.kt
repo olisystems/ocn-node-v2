@@ -16,61 +16,50 @@
 
 package snc.openchargingnetwork.node.scheduledTasks
 
-import snc.openchargingnetwork.node.config.NodeProperties
-import snc.openchargingnetwork.node.models.OcnRegistry
+import org.springframework.http.HttpStatus
+import org.springframework.web.server.ResponseStatusException
+import snc.openchargingnetwork.node.config.HttpClientComponent
+import snc.openchargingnetwork.node.config.RegistryIndexerProperties
+import snc.openchargingnetwork.node.models.ControllerResponse
+import snc.openchargingnetwork.node.models.Party
+import snc.openchargingnetwork.node.models.entities.NetworkClientInfoEntity
+import snc.openchargingnetwork.node.models.ocpi.BasicRole
+import snc.openchargingnetwork.node.models.ocpi.ConnectionStatus
 import snc.openchargingnetwork.node.repositories.NetworkClientInfoRepository
-import snc.openchargingnetwork.node.repositories.RoleRepository
 
 
+// TODO: Check if roles don't conflict, in case the Smart Contract doesn't.
 class PlannedPartySearch(
-    private val registry: OcnRegistry,
-    private val roleRepo: RoleRepository,
+    private val httpClientComponent: HttpClientComponent,
     private val networkClientInfoRepo: NetworkClientInfoRepository,
-    private val properties: NodeProperties
+    private val registryIndexerProperties: RegistryIndexerProperties
 ) : Runnable {
 
     override fun run() {
-        // TODO: registry.getParties() returns list of party ethereum addresses which can be used to get full party details
-//        val plannedParties = registry.parties.sendAsync().get()
-//                .asSequence()
-//                .map {
-//                    val details = registry.getPartyDetailsByAddress(it as String).sendAsync().get()
-//                    val (_, country, id, roles, _, operator, _, _, _) = details
-//                    NewRegistryPartyDetails(
-//                        nodeOperator = operator.checksum(),
-//                        BasicRole(
-//                            country = country.toString(Charsets.UTF_8),
-//                            id = id.toString(Charsets.UTF_8)),
-//                        roles = roles.map { index -> Role.getByIndex(index) }
-//                        )
-//                }
-//                .filter {
-//                    val isMyParty = it.nodeOperator == myAddress
-//                    isMyParty
-//                }
-//                .filter {
-//                    val partyHasBeenDeleted = it.nodeOperator == "0x0000000000000000000000000000000000000000"
-//                    !partyHasBeenDeleted
-//                }
-//                .filter {
-//                    // Doing completed registration check after deleted party check as null countryCode and partyId
-//                    // from deleted parties may cause an issue with query for postgresql
-//                    val hasCompletedRegistration = roleRepo.existsByCountryCodeAndPartyIDAllIgnoreCase(it.party.country, it.party.id)
-//                    !hasCompletedRegistration
-//                }
-//
-//        for (party in plannedParties) {
-//            for (role in party.roles) {
-//                if (!networkClientInfoRepo.existsByPartyAndRole(party.party, role)) {
-//                    val networkClientInfo = NetworkClientInfoEntity(
-//                            party = party.party.uppercase(),
-//                            role = role,
-//                            status = ConnectionStatus.PLANNED)
-//                    networkClientInfo.foundNewlyPlannedRole()
-//                    networkClientInfoRepo.save(networkClientInfo)
-//                }
-//            }
-//        }
+
+        val response: ControllerResponse<List<Party>> = httpClientComponent.getIndexedOcnRegistry(
+            registryIndexerProperties.url,
+            registryIndexerProperties.token,
+            registryIndexerProperties.partiesQuery
+        )
+        if (!response.success) {
+            throw ResponseStatusException(HttpStatus.METHOD_FAILURE, response.error)
+        }
+
+        for (party in response.data!!) {
+            for (role in party.roles) {
+                val partyId = BasicRole(party.partyId, party.countryCode)
+                if (!networkClientInfoRepo.existsByPartyAndRole(partyId, role)) {
+                    val networkClientInfo = NetworkClientInfoEntity(
+                        party = partyId.uppercase(),
+                        role = role,
+                        status = ConnectionStatus.PLANNED
+                    )
+                    networkClientInfo.foundNewlyPlannedRole()
+                    networkClientInfoRepo.save(networkClientInfo)
+                }
+            }
+        }
 
     }
 

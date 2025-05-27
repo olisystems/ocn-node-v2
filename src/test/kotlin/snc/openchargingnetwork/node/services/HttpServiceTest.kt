@@ -71,4 +71,20 @@ class HttpServiceTest(@Autowired val restTemplate: TestRestTemplate,
             assertThat(1==2)
         }
     }
+
+    @Test
+    fun testGetIndexedOcnRegistryParty() {
+        val entity: String = restTemplate.getForEntity("/${properties.apiPrefix}/ocn/registry/node/DE/OLI", String::class.java).body!!
+        println(entity)
+        if (!entity.contains("error")) {
+            val party: Party = Json.decodeFromString(entity)
+            println("decoded: $party")
+            assertThat(party.countryCode == "DE" && party.id == "OLI")
+        } else {
+            println("error")
+            val errorResponse: SpringErrorResponse = Json.decodeFromString(entity)
+            println("error: $errorResponse")
+            assertThat(false)
+        }
+    }
 }

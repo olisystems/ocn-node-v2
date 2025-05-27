@@ -1,4 +1,4 @@
-FROM azul/zulu-openjdk:13
+FROM mcr.microsoft.com/openjdk/jdk:21-azurelinux
 
 COPY build /ocn-node
 COPY src/main/resources/* /ocn-node/

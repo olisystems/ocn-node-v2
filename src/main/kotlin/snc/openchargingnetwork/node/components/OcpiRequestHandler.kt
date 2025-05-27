@@ -21,6 +21,7 @@ import kotlinx.coroutines.launch
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import snc.openchargingnetwork.node.config.HaasProperties
 import snc.openchargingnetwork.node.config.HttpClientComponent
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.OcpiHttpResponse
@@ -46,6 +47,7 @@ class OcpiRequestHandlerBuilder(
     private val asyncTaskService: AsyncTaskService,
     private val responseHandlerBuilder: OcpiResponseHandlerBuilder,
     private val properties: NodeProperties,
+    private val haasProperties: HaasProperties,
     private val coroutineScope: CoroutineScope
 ) {
 
@@ -55,7 +57,7 @@ class OcpiRequestHandlerBuilder(
     fun <T : Any> build(requestVariables: OcpiRequestVariables): OcpiRequestHandler<T> {
         return OcpiRequestHandler(
             requestVariables, routingService, registryService, httpClientComponent, hubClientInfoService,
-            walletService, asyncTaskService, responseHandlerBuilder, properties, coroutineScope
+            walletService, asyncTaskService, responseHandlerBuilder, properties, haasProperties, coroutineScope
         )
     }
 
@@ -66,7 +68,7 @@ class OcpiRequestHandlerBuilder(
         val requestVariables = httpClientComponent.convertToRequestVariables(requestVariablesString)
         return OcpiRequestHandler(
             requestVariables, routingService, registryService, httpClientComponent, hubClientInfoService,
-            walletService, asyncTaskService, responseHandlerBuilder, properties, coroutineScope
+            walletService, asyncTaskService, responseHandlerBuilder, properties, haasProperties, coroutineScope
         )
     }
 
@@ -102,8 +104,9 @@ class OcpiRequestHandler<T : Any>(
     private val asyncTaskService: AsyncTaskService,
     private val responseHandlerBuilder: OcpiResponseHandlerBuilder,
     properties: NodeProperties,
+    haasProperties: HaasProperties,
     private val coroutineScope: CoroutineScope
-) : OcpiMessageHandler(request, properties, routingService, registryService) {
+) : OcpiMessageHandler(request, properties, haasProperties, routingService, registryService) {
 
     companion object {
         private var logger: Logger = LoggerFactory.getLogger(OcpiRequestHandler::class.java)
@@ -146,12 +149,12 @@ class OcpiRequestHandler<T : Any>(
     fun forwardHaasAsync(): OcpiRequestHandler<T> {
         coroutineScope.launch {
             try {
-                if (properties.haasOn) {
+                if (haasProperties.enabled) {
                     val uri = request.urlPath?.removePrefix("/")
                     val haasUrl = if (uri.isNullOrEmpty()) {
-                        properties.haasUrl + "/ocpi/" + request.module.toString().lowercase()
+                        haasProperties.url + "/ocpi/" + request.module.toString().lowercase()
                     } else {
-                        properties.haasUrl + "/ocpi/" + request.module.toString().lowercase() + "/" + uri
+                        haasProperties.url + "/ocpi/" + request.module.toString().lowercase() + "/" + uri
                     }
                     val headers = request.headers
 

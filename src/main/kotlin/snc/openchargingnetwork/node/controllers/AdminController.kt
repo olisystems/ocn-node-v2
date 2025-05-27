@@ -34,6 +34,7 @@ import snc.openchargingnetwork.node.repositories.RoleRepository
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
 import snc.openchargingnetwork.node.tools.toBs64String
 import snc.openchargingnetwork.node.tools.urlJoin
+import java.util.Base64
 
 
 @RestController
@@ -46,7 +47,8 @@ class AdminController(
 ) {
 
     fun isAuthorized(authorization: String): Boolean {
-        return authorization == "Token ${properties.apikey}" || authorization == "Token ${properties.base64apiKey}"
+        return authorization == "Token ${properties.apikey}" ||
+                authorization == "Token ${properties.apikey.toBs64String()}"
     }
 
     @GetMapping("/connection-status/{countryCode}/{partyID}")

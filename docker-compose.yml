@@ -1,15 +1,16 @@
-name: share-matching-dev
+name: ocn-node-dev
 
 networks:
-  share-matching:
-    name: ocn-node-dev
+  ocn-node-dev:
     # external: true
+volumes:
+  pg-data:
 
 services:
   postgres:
     image: postgres
     volumes:
-      - ./deploy/storage/postgres:/var/lib/postgresql/data
+      - pg-data:/var/lib/postgresql/data
     networks:
       - ocn-node-dev
 #    ports:
@@ -40,7 +41,7 @@ services:
       OCN_NODE_DEV_MODE: true
       SPRING_PROFILES_ACTIVE: dev
       OCN_NODE_ENABLE_SIGNING: false
-      OCN_NODE_URL:
+      OCN_NODE_URL: http://localhost:8080
       OCN_NODE_ADMIN_KEY: randomkey
       OCN_NODE_WEB3_PROVIDER: asd
       OCN_REGISTRY_CONTRACT_ADDRESS: 0x6d2eecf5a50fB741D39244E9B485bA3e4e676AE8

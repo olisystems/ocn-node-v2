@@ -17,6 +17,7 @@
 package snc.openchargingnetwork.node.scheduledTasks
 
 import snc.openchargingnetwork.node.config.HttpClientComponent
+import snc.openchargingnetwork.node.config.NodeBootstrap.ScheduledTasks.Companion.STILL_ALIVE_RATE
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.entities.PlatformEntity
 import snc.openchargingnetwork.node.models.exceptions.OcpiServerUnusableApiException
@@ -34,7 +35,7 @@ class HubClientInfoStillAliveCheck(
 
     override fun run() {
         val checkExecutionInstant = Instant.now()
-        val lastUpdatedCutoff = checkExecutionInstant.minusMillis(properties.stillAliveRate.toLong())
+        val lastUpdatedCutoff = checkExecutionInstant.minusMillis(STILL_ALIVE_RATE)
         val clients = platformRepo.findByStatusIn(listOf(ConnectionStatus.CONNECTED, ConnectionStatus.OFFLINE))
         for (client in clients) {
             updateClientStatus(client, lastUpdatedCutoff, checkExecutionInstant)
@@ -42,7 +43,8 @@ class HubClientInfoStillAliveCheck(
     }
 
     /**
-     * Update a client's connection status based on its availability if status is stale (i.e. if the platform hasn't been heard from in the set amount of time)
+     * Update a client's connection status based on its availability if the status is stale
+     * (i.e., if the platform hasn't been heard from in the set amount of time)
      */
     private fun updateClientStatus(client: PlatformEntity, lastUpdatedCutoff: Instant, newUpdatedTime: Instant) {
         val clientLastUpdated = getInstant(client.lastUpdated)
@@ -64,9 +66,9 @@ class HubClientInfoStillAliveCheck(
     private fun isClientAvailable(client: PlatformEntity): Boolean {
         try {
             if (client.versionsUrl == null || client.auth.tokenB == null) {
-                return false // Client not configured. Assume not available
+                return false // Client isn't configured. Assume not available
             }
-            // If no exception thrown during versions request, assume that request was successful
+            // If no exception thrown during version request, assume that request was successful
             httpClientComponent.getVersions(client.versionsUrl!!, client.auth.tokenB!!)
             return true
         } catch (e: OcpiServerUnusableApiException) {
