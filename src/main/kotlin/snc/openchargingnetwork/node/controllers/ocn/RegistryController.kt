@@ -77,4 +77,22 @@ class RegistryController(
         }
     }
 
+    @GetMapping("/node/{countryCode}/{partyID}/certificates")
+    fun getNodeCertificatesOf(
+        @PathVariable countryCode: String,
+        @PathVariable partyID: String
+    ): Party? {
+        val partyID = "${countryCode} ${partyID}"
+        val response: ControllerResponse = httpClientComponent.getIndexedOcnRegistry(
+            registryIndexerProperties.url,
+            registryIndexerProperties.token,
+            registryIndexerProperties.singleVerificationQuery.format(partyID)
+        )
+        if (response.success) {
+            return response.data!!.party!!
+        } else {
+            throw ResponseStatusException(HttpStatus.METHOD_FAILURE, response.error)
+        }
+    }
+
 }

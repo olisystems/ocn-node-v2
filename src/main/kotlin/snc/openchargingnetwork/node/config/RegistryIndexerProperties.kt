@@ -55,4 +55,30 @@ class RegistryIndexerProperties {
               }
             }
         """
+    val singleVerificationQuery = """
+            {
+                otherVerifieds(first: 5, orderBy: blockNumber, orderDirection: desc, where: {identifier: "%s"}) {
+                    identifier,
+                    name,
+                    owner,
+                    blockNumber,
+                },
+                cpoverifieds(first: 5, orderBy: blockNumber, orderDirection: desc, where: {identifier: "%s"}) {
+                    identifier,
+                    name,
+                    owner,
+                    blockNumber,
+                },
+                empverifieds(first: 5, orderBy: blockNumber, orderDirection: desc, where: {identifier: "%s"}) {
+                    identifier,
+                    name,
+                    owner,
+                    vatid,
+                    bilanzkreis,
+                    marktfunktion,
+                    lieferant,
+                    blockNumber,
+                },
+            }
+        """
 }
