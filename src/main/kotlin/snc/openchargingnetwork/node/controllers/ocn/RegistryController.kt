@@ -17,18 +17,15 @@
 package snc.openchargingnetwork.node.controllers.ocn
 
 import org.springframework.http.HttpStatus
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PathVariable
-import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RestController
+import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.*
 import org.springframework.web.server.ResponseStatusException
 import org.web3j.crypto.Credentials
 import snc.openchargingnetwork.node.config.HttpClientComponent
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.config.RegistryIndexerProperties
-import snc.openchargingnetwork.node.models.ControllerResponse
-import snc.openchargingnetwork.node.models.GqlData
-import snc.openchargingnetwork.node.models.Party
+import snc.openchargingnetwork.node.models.*
+import snc.openchargingnetwork.node.tools.toBs64String
 
 
 @RestController
@@ -39,6 +36,11 @@ class RegistryController(
     private val httpClientComponent: HttpClientComponent,
 ) {
 
+    fun isAuthorized(authorization: String): Boolean {
+        return authorization == "Token ${properties.apikey}" ||
+                authorization == "Token ${properties.apikey.toBs64String()}"
+    }
+
     @GetMapping("/node-info")
     fun getMyNodeInfo() = mapOf(
         "url" to properties.url + "/" + properties.apiPrefix,
@@ -47,7 +49,7 @@ class RegistryController(
 
     @GetMapping("/nodes")
     fun getRegisteredNodes(): List<Party>? {
-        val response: ControllerResponse = httpClientComponent.getIndexedOcnRegistry(
+        val response: ControllerResponse<GqlData> = httpClientComponent.getIndexedOcnRegistryParties(
             registryIndexerProperties.url,
             registryIndexerProperties.token,
             registryIndexerProperties.partiesQuery
@@ -65,7 +67,7 @@ class RegistryController(
         @PathVariable partyID: String
     ): Party? {
         val partyID = "${countryCode}/${partyID}"
-        val response: ControllerResponse = httpClientComponent.getIndexedOcnRegistry(
+        val response: ControllerResponse<GqlData> = httpClientComponent.getIndexedOcnRegistryParties(
             registryIndexerProperties.url,
             registryIndexerProperties.token,
             registryIndexerProperties.singlePartyQuery.format(partyID)
@@ -79,17 +81,23 @@ class RegistryController(
 
     @GetMapping("/node/{countryCode}/{partyID}/certificates")
     fun getNodeCertificatesOf(
+        @RequestHeader("Authorization") authorization: String,
         @PathVariable countryCode: String,
         @PathVariable partyID: String
-    ): Party? {
+    ): GqlCertificateDataResponse? {
+        if (!isAuthorized(authorization)) {
+            throw ResponseStatusException(HttpStatus.UNAUTHORIZED)
+        }
+
         val partyID = "${countryCode} ${partyID}"
-        val response: ControllerResponse = httpClientComponent.getIndexedOcnRegistry(
+        val response: ControllerResponse<GqlCertificateData> = httpClientComponent.getIndexedOcnRegistryCertificates(
             registryIndexerProperties.url,
             registryIndexerProperties.token,
-            registryIndexerProperties.singleVerificationQuery.format(partyID)
+            registryIndexerProperties.singleVerificationQuery.format(partyID,partyID,partyID)
         )
         if (response.success) {
-            return response.data!!.party!!
+            val prettyResponse = GqlCertificateDataResponse(response.data!!.emp,response.data!!.cpo,response.data!!.other,)
+            return prettyResponse
         } else {
             throw ResponseStatusException(HttpStatus.METHOD_FAILURE, response.error)
         }
