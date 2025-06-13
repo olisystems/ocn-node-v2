@@ -3,7 +3,7 @@ pipeline {
     environment {
         DEV_CLUSTER = "${env.DEV_K8S_CLUSTER}"
         DEV_CLUSTER_CRED_ID = "${env.DEV_K8S_CLUSTER_CRED_ID}"
-        JAVA_17_HOME = '/usr/local/java17'
+        JAVA_21_HOME = '/usr/local/java21'
     }
 
     agent any
@@ -11,8 +11,8 @@ pipeline {
         stage('Initialize') {
             steps {
                 script {
-                    env.JAVA_HOME = env.JAVA_17_HOME
-                    echo "Using Java version: 17"
+                    env.JAVA_HOME = env.JAVA_21_HOME
+                    echo "Using Java version: 21"
                 }
             }
         }
@@ -50,6 +50,7 @@ pipeline {
                     sh "cp $SECRET_FILE settings.xml"
 
                     // Set Gradle Wrapper to 6.4.1 and build
+                    sh "./gradlew clean"
                     sh './gradlew wrapper --gradle-version 6.4.1 --distribution-type all -Pprofile=dev'
                     sh "./gradlew build -x test -Pprofile=dev"
 
