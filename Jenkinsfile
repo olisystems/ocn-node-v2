@@ -50,9 +50,8 @@ pipeline {
                     sh "cp $SECRET_FILE settings.xml"
 
                     // Set Gradle Wrapper to 6.4.1 and build
-                    sh "./gradlew clean"
                     sh './gradlew wrapper --gradle-version 8.8 --distribution-type all -Pprofile=dev'
-                    sh "./gradlew build -x test -Pprofile=dev"
+                    sh "./gradlew clean build -x test -Pprofile=dev --no-daemon --max-workers 1"
 
                     // Stash artifacts
                     stash includes: '**/build/libs/*.jar', name: 'app'
