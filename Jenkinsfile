@@ -18,16 +18,6 @@ pipeline {
             }
         }
 
-        stage('Rename Settings File') {
-            steps {
-                script {
-                    // Rename settings.gradle.temp to settings.gradle.kts
-                    //sh 'mv settings.gradle.temp settings.gradle.kts'
-                    //echo "File renamed to settings.gradle.kts"
-                }
-            }
-        }
-
         stage('Add Global Env Variables') {
             steps {
                 script {
