@@ -51,7 +51,7 @@ pipeline {
 
                     // Set Gradle Wrapper to 6.4.1 and build
                     sh './gradlew wrapper --gradle-version 8.8 --distribution-type all -Pprofile=dev'
-                    sh "./gradlew -Dorg.gradle.jvmargs="-Xms1g -Xmx3g -XX:MaxMetaspaceSize=1g" -Dkotlin.daemon.jvmargs="-Xms512m -Xmx2g -XX:MaxMetaspaceSize=1g" clean build -x test -Pprofile=dev --no-daemon --max-workers 1"
+                    sh "./gradlew -Dorg.gradle.jvmargs=\"-Xms1g -Xmx3g -XX:MaxMetaspaceSize=1g\" -Dkotlin.daemon.jvmargs=\"-Xms512m -Xmx2g -XX:MaxMetaspaceSize=1g\" clean build -x test -Pprofile=dev --no-daemon --max-workers 1"
 
                     // Stash artifacts
                     stash includes: '**/build/libs/*.jar', name: 'app'
