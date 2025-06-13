@@ -3,7 +3,7 @@ pipeline {
     environment {
         DEV_CLUSTER = "${env.DEV_K8S_CLUSTER}"
         DEV_CLUSTER_CRED_ID = "${env.DEV_K8S_CLUSTER_CRED_ID}"
-        JAVA_8_HOME = '/usr/local/java8' // Path to Java 8
+        JAVA_21_HOME = '/usr/local/java21'
     }
 
     agent any
@@ -11,9 +11,8 @@ pipeline {
         stage('Initialize') {
             steps {
                 script {
-                    // Use Java 8 directly
-                    env.JAVA_HOME = env.JAVA_8_HOME
-                    echo "Using JAVA_HOME: ${env.JAVA_HOME}"
+                    env.JAVA_HOME = env.JAVA_21_HOME
+                    echo "Using Java version: 21"
                 }
             }
         }
@@ -23,7 +22,7 @@ pipeline {
                 script {
                         readYaml(file: 'jenkins_values.yml').each { key, value ->
                         env[key] = value
-                        }
+                    }
                 }
             }
         }
