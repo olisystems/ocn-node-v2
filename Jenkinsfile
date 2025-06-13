@@ -58,22 +58,22 @@ pipeline {
                     stash includes: '**/build/libs/*.jar', name: 'app'
                 }
             }
-            post {
-                always {
-                    script {
-                        def xmlFilesExist = sh(
-                        script: 'find build/test-results/test -type f -name "*.xml" | grep -q .',
-                        returnStatus: true
-                        ) == 0
+            // post {
+                // always {
+                    // script {
+                        // def xmlFilesExist = sh(
+                        // script: 'find build/test-results/test -type f -name "*.xml" | grep -q .',
+                        // returnStatus: true
+                        // ) == 0
 
-                        if (xmlFilesExist) {
-                            junit 'build/test-results/test/**/*.xml'
-                        } else {
-                           echo "No test reports found. Skipping JUnit step."
-                        }
-                    }
-                }
-            }
+                        // if (xmlFilesExist) {
+                            // junit 'build/test-results/test/**/*.xml'
+                        // } else {
+                           // echo "No test reports found. Skipping JUnit step."
+                        // }
+                    // }
+                // }
+            // }
         }
 
         stage('Sonar Analysis'){
