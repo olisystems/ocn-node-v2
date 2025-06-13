@@ -312,8 +312,8 @@ class HttpClientComponent {
      * @return A ControllerResponse containing a list of Party objects if the operation is successful,
      *         or an error message in case of failure.
      */
-    fun getIndexedOcnRegistry(url: String, authorization: String, query: String):
-            ControllerResponse = runBlocking {
+    fun getIndexedOcnRegistryParties(url: String, authorization: String, query: String):
+            ControllerResponse<GqlData> = runBlocking {
         try {
             val query = GqlQuery(
                 query = query.trimIndent(),
@@ -338,14 +338,58 @@ class HttpClientComponent {
                 )
             }
 
-            val queryResult: GqlResponse = Json.Default.decodeFromString(response.body)
+            val queryResult: GqlResponse<GqlData> = Json.Default.decodeFromString(response.body)
 
             return@runBlocking when {
                 // Error
                 queryResult.errors != null -> ControllerResponse(false, null,
                     "getIndexedOcnRegistry query error: ${queryResult.errors}")
                 // Success
-                queryResult.data != null -> ControllerResponse(true, queryResult.data)
+                queryResult.data != null -> ControllerResponse<GqlData>(true, queryResult.data)
+                // Undefined behaviour
+                else -> ControllerResponse(false, null,
+                    "No data received from the GraphQL query")
+            }
+
+        } catch (e: Exception) {
+            ControllerResponse(false, null,"Unexpected error: ${e.message}")
+        }
+    }
+
+    fun getIndexedOcnRegistryCertificates(url: String, authorization: String, query: String):
+            ControllerResponse<GqlCertificateData> = runBlocking {
+        try {
+            val query = GqlQuery(
+                query = query.trimIndent(),
+                operationName = "Subgraphs",
+                variables = emptyMap()
+            )
+
+            val response = sendHttpRequest(
+                endpoint = url,
+                method = HttpMethod.POST,
+                body = Json.Default.encodeToString(query),
+                headers = mapOf(
+                    HttpHeaders.Authorization to "Bearer $authorization",
+                    HttpHeaders.ContentType to ContentType.Application.Json.toString()
+                )
+            )
+
+            if (!response.statusCode.isSuccess()) {
+                return@runBlocking ControllerResponse(
+                    false, null,
+                    "getIndexedOcnRegistry returned HTTP ${response.statusCode}; Error: ${response.body}"
+                )
+            }
+
+            val queryResult: GqlResponse<GqlCertificateData> = Json.Default.decodeFromString(response.body)
+
+            return@runBlocking when {
+                // Error
+                queryResult.errors != null -> ControllerResponse(false, null,
+                    "getIndexedOcnRegistry query error: ${queryResult.errors}")
+                // Success
+                queryResult.data != null -> ControllerResponse<GqlCertificateData>(true, queryResult.data)
                 // Undefined behaviour
                 else -> ControllerResponse(false, null,
                     "No data received from the GraphQL query")

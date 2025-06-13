@@ -21,6 +21,7 @@ import org.springframework.web.server.ResponseStatusException
 import snc.openchargingnetwork.node.config.HttpClientComponent
 import snc.openchargingnetwork.node.config.RegistryIndexerProperties
 import snc.openchargingnetwork.node.models.ControllerResponse
+import snc.openchargingnetwork.node.models.GqlData
 import snc.openchargingnetwork.node.models.Party
 import snc.openchargingnetwork.node.models.entities.NetworkClientInfoEntity
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
@@ -37,7 +38,7 @@ class PlannedPartySearch(
 
     override fun run() {
 
-        val response: ControllerResponse = httpClientComponent.getIndexedOcnRegistry(
+        val response: ControllerResponse<GqlData> = httpClientComponent.getIndexedOcnRegistryParties(
             registryIndexerProperties.url,
             registryIndexerProperties.token,
             registryIndexerProperties.partiesQuery
