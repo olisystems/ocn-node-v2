@@ -51,7 +51,7 @@ pipeline {
 
                     // Set Gradle Wrapper to 6.4.1 and build
                     sh "./gradlew clean"
-                    sh './gradlew wrapper --gradle-version 6.4.1 --distribution-type all -Pprofile=dev'
+                    sh './gradlew wrapper --gradle-version 8.8 --distribution-type all -Pprofile=dev'
                     sh "./gradlew build -x test -Pprofile=dev"
 
                     // Stash artifacts

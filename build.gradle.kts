@@ -1,28 +1,24 @@
 import org.gradle.kotlin.dsl.withType
 
 plugins {
-	kotlin("jvm") version "2.1.20"
-	kotlin("plugin.spring") version "2.1.20"
-	// configuration processing
-	kotlin("kapt") version "2.1.20"
-	kotlin("plugin.jpa") version "2.1.20"// json serialization
-	kotlin("plugin.serialization") version "2.1.20"
+	val kotlinVersion = "2.1.20"
 
-	id("org.springframework.boot") version "3.4.5"
-	id("io.spring.dependency-management") version "1.1.7"
-	id("org.asciidoctor.jvm.convert") version "3.3.2"
+	kotlin("jvm") 					version kotlinVersion
+	kotlin("plugin.spring") 		version kotlinVersion
+	// configuration processing
+	kotlin("kapt") 					version kotlinVersion
+	kotlin("plugin.jpa") 			version kotlinVersion // json serialization
+	kotlin("plugin.serialization") 	version kotlinVersion
+
+	id("org.springframework.boot") 			version "3.4.5"
+	id("io.spring.dependency-management") 	version "1.1.7"
+	id("org.asciidoctor.jvm.convert") 		version "3.3.2"
 }
 
 group = "snc.openchargingnetwork"
 version = "1.3.0"
 
 extra["snippetsDir"] = file("build/generated-snippets")
-
-//configurations {
-//	runtimeClasspath {
-//		extendsFrom(implementation.get())
-//	}
-//}
 
 java {
 	toolchain {
