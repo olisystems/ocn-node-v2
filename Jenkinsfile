@@ -3,7 +3,7 @@ pipeline {
     environment {
         DEV_CLUSTER = "${env.DEV_K8S_CLUSTER}"
         DEV_CLUSTER_CRED_ID = "${env.DEV_K8S_CLUSTER_CRED_ID}"
-        JAVA_21_HOME = '/usr/local/java21'
+        JAVA_17_HOME = '/usr/local/java17'
     }
 
     agent any
@@ -11,8 +11,8 @@ pipeline {
         stage('Initialize') {
             steps {
                 script {
-                    env.JAVA_HOME = env.JAVA_21_HOME
-                    echo "Using Java version: 21"
+                    env.JAVA_HOME = env.JAVA_17_HOME
+                    echo "Using Java version: 17"
                 }
             }
         }
