@@ -145,7 +145,7 @@ pipeline {
                 }
                 container(name: 'kaniko', shell: '/busybox/sh') {
                     unstash 'app'
-                    sh '/kaniko/executor --context `pwd` --dockerfile ./docker/Dockerfile --cache=true --destination "${docker_tag}"'
+                    sh '/kaniko/executor --context `pwd` --dockerfile ./Dockerfile --cache=true --destination "${docker_tag}"'
                 }
 
                 script {
