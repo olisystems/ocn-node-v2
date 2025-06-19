@@ -16,6 +16,7 @@
 
 package snc.openchargingnetwork.node.services
 
+import java.time.Instant
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpMethod
 import org.springframework.scheduling.annotation.Async
@@ -32,33 +33,33 @@ import snc.openchargingnetwork.node.repositories.PlatformRepository
 import snc.openchargingnetwork.node.repositories.RoleRepository
 import snc.openchargingnetwork.node.tools.extractToken
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
-import java.time.Instant
 
 @Service
 class HubClientInfoService(
-    private val platformRepo: PlatformRepository,
-    private val roleRepo: RoleRepository,
-    private val endpointRepo: EndpointRepository,
-    private val networkClientInfoRepo: NetworkClientInfoRepository,
-    private val httpClientComponent: HttpClientComponent,
-    private val routingService: RoutingService,
-    private val walletService: WalletService,
-    private val ocnRulesService: OcnRulesService,
-    private val registryService: RegistryService
+        private val platformRepo: PlatformRepository,
+        private val roleRepo: RoleRepository,
+        private val endpointRepo: EndpointRepository,
+        private val networkClientInfoRepo: NetworkClientInfoRepository,
+        private val httpClientComponent: HttpClientComponent,
+        private val routingService: RoutingService,
+        private val walletService: WalletService,
+        private val ocnRulesService: OcnRulesService,
+        private val registryService: RegistryService
 ) {
 
     companion object {
         private val logger = LoggerFactory.getLogger(HubClientInfoService::class.java)
     }
 
-    /**
-     * Get a HubClientInfo list of local and known network connections
-     */
+    /** Get a HubClientInfo list of local and known network connections */
     fun getList(fromAuthorization: String): List<ClientInfo> {
         val clientInfoList = mutableListOf<ClientInfo>()
 
-        val requestingPlatform = platformRepo.findByAuth_TokenC(fromAuthorization.extractToken())
-            ?: throw IllegalStateException("Sender is validated but cannot find them by their authorization token")
+        val requestingPlatform =
+                platformRepo.findByAuth_TokenC(fromAuthorization.extractToken())
+                        ?: throw IllegalStateException(
+                                "Sender is validated but cannot find them by their authorization token"
+                        )
 
         // add connected party roles
         for (platform in platformRepo.findAll()) {
@@ -68,13 +69,13 @@ class HubClientInfoService(
 
                 if (ocnRulesService.isWhitelisted(requestingPlatform, counterPartyBasicRole)) {
                     clientInfoList.add(
-                        ClientInfo(
-                            partyID = role.partyID,
-                            countryCode = role.countryCode,
-                            role = role.role,
-                            status = platform.status,
-                            lastUpdated = platform.lastUpdated
-                        )
+                            ClientInfo(
+                                    partyID = role.partyID,
+                                    countryCode = role.countryCode,
+                                    role = role.role,
+                                    status = platform.status,
+                                    lastUpdated = platform.lastUpdated
+                            )
                     )
                 }
             }
@@ -85,13 +86,13 @@ class HubClientInfoService(
             // only if whitelisted
             if (ocnRulesService.isWhitelisted(requestingPlatform, role.party)) {
                 clientInfoList.add(
-                    ClientInfo(
-                        partyID = role.party.id,
-                        countryCode = role.party.country,
-                        role = role.role,
-                        status = ConnectionStatus.PLANNED,
-                        lastUpdated = role.lastUpdated
-                    )
+                        ClientInfo(
+                                partyID = role.party.id,
+                                countryCode = role.party.country,
+                                role = role.role,
+                                status = ConnectionStatus.PLANNED,
+                                lastUpdated = role.lastUpdated
+                        )
                 )
             }
         }
@@ -100,29 +101,39 @@ class HubClientInfoService(
     }
 
     /**
-     * Get parties who should be sent a HubClientInfo Push notification (sans the changedPlatform if provided)
+     * Get parties who should be sent a HubClientInfo Push notification (sans the changedPlatform if
+     * provided)
      */
     fun getPartiesToNotifyOfClientInfoChange(
-        changedPlatform: PlatformEntity? = null,
-        clientInfo: ClientInfo
+            changedPlatform: PlatformEntity? = null,
+            clientInfo: ClientInfo
     ): List<RoleEntity> {
         val clientsToNotify = mutableListOf<RoleEntity>()
         for (platform in platformRepo.findAll()) {
 
-            // Only push the update if the platform is connected and it isn't the platform that triggered the event
-            if (platform.status == ConnectionStatus.CONNECTED && platform.id != changedPlatform?.id) {
+            // Only push the update if the platform is connected and it isn't the platform that
+            // triggered the event
+            if (platform.status == ConnectionStatus.CONNECTED && platform.id != changedPlatform?.id
+            ) {
 
-                // Only push the update if the platform has implemented the HubClientInfo Receiver endpoint
-                val hubClientInfoPutEndpoint = endpointRepo.findByPlatformIDAndIdentifierAndRole(
-                    platformID = platform.id,
-                    identifier = ModuleID.HUB_CLIENT_INFO.id,
-                    Role = InterfaceRole.RECEIVER
-                )
+                // Only push the update if the platform has implemented the HubClientInfo Receiver
+                // endpoint
+                val hubClientInfoPutEndpoint =
+                        endpointRepo.findFirstByPlatformIDAndIdentifierAndRoleOrderByIdAsc(
+                                platformID = platform.id,
+                                identifier = ModuleID.HUB_CLIENT_INFO.id,
+                                Role = InterfaceRole.RECEIVER
+                        )
                 if (hubClientInfoPutEndpoint != null) {
-                    for (clientRole in roleRepo.findAllByPlatformID(platform.id)) { //TODO: It could be redundant to notify each party. Perhaps it's better to assume single receiver interface
+                    for (clientRole in
+                            roleRepo.findAllByPlatformID(
+                                    platform.id
+                            )) { // TODO: It could be redundant to notify each party. Perhaps it's
+                        // better to assume single receiver interface
 
                         // Only push the update if the role has whitelisted the ClientInfo owner
-                        val counterParty = BasicRole(id = clientInfo.partyID, country = clientInfo.countryCode)
+                        val counterParty =
+                                BasicRole(id = clientInfo.partyID, country = clientInfo.countryCode)
                         if (ocnRulesService.isWhitelisted(platform, counterParty)) {
                             clientsToNotify.add(clientRole)
                         }
@@ -134,61 +145,68 @@ class HubClientInfoService(
         return clientsToNotify
     }
 
-    /**
-     * Save a client info object
-     */
+    /** Save a client info object */
     fun saveClientInfo(clientInfo: ClientInfo) {
         val basicRole = BasicRole(id = clientInfo.partyID, country = clientInfo.countryCode)
 
         val updatedClientInfo: NetworkClientInfoEntity? =
-            networkClientInfoRepo.findByPartyAndRole(basicRole, clientInfo.role)?.let {
-                // check status has changed
-                if (it.status != clientInfo.status) {
-                    it.apply {
-                        status = clientInfo.status
-                        lastUpdated = clientInfo.lastUpdated
+                networkClientInfoRepo.findByPartyAndRole(basicRole, clientInfo.role)?.let {
+                    // check status has changed
+                    if (it.status != clientInfo.status) {
+                        it.apply {
+                            status = clientInfo.status
+                            lastUpdated = clientInfo.lastUpdated
+                        }
+                    } else {
+                        null
                     }
-                } else {
-                    null
                 }
-            } ?: NetworkClientInfoEntity(
-                party = basicRole,
-                role = clientInfo.role,
-                status = clientInfo.status,
-                lastUpdated = clientInfo.lastUpdated
-            )
+                        ?: NetworkClientInfoEntity(
+                                party = basicRole,
+                                role = clientInfo.role,
+                                status = clientInfo.status,
+                                lastUpdated = clientInfo.lastUpdated
+                        )
 
         if (updatedClientInfo != null) {
             networkClientInfoRepo.save(updatedClientInfo)
         }
     }
 
-    /**
-     * Send a notification of a ClientInfo change to a list of parties
-     */
-    fun notifyPartiesOfClientInfoChange(parties: Iterable<RoleEntity>, changedClientInfo: ClientInfo) {
+    /** Send a notification of a ClientInfo change to a list of parties */
+    fun notifyPartiesOfClientInfoChange(
+            parties: Iterable<RoleEntity>,
+            changedClientInfo: ClientInfo
+    ) {
         for (party in parties) {
-            val sender = BasicRole(
-                id = "OCN",
-                country = "CH"
-            ) // TODO: put node platformID and countryCode in a shared, configurable location
+            val sender =
+                    BasicRole(
+                            id = "OCN",
+                            country = "CH"
+                    ) // TODO: put node platformID and countryCode in a shared, configurable
+            // location
             val receiver = BasicRole(party.partyID, party.countryCode)
-            val requestVariables = OcpiRequestVariables(
-                module = ModuleID.HUB_CLIENT_INFO,
-                interfaceRole = InterfaceRole.RECEIVER,
-                method = HttpMethod.PUT,
-                headers = OcnHeaders(
-                    authorization = "Token ${platformRepo.findById(party.platformID).get().auth.tokenB}",
-                    requestID = generateUUIDv4Token(),
-                    correlationID = generateUUIDv4Token(),
-                    sender = sender,
-                    receiver = receiver
-                ),
-                body = changedClientInfo,
-                urlPath = "${changedClientInfo.countryCode}/${changedClientInfo.partyID}"
-            )
+            val requestVariables =
+                    OcpiRequestVariables(
+                            module = ModuleID.HUB_CLIENT_INFO,
+                            interfaceRole = InterfaceRole.RECEIVER,
+                            method = HttpMethod.PUT,
+                            headers =
+                                    OcnHeaders(
+                                            authorization =
+                                                    "Token ${platformRepo.findById(party.platformID).get().auth.tokenB}",
+                                            requestID = generateUUIDv4Token(),
+                                            correlationID = generateUUIDv4Token(),
+                                            sender = sender,
+                                            receiver = receiver
+                                    ),
+                            body = changedClientInfo,
+                            urlPath =
+                                    "${changedClientInfo.countryCode}/${changedClientInfo.partyID}"
+                    )
 
-            val (url, headers) = routingService.prepareLocalPlatformRequest(requestVariables, proxied = false)
+            val (url, headers) =
+                    routingService.prepareLocalPlatformRequest(requestVariables, proxied = false)
 
             try {
                 httpClientComponent.makeOcpiRequest<Unit>(url, headers, requestVariables)
@@ -198,9 +216,7 @@ class HubClientInfoService(
         }
     }
 
-    /**
-     * Send a notification of a ClientInfo change to other nodes on the network
-     */
+    /** Send a notification of a ClientInfo change to other nodes on the network */
     fun notifyNodesOfClientInfoChange(changedClientInfo: ClientInfo) {
         val requestBodyString = httpClientComponent.mapper.writeValueAsString(changedClientInfo)
         val signature = walletService.sign(requestBodyString)
@@ -216,13 +232,15 @@ class HubClientInfoService(
         }
     }
 
-    /**
-     * Confirm the online status of the client corresponding to a role
-     */
+    /** Confirm the online status of the client corresponding to a role */
     @Async
     fun renewClientConnection(sender: BasicRole) {
-        val role = roleRepo.findByCountryCodeAndPartyIDAllIgnoreCase(countryCode = sender.country, partyID = sender.id)
-            ?: throw IllegalArgumentException("sender could not be found")
+        val role =
+                roleRepo.findByCountryCodeAndPartyIDAllIgnoreCase(
+                        countryCode = sender.country,
+                        partyID = sender.id
+                )
+                        ?: throw IllegalArgumentException("sender could not be found")
 
         val client = platformRepo.findById(role.platformID).get()
         client.renewConnection(Instant.now())
