@@ -1,0 +1,21 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "kotlin",
+            "request": "launch",
+            "name": "Kotlin Launch - local-minikube",
+            "projectRoot": "${workspaceFolder}",
+            "mainClass": "snc.openchargingnetwork.node.ApplicationKt",
+            "args": "--spring.profiles.active=local-minikube",
+            "vmArgs": "--add-opens=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED --add-opens=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED --add-opens=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+            "env": {
+                "JAVA_HOME": "/Users/matheusrosendo/.sdkman/candidates/java/17.0.13-amzn"
+            },
+            "jre": "/Users/matheusrosendo/.sdkman/candidates/java/17.0.13-amzn/bin/java"
+        }
+    ]
+}

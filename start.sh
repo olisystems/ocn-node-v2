@@ -1,0 +1,3 @@
+#!/bin/bash
+# Rename to start.sh and update the line above to your local Java path
+JAVA_HOME="/Users/matheusrosendo/.sdkman/candidates/java/17.0.13-amzn" ./gradlew bootRun -Pprofile=local-minikube --args='--spring.profiles.active=local-minikube' -Dorg.gradle.jvmargs='--add-opens=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED --add-opens=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED --add-opens=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED'
