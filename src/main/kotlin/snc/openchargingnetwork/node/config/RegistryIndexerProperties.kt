@@ -15,6 +15,30 @@ class RegistryIndexerProperties {
 
     var token: String = ""
 
+    val operatorsQuery = """
+    {
+        operators {
+            id,
+            domain,
+            parties {
+               countryCode
+                cvStatus
+                id
+                name
+                operator {
+                    id
+                    domain
+                }
+                partyAddress
+                partyId
+                paymentStatus
+                roles
+                url
+            }
+       }
+    }
+    """
+
     val partiesQuery = """
             {
                 parties {

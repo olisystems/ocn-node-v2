@@ -61,6 +61,20 @@ class RegistryController(
         }
     }
 
+    @GetMapping("/operators")
+    fun getRegisteredOperators(): List<Operator>? {
+        val response: ControllerResponse<GqlData> = httpClientComponent.getIndexedOcnRegistryOperators(
+            registryIndexerProperties.url,
+            registryIndexerProperties.token,
+            registryIndexerProperties.operatorsQuery
+        )
+        if (response.success) {
+            return response.data!!.operators!!
+        } else {
+            throw ResponseStatusException(HttpStatus.METHOD_FAILURE, response.error)
+        }
+    }
+
     @GetMapping("/node/{countryCode}/{partyID}")
     fun getNodeOf(
         @PathVariable countryCode: String,

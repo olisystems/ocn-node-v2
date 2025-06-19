@@ -13,6 +13,7 @@ import io.ktor.http.contentLength
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.util.toMap
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -309,6 +310,7 @@ class HttpClientComponent {
      *
      * @param url The endpoint URL to send the GraphQL request.
      * @param authorization The bearer token used for authorization with the specified URL.
+     * @param query The GraphQL query string to execute.
      * @return A ControllerResponse containing a list of Party objects if the operation is successful,
      *         or an error message in case of failure.
      */
@@ -386,10 +388,67 @@ class HttpClientComponent {
 
             return@runBlocking when {
                 // Error
-                queryResult.errors != null -> ControllerResponse(false, null,
-                    "getIndexedOcnRegistry query error: ${queryResult.errors}")
+                queryResult.errors != null -> ControllerResponse(
+                    false, null,
+                    "getIndexedOcnRegistry query error: ${queryResult.errors}"
+                )
                 // Success
                 queryResult.data != null -> ControllerResponse<GqlCertificateData>(true, queryResult.data)
+                // Undefined behaviour
+                else -> ControllerResponse(
+                    false, null,
+                    "No data received from the GraphQL query"
+                )
+            }
+
+        } catch (e: Exception) {
+            ControllerResponse(false, null, "Unexpected error: ${e.message}")
+        }
+    }
+
+    /**
+     * Sends a GraphQL query to the specified URL to fetch a list of operators from the indexed OCN registry.
+     *
+     * @param url The endpoint URL to send the GraphQL request.
+     * @param authorization The bearer token used for authorization with the specified URL.
+     * @param query The GraphQL query string to execute.
+     * @return A ControllerResponse containing a list of Operator objects if the operation is successful,
+     *         or an error message in case of failure.
+     */
+    fun getIndexedOcnRegistryOperators(url: String, authorization: String, query: String):
+            ControllerResponse<GqlData> = runBlocking {
+        try {
+            val gqlQuery = GqlQuery(
+                query = query.trimIndent(),
+                operationName = "Subgraphs",
+                variables = emptyMap()
+            )
+
+            val response = sendHttpRequest(
+                endpoint = url,
+                method = HttpMethod.POST,
+                body = Json.Default.encodeToString(gqlQuery),
+                headers = mapOf(
+                    HttpHeaders.Authorization to "Bearer $authorization",
+                    HttpHeaders.ContentType to ContentType.Application.Json.toString()
+                )
+            )
+
+            if (!response.statusCode.isSuccess()) {
+                return@runBlocking ControllerResponse(
+                    false, null,
+                    "getIndexedOcnRegistryOperators returned HTTP ${response.statusCode}; Error: ${response.body}"
+                )
+            }
+
+            val queryResult: GqlResponse<GqlData> = Json.Default.decodeFromString(response.body)
+
+            return@runBlocking when {
+                // Error
+                queryResult.errors != null -> ControllerResponse(false, null,
+                    "getIndexedOcnRegistryOperators query error: ${queryResult.errors}")
+                // Success
+                queryResult.data != null -> ControllerResponse<GqlData>(true, queryResult.data)
                 // Undefined behaviour
                 else -> ControllerResponse(false, null,
                     "No data received from the GraphQL query")
@@ -400,5 +459,28 @@ class HttpClientComponent {
         }
     }
 
-
+    /**
+     * Fetches both operators and parties from the indexed OCN registry in parallel.
+     *
+     * @param url The endpoint URL to send the GraphQL requests.
+     * @param authorization The bearer token used for authorization with the specified URL.
+     * @param operatorsQuery The GraphQL query string for fetching operators.
+     * @param partiesQuery The GraphQL query string for fetching parties.
+     * @return A pair containing ControllerResponse for operators and parties respectively.
+     */
+    fun getIndexedOcnRegistryOperatorsAndParties(
+        url: String, 
+        authorization: String, 
+        operatorsQuery: String,
+        partiesQuery: String
+    ): Pair<ControllerResponse<GqlData>, ControllerResponse<GqlData>> = runBlocking {
+        // Execute both queries in parallel
+        val operatorsDeferred = async { getIndexedOcnRegistryOperators(url, authorization, operatorsQuery) }
+        val partiesDeferred = async { getIndexedOcnRegistryParties(url, authorization, partiesQuery) }
+        
+        val operatorsResponse = operatorsDeferred.await()
+        val partiesResponse = partiesDeferred.await()
+        
+        return@runBlocking Pair(operatorsResponse, partiesResponse)
+    }
 }
