@@ -14,21 +14,17 @@ plugins {
 }
 
 group = "snc.openchargingnetwork"
-version = "1.3.0"
+version = "ocn-v3"
+
 
 extra["snippetsDir"] = file("build/generated-snippets")
-
-//configurations {
-//	runtimeClasspath {
-//		extendsFrom(implementation.get())
-//	}
-//}
 
 java {
 	toolchain {
 		languageVersion = JavaLanguageVersion.of(21)
 	}
 }
+
 
 repositories {
 	mavenCentral()
