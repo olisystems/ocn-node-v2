@@ -236,7 +236,7 @@ class HubClientInfoService(
     @Async
     fun renewClientConnection(sender: BasicRole) {
         val role =
-                roleRepo.findByCountryCodeAndPartyIDAllIgnoreCase(
+                roleRepo.findFirstByCountryCodeAndPartyIDAllIgnoreCaseOrderById(
                         countryCode = sender.country,
                         partyID = sender.id
                 )

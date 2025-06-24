@@ -43,7 +43,7 @@ interface RoleRepository : CrudRepository<RoleEntity, Long> {
     ): Boolean
 
     // used in routing to find roles registered with broker (hub)
-    fun findByCountryCodeAndPartyIDAllIgnoreCase(countryCode: String, partyID: String): RoleEntity?
+    fun findFirstByCountryCodeAndPartyIDAllIgnoreCaseOrderById(countryCode: String, partyID: String): RoleEntity?
     fun findAllByCountryCodeAndPartyIDAllIgnoreCase(
             countryCode: String,
             partyID: String
