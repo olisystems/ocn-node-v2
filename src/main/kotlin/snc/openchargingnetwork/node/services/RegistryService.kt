@@ -40,7 +40,7 @@ class RegistryService(
         val op = filterOperatorsByParty(registry, role)
         if (belongsToMe) {
             val myKey = Credentials.create(properties.privateKey).address
-            val domainMatches = op.domain == properties.url
+            val domainMatches = if (properties.dev) true else op.domain == properties.url
             val idMatches = Keys.toChecksumAddress(op.id) == Keys.toChecksumAddress(myKey)
             return domainMatches && idMatches
         }
