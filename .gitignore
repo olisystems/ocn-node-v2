@@ -44,7 +44,7 @@
 # *.iml
 # *.ipr
 
-
+.vscode/
 
 # CMake
 cmake-build-*/
