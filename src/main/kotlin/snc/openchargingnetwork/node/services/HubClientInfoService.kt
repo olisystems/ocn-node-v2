@@ -102,7 +102,7 @@ class HubClientInfoService(private val platformRepo: PlatformRepository,
             if (platform.status == ConnectionStatus.CONNECTED && platform.id != changedPlatform?.id) {
 
                 // Only push the update if the platform has implemented the HubClientInfo Receiver endpoint
-                val hubClientInfoPutEndpoint = endpointRepo.findByPlatformIDAndIdentifierAndRole(
+                val hubClientInfoPutEndpoint = endpointRepo.findFirstByPlatformIDAndIdentifierAndRoleOrderByIdAsc(
                         platformID = platform.id,
                         identifier = ModuleID.HUB_CLIENT_INFO.id,
                         Role = InterfaceRole.RECEIVER

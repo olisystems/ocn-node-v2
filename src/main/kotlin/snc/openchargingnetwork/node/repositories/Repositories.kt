@@ -45,7 +45,7 @@ interface RoleRepository: CrudRepository<RoleEntity, Long> {
 
 interface EndpointRepository: CrudRepository<EndpointEntity, Long> {
     fun findByPlatformID(platformID: Long?): Iterable<EndpointEntity>
-    fun findByPlatformIDAndIdentifierAndRole(platformID: Long?, identifier: String, Role: InterfaceRole): EndpointEntity?
+    fun findFirstByPlatformIDAndIdentifierAndRoleOrderByIdAsc(platformID: Long?, identifier: String, Role: InterfaceRole): EndpointEntity?
     fun deleteByPlatformID(platformID: Long?)
 }
 
