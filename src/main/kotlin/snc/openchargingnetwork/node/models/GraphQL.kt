@@ -40,7 +40,6 @@ data class Operator(
 
 @Serializable
 data class OcnRegistry(
-    var url: String,
     var parties: List<Party> = emptyList(),
     var operators: List<Operator> = emptyList()
 )

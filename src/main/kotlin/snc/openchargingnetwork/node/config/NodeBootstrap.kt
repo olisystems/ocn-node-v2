@@ -22,22 +22,18 @@ import kotlinx.coroutines.SupervisorJob
 import org.springframework.boot.ApplicationRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import snc.openchargingnetwork.node.models.OcnRegistry
 import snc.openchargingnetwork.node.repositories.*
 import snc.openchargingnetwork.node.scheduledTasks.HubClientInfoStillAliveCheck
 import snc.openchargingnetwork.node.scheduledTasks.PlannedPartySearch
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.stereotype.Component
 import org.springframework.scheduling.annotation.Scheduled
-
+import snc.openchargingnetwork.node.components.OcnRegistryComponent
 
 
 @Configuration
 @EnableScheduling
-class NodeBootstrap(
-    private val properties: NodeProperties,
-    private val registryIndexerProperties: RegistryIndexerProperties
-) {
+class NodeBootstrap() {
 
     @Bean
     fun databaseInitializer(
@@ -46,13 +42,6 @@ class NodeBootstrap(
         endpointRepo: EndpointRepository,
         proxyResourceRepository: ProxyResourceRepository
     ) = ApplicationRunner {}
-
-
-    // TODO: Use the indexer instead
-    @Bean
-    fun ocnRegistry(): OcnRegistry {
-        return OcnRegistry(registryIndexerProperties.url)
-    }
 
     @Bean
     fun coroutineScope(): CoroutineScope {
@@ -65,7 +54,8 @@ class NodeBootstrap(
         private val platformRepo: PlatformRepository,
         private val networkClientInfoRepo: NetworkClientInfoRepository,
         private val properties: NodeProperties,
-        private val registryIndexerProperties: RegistryIndexerProperties
+        private val roleRepository: RoleRepository,
+        private val ocnRegistryComponent: OcnRegistryComponent,
     ) {
         companion object {
             const val STILL_ALIVE_RATE: Long = 900000 // defaults to 15 minutes
@@ -75,7 +65,10 @@ class NodeBootstrap(
         @Scheduled(fixedRate = STILL_ALIVE_RATE)
         fun runStillAliveCheck() {
             if (properties.stillAliveEnabled) {
-                val stillAliveTask = HubClientInfoStillAliveCheck(httpClientComponent, platformRepo, properties)
+                val stillAliveTask = HubClientInfoStillAliveCheck(
+                    httpClientComponent = httpClientComponent,
+                    platformRepo = platformRepo
+                )
                 stillAliveTask.run()
             }
         }
@@ -83,7 +76,12 @@ class NodeBootstrap(
         @Scheduled(fixedRate = PLANNED_PARTY_SEARCH_RATE)
         fun runPlannedPartySearch() {
             if (properties.plannedPartySearchEnabled) {
-                val plannedPartyTask = PlannedPartySearch(httpClientComponent, networkClientInfoRepo, registryIndexerProperties)
+                val plannedPartyTask = PlannedPartySearch(
+                    ocnRegistryComponent = ocnRegistryComponent,
+                    networkClientInfoRepo = networkClientInfoRepo,
+                    roleRepository = roleRepository,
+                    properties = properties
+                )
                 plannedPartyTask.run()
             }
         }

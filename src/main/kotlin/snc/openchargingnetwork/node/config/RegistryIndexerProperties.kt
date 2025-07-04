@@ -15,7 +15,7 @@ class RegistryIndexerProperties {
 
     var token: String = ""
 
-    val partiesQuery = """
+    val aggregatedQuery = """
             {
                 parties {
                     countryCode
@@ -31,7 +31,11 @@ class RegistryIndexerProperties {
                     paymentStatus
                     roles
                     url
-                }
+                },
+                  operators {
+                    domain
+                    id
+                  }
             }
         """
     val singlePartyQuery = """

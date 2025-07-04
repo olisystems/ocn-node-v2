@@ -27,7 +27,6 @@ import snc.openchargingnetwork.node.config.HttpClientComponent
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.config.RegistryIndexerProperties
 import snc.openchargingnetwork.node.models.ControllerResponse
-import snc.openchargingnetwork.node.models.GqlData
 import snc.openchargingnetwork.node.models.Party
 
 
@@ -50,7 +49,7 @@ class RegistryController(
         val response: ControllerResponse = httpClientComponent.getIndexedOcnRegistry(
             registryIndexerProperties.url,
             registryIndexerProperties.token,
-            registryIndexerProperties.partiesQuery
+            registryIndexerProperties.aggregatedQuery
         )
         if (response.success) {
             return response.data!!.parties!!
