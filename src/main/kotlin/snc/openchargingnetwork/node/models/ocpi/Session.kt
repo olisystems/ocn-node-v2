@@ -41,13 +41,11 @@ data class Session(
     @JsonProperty("last_updated") val lastUpdated: String
 )
 
-data class CdrToken(
-    @JsonProperty("country_code") val countryCode: String,
-    @JsonProperty("party_id") val partyID: String,
-    @JsonProperty("uid") val uid: String,
-    @JsonProperty("type") val tokenType: TokenType,
-    @JsonProperty("contract_id") val contractID: String
-)
+data class CdrToken(@JsonProperty("country_code") val countryCode: String? = null,
+                    @JsonProperty("party_id") val partyID: String? = null,
+                    @JsonProperty("uid") val uid: String,
+                    @JsonProperty("type") val tokenType: TokenType,
+                    @JsonProperty("contract_id") val contractID: String)
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class ChargingPeriod(

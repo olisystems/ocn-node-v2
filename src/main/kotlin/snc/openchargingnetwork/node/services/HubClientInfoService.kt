@@ -1,5 +1,5 @@
 /*
-    Copyright 2019-2020 eMobility GmbH
+    Copyright 2019-2020 eMobilify GmbH
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -113,7 +113,7 @@ class HubClientInfoService(
             if (platform.status == ConnectionStatus.CONNECTED && platform.id != changedPlatform?.id) {
 
                 // Only push the update if the platform has implemented the HubClientInfo Receiver endpoint
-                val hubClientInfoPutEndpoint = endpointRepo.findByPlatformIDAndIdentifierAndRole(
+                val hubClientInfoPutEndpoint = endpointRepo.findFirstByPlatformIDAndIdentifierAndRoleOrderByIdAsc(
                     platformID = platform.id,
                     identifier = ModuleID.HUB_CLIENT_INFO.id,
                     Role = InterfaceRole.RECEIVER
@@ -221,7 +221,10 @@ class HubClientInfoService(
      */
     @Async
     fun renewClientConnection(sender: BasicRole) {
-        val role = roleRepo.findByCountryCodeAndPartyIDAllIgnoreCase(countryCode = sender.country, partyID = sender.id)
+        val role = roleRepo.findFirstByCountryCodeAndPartyIDAllIgnoreCaseOrderByIdAsc(
+            countryCode = sender.country,
+            partyID = sender.id
+        )
             ?: throw IllegalArgumentException("sender could not be found")
 
         val client = platformRepo.findById(role.platformID).get()

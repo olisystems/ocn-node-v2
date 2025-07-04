@@ -1,5 +1,5 @@
 /*
-    Copyright 2019-2020 eMobility GmbH
+    Copyright 2019-2020 eMobilify GmbH
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ interface RoleRepository : CrudRepository<RoleEntity, Long> {
     ): Boolean
 
     // used in routing to find roles registered with broker (hub)
-    fun findByCountryCodeAndPartyIDAllIgnoreCase(countryCode: String, partyID: String): RoleEntity?
+    fun findFirstByCountryCodeAndPartyIDAllIgnoreCaseOrderByIdAsc(countryCode: String, partyID: String): RoleEntity?
     fun findAllByCountryCodeAndPartyIDAllIgnoreCase(countryCode: String, partyID: String): Iterable<RoleEntity>
     fun findAllByPlatformID(platformID: Long?): Iterable<RoleEntity>
     fun deleteByPlatformID(platformID: Long?)
@@ -51,7 +51,7 @@ interface RoleRepository : CrudRepository<RoleEntity, Long> {
 
 interface EndpointRepository : CrudRepository<EndpointEntity, Long> {
     fun findByPlatformID(platformID: Long?): Iterable<EndpointEntity>
-    fun findByPlatformIDAndIdentifierAndRole(
+    fun findFirstByPlatformIDAndIdentifierAndRoleOrderByIdAsc(
         platformID: Long?,
         identifier: String,
         Role: InterfaceRole
