@@ -1,12 +1,15 @@
-package snc.openchargingnetwork.node.config
+package snc.openchargingnetwork.node.components
 
 import com.fasterxml.jackson.core.JsonParseException
+import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.request.header
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentLength
@@ -18,16 +21,26 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.springframework.http.HttpMethod
 import org.springframework.stereotype.Component
-import org.springframework.web.servlet.function.RequestPredicates.param
-import snc.openchargingnetwork.node.models.*
+import org.springframework.web.servlet.function.RequestPredicates
+import snc.openchargingnetwork.node.models.ControllerResponse
+import snc.openchargingnetwork.node.models.GqlCertificateData
+import snc.openchargingnetwork.node.models.GqlPartiesAndOpsData
+import snc.openchargingnetwork.node.models.GqlQuery
+import snc.openchargingnetwork.node.models.GqlResponse
+import snc.openchargingnetwork.node.models.OcnHeaders
+import snc.openchargingnetwork.node.models.OcnMessageHeaders
+import snc.openchargingnetwork.node.models.OcpiHttpResponse
+import snc.openchargingnetwork.node.models.SyncedHttpResponse
 import snc.openchargingnetwork.node.models.exceptions.OcpiServerGenericException
 import snc.openchargingnetwork.node.models.exceptions.OcpiServerUnusableApiException
-import snc.openchargingnetwork.node.models.ocpi.*
+import snc.openchargingnetwork.node.models.ocpi.ClientInfo
+import snc.openchargingnetwork.node.models.ocpi.ModuleID
+import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
+import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
+import snc.openchargingnetwork.node.models.ocpi.Version
+import snc.openchargingnetwork.node.models.ocpi.VersionDetail
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
 import snc.openchargingnetwork.node.tools.urlJoin
-import com.fasterxml.jackson.core.JsonProcessingException
-import io.ktor.client.statement.bodyAsText
-
 
 @Component
 class HttpClientComponent {
@@ -38,7 +51,7 @@ class HttpClientComponent {
 
     fun convertToRequestVariables(stringBody: String): OcpiRequestVariables = mapper.readValue(stringBody)
 
-    val client = io.ktor.client.HttpClient(CIO)
+    val client = HttpClient(CIO)
 
     private companion object {
         const val OCN_MESSAGE_ENDPOINT = "/ocn/message"
@@ -77,7 +90,7 @@ class HttpClientComponent {
                     }
                 }
                 queryParams.forEach { (key, value) ->
-                    param(key, value)
+                    RequestPredicates.param(key, value)
                 }
                 if (body != null) {
                     contentType(ContentType.Application.Json)
@@ -105,7 +118,7 @@ class HttpClientComponent {
      * @param queryParams The query parameters to append to the request URL as key-value pairs. Defaults to null if no query parameters are provided.
      * @param body The request body as a String, if applicable. Defaults to null if no body is needed.
      * @return An OcpiHttpResponse object containing the response status code, headers, and parsed body of type T.
-     * @throws OcpiServerGenericException if the JSON response cannot be parsed or a generic server error occurs.
+     * @throws snc.openchargingnetwork.node.models.exceptions.OcpiServerGenericException if the JSON response cannot be parsed or a generic server error occurs.
      */
     fun <T : Any> makeOcpiRequest(
         method: HttpMethod,
@@ -173,7 +186,7 @@ class HttpClientComponent {
      * @param url The endpoint URL from which to request the version information.
      * @param authorization The authorization token to be used for the request.
      * @return A list of `Version` objects representing the available OCPI versions.
-     * @throws OcpiServerUnusableApiException If the response contains an unexpected HTTP status code,
+     * @throws snc.openchargingnetwork.node.models.exceptions.OcpiServerUnusableApiException If the response contains an unexpected HTTP status code,
      * an unexpected OCPI status code, missing or invalid version data, or if there is an error
      * during request execution or response parsing.
      */
@@ -309,11 +322,12 @@ class HttpClientComponent {
      *
      * @param url The endpoint URL to send the GraphQL request.
      * @param authorization The bearer token used for authorization with the specified URL.
+     * @param query The GraphQL query string to execute.
      * @return A ControllerResponse containing a list of Party objects if the operation is successful,
      *         or an error message in case of failure.
      */
     fun getIndexedOcnRegistry(url: String, authorization: String, query: String):
-            ControllerResponse = runBlocking {
+            ControllerResponse<GqlPartiesAndOpsData> = runBlocking {
         try {
             val query = GqlQuery(
                 query = query.trimIndent(),
@@ -338,23 +352,76 @@ class HttpClientComponent {
                 )
             }
 
-            val queryResult: GqlResponse = Json.Default.decodeFromString(response.body)
+            val queryResult: GqlResponse<GqlPartiesAndOpsData> = Json.Default.decodeFromString(response.body)
 
             return@runBlocking when {
                 // Error
-                queryResult.errors != null -> ControllerResponse(false, null,
-                    "getIndexedOcnRegistry query error: ${queryResult.errors}")
+                queryResult.errors != null -> ControllerResponse(
+                    false, null,
+                    "getIndexedOcnRegistry query error: ${queryResult.errors}"
+                )
                 // Success
                 queryResult.data != null -> ControllerResponse(true, queryResult.data)
                 // Undefined behaviour
-                else -> ControllerResponse(false, null,
-                    "No data received from the GraphQL query")
+                else -> ControllerResponse(
+                    false, null,
+                    "No data received from the GraphQL query"
+                )
             }
 
         } catch (e: Exception) {
-            ControllerResponse(false, null,"Unexpected error: ${e.message}")
+            ControllerResponse(false, null, "Unexpected error: ${e.message}")
         }
     }
 
+    /**
+     *
+     */
+    fun getIndexedOcnRegistryCertificates(url: String, authorization: String, query: String):
+            ControllerResponse<GqlCertificateData> = runBlocking {
+        try {
+            val query = GqlQuery(
+                query = query.trimIndent(),
+                operationName = "Subgraphs",
+                variables = emptyMap()
+            )
 
+            val response = sendHttpRequest(
+                endpoint = url,
+                method = HttpMethod.POST,
+                body = Json.Default.encodeToString(query),
+                headers = mapOf(
+                    HttpHeaders.Authorization to "Bearer $authorization",
+                    HttpHeaders.ContentType to ContentType.Application.Json.toString()
+                )
+            )
+
+            if (!response.statusCode.isSuccess()) {
+                return@runBlocking ControllerResponse(
+                    false, null,
+                    "getIndexedOcnRegistryCertificates returned HTTP ${response.statusCode}; Error: ${response.body}"
+                )
+            }
+
+            val queryResult: GqlResponse<GqlCertificateData> = Json.Default.decodeFromString(response.body)
+
+            return@runBlocking when {
+                // Error
+                queryResult.errors != null -> ControllerResponse(
+                    false, null,
+                    "getIndexedOcnRegistryCertificates query error: ${queryResult.errors}"
+                )
+                // Success
+                queryResult.data != null -> ControllerResponse<GqlCertificateData>(true, queryResult.data)
+                // Undefined behaviour
+                else -> ControllerResponse(
+                    false, null,
+                    "No data received from the GraphQL query"
+                )
+            }
+
+        } catch (e: Exception) {
+            ControllerResponse(false, null, "Unexpected error: ${e.message}")
+        }
+    }
 }

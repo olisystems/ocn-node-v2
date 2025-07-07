@@ -28,6 +28,7 @@ import snc.openchargingnetwork.node.scheduledTasks.PlannedPartySearch
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.stereotype.Component
 import org.springframework.scheduling.annotation.Scheduled
+import snc.openchargingnetwork.node.components.HttpClientComponent
 import snc.openchargingnetwork.node.components.OcnRegistryComponent
 
 

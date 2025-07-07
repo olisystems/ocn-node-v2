@@ -1,5 +1,6 @@
 package snc.openchargingnetwork.node.models
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import snc.openchargingnetwork.node.models.ocpi.Role
 
@@ -48,7 +49,7 @@ data class OcnRegistry(
 data class GqlQuery(val query: String, val operationName: String, val variables: Map<String, String>)
 
 @Serializable
-data class GqlData(
+data class GqlPartiesAndOpsData(
     val parties: List<Party>? = null,
     val party: Party? = null,
     val operators: List<Operator>? = null,
@@ -56,7 +57,49 @@ data class GqlData(
 )
 
 @Serializable
+data class EmpCertificate (
+    val identifier: String,
+    val name: String,
+    val marktfunktion: String,
+    val bilanzkreis: String,
+    val lieferant: String,
+    val vatid: String,
+    val owner: String,
+    val blockNumber: Int
+)
+
+@Serializable
+data class CpoCertificate (
+    val identifier: String,
+    val name: String,
+    val owner: String,
+    val blockNumber: Int
+)
+
+@Serializable
+data class OtherCertificate (
+    val identifier: String,
+    val name: String,
+    val owner: String,
+    val blockNumber: Int
+)
+
+@Serializable
+data class GqlCertificateData(
+    @SerialName("empverifieds") val emp: List<EmpCertificate>,
+    @SerialName("cpoverifieds") val cpo: List<CpoCertificate>,
+    @SerialName("otherVerifieds") val other: List<OtherCertificate>,
+)
+
+@Serializable
+data class GqlCertificateDataResponse(
+    @SerialName("EMP") val emp: List<EmpCertificate>,
+    @SerialName("CPO") val cpo: List<CpoCertificate>,
+    @SerialName("OTHER") val other: List<OtherCertificate>,
+)
+
+@Serializable
 data class GqlError(val message: String? = null)
 
 @Serializable
-data class GqlResponse(val data: GqlData? = null, val errors: List<GqlError>? = null)
+data class GqlResponse<T>(val data: T? = null, val errors: List<GqlError>? = null)

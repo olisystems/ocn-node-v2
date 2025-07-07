@@ -23,7 +23,7 @@ import org.web3j.crypto.Keys
 import org.web3j.crypto.Sign
 import org.web3j.utils.Numeric
 import snc.openchargingnetwork.node.components.OcnRegistryComponent
-import snc.openchargingnetwork.node.config.HttpClientComponent
+import snc.openchargingnetwork.node.components.HttpClientComponent
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.exceptions.InvalidOcnSignatureException
 import snc.openchargingnetwork.node.models.exceptions.OcpiHubConnectionProblemException

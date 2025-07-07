@@ -23,8 +23,9 @@ import org.springframework.context.annotation.Profile
 import org.springframework.context.event.EventListener
 import org.springframework.http.HttpMethod
 import org.springframework.stereotype.Component
+import snc.openchargingnetwork.node.components.HttpClientComponent
 import snc.openchargingnetwork.node.models.ControllerResponse
-import snc.openchargingnetwork.node.models.Party
+import snc.openchargingnetwork.node.models.GqlPartiesAndOpsData
 import snc.openchargingnetwork.node.tools.urlJoin
 import java.net.ConnectException
 import java.net.InetAddress
@@ -119,7 +120,7 @@ class Verification(
             }
         """.trimIndent()
 
-        val response: ControllerResponse = httpClientComponent.getIndexedOcnRegistry(
+        val response: ControllerResponse<GqlPartiesAndOpsData> = httpClientComponent.getIndexedOcnRegistry(
             registryIndexerProperties.url,
             registryIndexerProperties.token,
             query
