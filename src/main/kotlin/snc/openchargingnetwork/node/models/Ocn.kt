@@ -100,13 +100,13 @@ data class OcnRulesListParty(
 
 data class RegistryPartyDetailsBasic(val address: String, val operator: String)
 
-data class RegistryPartyDetails(val party: BasicRole, val roles: List<Role>, val nodeOperator: String)
+// TODO: Clean up these unused data
+//data class RegistryPartyDetails(val party: BasicRole, val roles: List<Role>, val nodeOperator: String)
+//data class OcnService(val provider: BasicRole, val permissions: List<OcnServicePermission>)
 
 data class NewRegistryPartyDetails(val nodeOperator: String, val party: BasicRole, val roles: List<Role>)
 
 data class RegistryNode(val operator: String, val url: String)
-
-data class OcnService(val provider: BasicRole, val permissions: List<OcnServicePermission>)
 
 data class BasicRequestType(val moduleID: ModuleID, val interfaceRole: InterfaceRole)
 

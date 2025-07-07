@@ -22,14 +22,14 @@ import org.web3j.crypto.Credentials
 import org.web3j.crypto.Keys
 import org.web3j.crypto.Sign
 import org.web3j.utils.Numeric
-import snc.openchargingnetwork.node.config.HttpClientComponent
+import snc.openchargingnetwork.node.components.OcnRegistryComponent
+import snc.openchargingnetwork.node.components.HttpClientComponent
 import snc.openchargingnetwork.node.config.NodeProperties
-import snc.openchargingnetwork.node.models.OcnRegistry
 import snc.openchargingnetwork.node.models.exceptions.InvalidOcnSignatureException
 import snc.openchargingnetwork.node.models.exceptions.OcpiHubConnectionProblemException
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
 import snc.openchargingnetwork.node.models.ocpi.ClientInfo
-import snc.openchargingnetwork.node.tools.filterOperatorsByParty
+import snc.openchargingnetwork.node.tools.filterOperatorByParty
 import java.nio.charset.StandardCharsets
 
 /**
@@ -38,7 +38,7 @@ import java.nio.charset.StandardCharsets
 @Service
 class WalletService(
     private val properties: NodeProperties,
-    private val registry: OcnRegistry,
+    private val ocnRegistryComponent: OcnRegistryComponent,
     private val httpClientComponent: HttpClientComponent
 ) {
 
@@ -85,7 +85,8 @@ class WalletService(
         val (r, s, v) = signatureStringToByteArray(signature)
         val signingKey = Sign.signedPrefixedMessageToKey(dataToVerify, Sign.SignatureData(v, r, s))
         val signingAddress = "0x${Keys.getAddress(signingKey)}"
-        val op = filterOperatorsByParty(registry, sender)
+        val registry = ocnRegistryComponent.getRegistry()
+        val op = filterOperatorByParty(registry, sender)
         if (signingAddress.lowercase() != op.id) {
             throw OcpiHubConnectionProblemException("Could not verify OCN-Signature of request")
         }
@@ -98,7 +99,8 @@ class WalletService(
         // Fetch Operator from the Registry
         val clientInfo: ClientInfo = httpClientComponent.mapper.readValue(clientInfoString)
         val role = BasicRole(clientInfo.partyID, clientInfo.countryCode)
-        val op = filterOperatorsByParty(registry, role)
+        val registry = ocnRegistryComponent.getRegistry()
+        val op = filterOperatorByParty(registry, role)
         // Verify if signature matches address
         val dataToVerify = clientInfoString.toByteArray(StandardCharsets.UTF_8)
         val (r, s, v) = signatureStringToByteArray(signature)

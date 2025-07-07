@@ -41,7 +41,6 @@ data class Operator(
 
 @Serializable
 data class OcnRegistry(
-    var url: String,
     var parties: List<Party> = emptyList(),
     var operators: List<Operator> = emptyList()
 )
@@ -50,7 +49,7 @@ data class OcnRegistry(
 data class GqlQuery(val query: String, val operationName: String, val variables: Map<String, String>)
 
 @Serializable
-data class GqlData(
+data class GqlPartiesAndOpsData(
     val parties: List<Party>? = null,
     val party: Party? = null,
     val operators: List<Operator>? = null,

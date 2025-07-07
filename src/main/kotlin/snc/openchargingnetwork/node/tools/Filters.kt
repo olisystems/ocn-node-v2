@@ -8,7 +8,7 @@ import snc.openchargingnetwork.node.models.ocpi.BasicRole
 /**
  * Support function
  */
-fun filterOperatorsByParty(registry: OcnRegistry, role: BasicRole): Operator {
+fun filterOperatorByParty(registry: OcnRegistry, role: BasicRole): Operator {
     val operators = registry.operators.filter {
         it.parties.any {
             it.partyId == role.id && it.countryCode == role.country

@@ -18,7 +18,7 @@ package snc.openchargingnetwork.node.controllers.ocpi.v2_2
 
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
-import snc.openchargingnetwork.node.config.HttpClientComponent
+import snc.openchargingnetwork.node.components.HttpClientComponent
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.entities.Auth
 import snc.openchargingnetwork.node.models.entities.EndpointEntity

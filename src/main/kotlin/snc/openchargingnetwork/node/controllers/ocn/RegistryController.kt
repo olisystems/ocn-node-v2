@@ -17,15 +17,22 @@
 package snc.openchargingnetwork.node.controllers.ocn
 
 import org.springframework.http.HttpStatus
-import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.*
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.RequestHeader
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ResponseStatusException
 import org.web3j.crypto.Credentials
-import snc.openchargingnetwork.node.config.HttpClientComponent
+import snc.openchargingnetwork.node.components.HttpClientComponent
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.config.RegistryIndexerProperties
-import snc.openchargingnetwork.node.models.*
-import snc.openchargingnetwork.node.tools.toBs64String
+import snc.openchargingnetwork.node.models.ControllerResponse
+import snc.openchargingnetwork.node.models.GqlCertificateDataResponse
+import snc.openchargingnetwork.node.models.GqlCertificateData
+import snc.openchargingnetwork.node.models.GqlPartiesAndOpsData
+import snc.openchargingnetwork.node.models.Operator
+import snc.openchargingnetwork.node.models.Party
 
 
 @RestController
@@ -36,11 +43,6 @@ class RegistryController(
     private val httpClientComponent: HttpClientComponent,
 ) {
 
-    fun isAuthorized(authorization: String): Boolean {
-        return authorization == "Token ${properties.apikey}" ||
-                authorization == "Token ${properties.apikey.toBs64String()}"
-    }
-
     @GetMapping("/node-info")
     fun getMyNodeInfo() = mapOf(
         "url" to properties.url + "/" + properties.apiPrefix,
@@ -49,10 +51,10 @@ class RegistryController(
 
     @GetMapping("/nodes")
     fun getRegisteredNodes(): List<Party>? {
-        val response: ControllerResponse<GqlData> = httpClientComponent.getIndexedOcnRegistryParties(
+        val response: ControllerResponse<GqlPartiesAndOpsData> = httpClientComponent.getIndexedOcnRegistry(
             registryIndexerProperties.url,
             registryIndexerProperties.token,
-            registryIndexerProperties.partiesQuery
+            registryIndexerProperties.aggregatedQuery
         )
         if (response.success) {
             return response.data!!.parties!!
@@ -63,10 +65,10 @@ class RegistryController(
 
     @GetMapping("/operators")
     fun getRegisteredOperators(): List<Operator>? {
-        val response: ControllerResponse<GqlData> = httpClientComponent.getIndexedOcnRegistryOperators(
+        val response: ControllerResponse<GqlPartiesAndOpsData> = httpClientComponent.getIndexedOcnRegistry(
             registryIndexerProperties.url,
             registryIndexerProperties.token,
-            registryIndexerProperties.operatorsQuery
+            registryIndexerProperties.aggregatedQuery
         )
         if (response.success) {
             return response.data!!.operators!!
@@ -81,7 +83,7 @@ class RegistryController(
         @PathVariable partyID: String
     ): Party? {
         val partyID = "${countryCode}/${partyID}"
-        val response: ControllerResponse<GqlData> = httpClientComponent.getIndexedOcnRegistryParties(
+        val response: ControllerResponse<GqlPartiesAndOpsData> = httpClientComponent.getIndexedOcnRegistry(
             registryIndexerProperties.url,
             registryIndexerProperties.token,
             registryIndexerProperties.singlePartyQuery.format(partyID)
@@ -99,7 +101,8 @@ class RegistryController(
         @PathVariable countryCode: String,
         @PathVariable partyID: String
     ): GqlCertificateDataResponse? {
-        if (!isAuthorized(authorization)) {
+        // Check if request is authorized
+        if (authorization == "Token ${properties.apikey}") {
             throw ResponseStatusException(HttpStatus.UNAUTHORIZED)
         }
 
@@ -110,7 +113,7 @@ class RegistryController(
             registryIndexerProperties.singleVerificationQuery.format(partyID,partyID,partyID)
         )
         if (response.success) {
-            val prettyResponse = GqlCertificateDataResponse(response.data!!.emp,response.data!!.cpo,response.data!!.other,)
+            val prettyResponse = GqlCertificateDataResponse(response.data!!.emp, response.data.cpo, response.data.other,)
             return prettyResponse
         } else {
             throw ResponseStatusException(HttpStatus.METHOD_FAILURE, response.error)

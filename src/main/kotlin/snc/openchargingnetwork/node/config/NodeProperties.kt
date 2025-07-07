@@ -42,8 +42,8 @@ class NodeProperties {
     lateinit var url: String
 
     // If Enabled keeps a record of live and unresponsive parties
-    var stillAliveEnabled: Boolean = false
+    var stillAliveEnabled: Boolean = true
 
     // If Enabled keeps a record of registered OCPI Parties
-    var plannedPartySearchEnabled: Boolean = false
+    var plannedPartySearchEnabled: Boolean = true
 }

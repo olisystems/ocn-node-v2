@@ -1,5 +1,5 @@
 /*
-    Copyright 2019-2020 eMobility GmbH
+    Copyright 2019-2020 eMobilify GmbH
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package snc.openchargingnetwork.node.services
 
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
-import snc.openchargingnetwork.node.config.HttpClientComponent
+import snc.openchargingnetwork.node.components.HttpClientComponent
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.OcnMessageHeaders
 import snc.openchargingnetwork.node.models.Receiver
@@ -43,14 +43,14 @@ import snc.openchargingnetwork.node.tools.urlJoin
 
 @Service
 class RoutingService(
-        private val platformRepo: PlatformRepository,
-        private val roleRepo: RoleRepository,
-        private val endpointRepo: EndpointRepository,
-        private val proxyResourceRepo: ProxyResourceRepository,
-        private val registryService: RegistryService,
-        private val httpClientComponent: HttpClientComponent,
-        private val walletService: WalletService,
-        private val ocnRulesService: OcnRulesService
+    private val platformRepo: PlatformRepository,
+    private val roleRepo: RoleRepository,
+    private val endpointRepo: EndpointRepository,
+    private val proxyResourceRepo: ProxyResourceRepository,
+    private val registryService: RegistryService,
+    private val httpClientComponent: HttpClientComponent,
+    private val walletService: WalletService,
+    private val ocnRulesService: OcnRulesService
 ) {
 
     /** check database to see if basic role is connected to the node */
@@ -129,6 +129,7 @@ class RoutingService(
             )
         }
     }
+
 
     /**
      * Check receiver is registered on the Open Charging Network / known locally via database
@@ -259,11 +260,10 @@ class RoutingService(
 
         val bodyString = httpClientComponent.mapper.writeValueAsString(modifiedBody)
 
-        val headers =
-                OcnMessageHeaders(
-                        requestID = generateUUIDv4Token(),
-                        signature = walletService.sign(bodyString)
-                )
+        val headers = OcnMessageHeaders(
+            requestID = generateUUIDv4Token(),
+            signature = walletService.sign(bodyString)
+        )
 
         return Triple(url, headers, bodyString)
     }
@@ -316,4 +316,5 @@ class RoutingService(
     fun deleteProxyResource(resourceID: String) {
         proxyResourceRepo.deleteById(resourceID.toLong())
     }
+
 }

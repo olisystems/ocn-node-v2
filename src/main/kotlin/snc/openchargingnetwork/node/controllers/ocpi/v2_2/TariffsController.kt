@@ -1,5 +1,5 @@
 /*
-    Copyright 2019-2020 eMobility GmbH
+    Copyright 2019-2020 eMobilify GmbH
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -24,16 +24,11 @@ import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.ocpi.*
 import snc.openchargingnetwork.node.tools.filterNull
 
-
 @RestController
 @RequestMapping("\${ocn.node.apiPrefix}")
 class TariffsController(private val requestHandlerBuilder: OcpiRequestHandlerBuilder) {
 
-
-    /**
-     * SENDER INTERFACE
-     */
-
+    /** SENDER INTERFACE */
     @GetMapping("/ocpi/sender/2.2/tariffs")
     fun getTariffsFromDataOwner(
         @RequestHeader("authorization") authorization: String,
@@ -54,15 +49,30 @@ class TariffsController(private val requestHandlerBuilder: OcpiRequestHandlerBui
         val receiver = BasicRole(toPartyID, toCountryCode)
 
         val params =
-            mapOf("date_from" to dateFrom, "date_to" to dateTo, "offset" to offset, "limit" to limit).filterNull()
+            mapOf(
+                "date_from" to dateFrom,
+                "date_to" to dateTo,
+                "offset" to offset,
+                "limit" to limit
+            )
+                .filterNull()
 
-        val requestVariables = OcpiRequestVariables(
-            module = ModuleID.TARIFFS,
-            interfaceRole = InterfaceRole.SENDER,
-            method = HttpMethod.GET,
-            headers = OcnHeaders(authorization, signature, requestID, correlationID, sender, receiver),
-            queryParams = params
-        )
+        val requestVariables =
+            OcpiRequestVariables(
+                module = ModuleID.TARIFFS,
+                interfaceRole = InterfaceRole.SENDER,
+                method = HttpMethod.GET,
+                headers =
+                    OcnHeaders(
+                        authorization,
+                        signature,
+                        requestID,
+                        correlationID,
+                        sender,
+                        receiver
+                    ),
+                queryParams = params
+            )
 
         return requestHandlerBuilder
             .build<Array<Tariff>>(requestVariables)
@@ -86,13 +96,22 @@ class TariffsController(private val requestHandlerBuilder: OcpiRequestHandlerBui
         val sender = BasicRole(fromPartyID, fromCountryCode)
         val receiver = BasicRole(toPartyID, toCountryCode)
 
-        val requestVariables = OcpiRequestVariables(
-            module = ModuleID.TARIFFS,
-            interfaceRole = InterfaceRole.SENDER,
-            method = HttpMethod.GET,
-            headers = OcnHeaders(authorization, signature, requestID, correlationID, sender, receiver),
-            urlPath = uid
-        )
+        val requestVariables =
+            OcpiRequestVariables(
+                module = ModuleID.TARIFFS,
+                interfaceRole = InterfaceRole.SENDER,
+                method = HttpMethod.GET,
+                headers =
+                    OcnHeaders(
+                        authorization,
+                        signature,
+                        requestID,
+                        correlationID,
+                        sender,
+                        receiver
+                    ),
+                urlPath = uid
+            )
 
         return requestHandlerBuilder
             .build<Array<Tariff>>(requestVariables)
@@ -100,11 +119,7 @@ class TariffsController(private val requestHandlerBuilder: OcpiRequestHandlerBui
             .getResponseWithPaginationHeaders()
     }
 
-
-    /**
-     * RECEIVER INTERFACE
-     */
-
+    /** RECEIVER INTERFACE */
     @GetMapping("/ocpi/receiver/2.2/tariffs/{countryCode}/{partyID}/{tariffID}")
     fun getClientOwnedTariff(
         @RequestHeader("authorization") authorization: String,
@@ -123,20 +138,28 @@ class TariffsController(private val requestHandlerBuilder: OcpiRequestHandlerBui
         val sender = BasicRole(fromPartyID, fromCountryCode)
         val receiver = BasicRole(toPartyID, toCountryCode)
 
-        val requestVariables = OcpiRequestVariables(
-            module = ModuleID.TARIFFS,
-            interfaceRole = InterfaceRole.RECEIVER,
-            method = HttpMethod.GET,
-            headers = OcnHeaders(authorization, signature, requestID, correlationID, sender, receiver),
-            urlPath = "/$countryCode/$partyID/$tariffID"
-        )
+        val requestVariables =
+            OcpiRequestVariables(
+                module = ModuleID.TARIFFS,
+                interfaceRole = InterfaceRole.RECEIVER,
+                method = HttpMethod.GET,
+                headers =
+                    OcnHeaders(
+                        authorization,
+                        signature,
+                        requestID,
+                        correlationID,
+                        sender,
+                        receiver
+                    ),
+                urlPath = "/$countryCode/$partyID/$tariffID"
+            )
 
         return requestHandlerBuilder
             .build<Tariff>(requestVariables)
             .forwardDefault()
             .getResponse()
     }
-
 
     @PutMapping("/ocpi/receiver/2.2/tariffs/{countryCode}/{partyID}/{tariffID}")
     fun putClientOwnedTariff(
@@ -157,25 +180,33 @@ class TariffsController(private val requestHandlerBuilder: OcpiRequestHandlerBui
         val sender = BasicRole(fromPartyID, fromCountryCode)
         val receiver = BasicRole(toPartyID, toCountryCode)
 
-        val requestVariables = OcpiRequestVariables(
-            module = ModuleID.TARIFFS,
-            interfaceRole = InterfaceRole.RECEIVER,
-            method = HttpMethod.PUT,
-            headers = OcnHeaders(authorization, signature, requestID, correlationID, sender, receiver),
-            urlPath = "/$countryCode/$partyID/$tariffID",
-            body = body
-        )
+        val requestVariables =
+            OcpiRequestVariables(
+                module = ModuleID.TARIFFS,
+                interfaceRole = InterfaceRole.RECEIVER,
+                method = HttpMethod.PUT,
+                headers =
+                    OcnHeaders(
+                        authorization,
+                        signature,
+                        requestID,
+                        correlationID,
+                        sender,
+                        receiver
+                    ),
+                urlPath = "/$countryCode/$partyID/$tariffID",
+                body = body
+            )
 
         // Forward the request to the original destination
-        val response = requestHandlerBuilder
-            .build<Unit>(requestVariables)
-            .forwardHaasAsync()
-            .forwardDefault()
-            .getResponse()
+        val response =
+            requestHandlerBuilder
+                .build<Unit>(requestVariables)
+                .forwardDefault()
+                .getResponse()
 
         return response
     }
-
 
     @DeleteMapping("/ocpi/receiver/2.2/tariffs/{countryCode}/{partyID}/{tariffID}")
     fun deleteClientOwnedTariff(
@@ -195,18 +226,26 @@ class TariffsController(private val requestHandlerBuilder: OcpiRequestHandlerBui
         val sender = BasicRole(fromPartyID, fromCountryCode)
         val receiver = BasicRole(toPartyID, toCountryCode)
 
-        val requestVariables = OcpiRequestVariables(
-            module = ModuleID.TARIFFS,
-            interfaceRole = InterfaceRole.RECEIVER,
-            method = HttpMethod.DELETE,
-            headers = OcnHeaders(authorization, signature, requestID, correlationID, sender, receiver),
-            urlPath = "/$countryCode/$partyID/$tariffID"
-        )
+        val requestVariables =
+            OcpiRequestVariables(
+                module = ModuleID.TARIFFS,
+                interfaceRole = InterfaceRole.RECEIVER,
+                method = HttpMethod.DELETE,
+                headers =
+                    OcnHeaders(
+                        authorization,
+                        signature,
+                        requestID,
+                        correlationID,
+                        sender,
+                        receiver
+                    ),
+                urlPath = "/$countryCode/$partyID/$tariffID"
+            )
 
         return requestHandlerBuilder
             .build<Unit>(requestVariables)
             .forwardDefault()
             .getResponse()
     }
-
 }

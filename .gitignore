@@ -44,8 +44,6 @@
 # *.iml
 # *.ipr
 
-.vscode/
-
 # CMake
 cmake-build-*/
 
@@ -57,18 +55,6 @@ cmake-build-*/
 
 # IntelliJ
 out/
-
-.vscode/
-
-*.hprof
-
-# gradle
-gradle/
-gradle*
-gradle.properties
-
-# Removed due to CI/CD conflicts
-start.sh
 
 # mpeltonen/sbt-idea plugin
 .idea_modules/

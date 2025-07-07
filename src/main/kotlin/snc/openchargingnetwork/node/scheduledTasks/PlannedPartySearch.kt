@@ -16,43 +16,68 @@
 
 package snc.openchargingnetwork.node.scheduledTasks
 
-import org.springframework.http.HttpStatus
-import org.springframework.web.server.ResponseStatusException
-import snc.openchargingnetwork.node.config.HttpClientComponent
-import snc.openchargingnetwork.node.config.RegistryIndexerProperties
-import snc.openchargingnetwork.node.models.ControllerResponse
-import snc.openchargingnetwork.node.models.GqlData
-import snc.openchargingnetwork.node.models.Party
+import org.web3j.crypto.Credentials
+import snc.openchargingnetwork.node.components.OcnRegistryComponent
+import snc.openchargingnetwork.node.config.NodeProperties
+import snc.openchargingnetwork.node.models.NewRegistryPartyDetails
 import snc.openchargingnetwork.node.models.entities.NetworkClientInfoEntity
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
 import snc.openchargingnetwork.node.models.ocpi.ConnectionStatus
 import snc.openchargingnetwork.node.repositories.NetworkClientInfoRepository
+import snc.openchargingnetwork.node.repositories.RoleRepository
+import snc.openchargingnetwork.node.tools.checksum
 
 
-// TODO: Check if roles don't conflict, in case the Smart Contract doesn't.
 class PlannedPartySearch(
-    private val httpClientComponent: HttpClientComponent,
+    private val ocnRegistryComponent: OcnRegistryComponent,
     private val networkClientInfoRepo: NetworkClientInfoRepository,
-    private val registryIndexerProperties: RegistryIndexerProperties
+    private val roleRepository: RoleRepository,
+    private val properties: NodeProperties
 ) : Runnable {
 
     override fun run() {
 
-        val response: ControllerResponse<GqlData> = httpClientComponent.getIndexedOcnRegistryParties(
-            registryIndexerProperties.url,
-            registryIndexerProperties.token,
-            registryIndexerProperties.partiesQuery
-        )
-        if (!response.success) {
-            throw ResponseStatusException(HttpStatus.METHOD_FAILURE, response.error)
-        }
+        val myAddress = Credentials.create(properties.privateKey).address.checksum()
+        val registry = ocnRegistryComponent.getRegistry(forceReload = true)
 
-        for (party in response.data!!.parties!!) {
+        for (party in registry.parties) {
+            NewRegistryPartyDetails(
+                nodeOperator = party.operator.id,
+                party = BasicRole(
+                    country = party.countryCode,
+                    id = party.partyId
+                ),
+                roles = party.roles
+            )
+        }
+        val plannedParties = registry.parties
+            .filter {
+                val isMyParty = it.operator.id == myAddress
+                isMyParty
+            }
+            .filter {
+                val partyHasBeenDeleted = it.operator.id == "0x0000000000000000000000000000000000000000"
+                !partyHasBeenDeleted
+            }
+            .filter {
+                // Doing completed registration check after deleted party check as null countryCode and partyId
+                // from deleted parties may cause an issue with query for postgresql
+                val hasCompletedRegistration = roleRepository.existsByCountryCodeAndPartyIDAllIgnoreCase(
+                    countryCode = it.countryCode,
+                    partyID = it.partyId
+                )
+                !hasCompletedRegistration
+            }
+
+        for (party in plannedParties) {
             for (role in party.roles) {
-                val partyId = BasicRole(party.partyId, party.countryCode)
-                if (!networkClientInfoRepo.existsByPartyAndRole(partyId, role)) {
+                val partyBR = BasicRole(
+                    country = party.countryCode,
+                    id = party.partyId
+                )
+                if (!networkClientInfoRepo.existsByPartyAndRole(party = partyBR, role = role)) {
                     val networkClientInfo = NetworkClientInfoEntity(
-                        party = partyId.uppercase(),
+                        party = partyBR,
                         role = role,
                         status = ConnectionStatus.PLANNED
                     )
@@ -61,7 +86,5 @@ class PlannedPartySearch(
                 }
             }
         }
-
     }
-
 }
