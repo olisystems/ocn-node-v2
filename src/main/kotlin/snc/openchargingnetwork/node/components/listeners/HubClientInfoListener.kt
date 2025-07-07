@@ -28,11 +28,10 @@ import snc.openchargingnetwork.node.models.ocpi.ConnectionStatus
 import snc.openchargingnetwork.node.repositories.RoleRepository
 import snc.openchargingnetwork.node.services.HubClientInfoService
 
-
 @Component
 class HubClientInfoListener(
-    private val hubClientInfoService: HubClientInfoService,
-    private val roleRepo: RoleRepository
+        private val hubClientInfoService: HubClientInfoService,
+        private val roleRepo: RoleRepository
 ) {
 
     @Async
@@ -64,23 +63,35 @@ class HubClientInfoListener(
     @Async
     @TransactionalEventListener
     fun handlePlannedRoleFoundDomainEvent(event: PlannedRoleFoundDomainEvent) {
-        notifyNetworkOfNewlyPlannedRole(event.role)
+        notifyNetworkOfRoleStatusChange(event.role, ConnectionStatus.PLANNED)
     }
 
-    /**
-     * Sends out ClientInfo updates to locally connected parties and nodes on network
-     */
-    private fun notifyNetworkOfChanges(changedPlatform: PlatformEntity, changedRoles: Iterable<RoleEntity>) {
-        for (platformRole in changedRoles) {
-            val updatedClientInfo = ClientInfo(
-                partyID = platformRole.partyID,
-                countryCode = platformRole.countryCode,
-                role = platformRole.role,
-                status = changedPlatform.status,
-                lastUpdated = changedPlatform.lastUpdated
-            )
+    @Async
+    @TransactionalEventListener
+    fun handleSuspendedRoleFoundDomainEvent(event: SuspendedRoleFoundDomainEvent) {
+        notifyNetworkOfRoleStatusChange(event.role, ConnectionStatus.SUSPENDED)
+    }
 
-            val parties = hubClientInfoService.getPartiesToNotifyOfClientInfoChange(changedPlatform, updatedClientInfo)
+    /** Sends out ClientInfo updates to locally connected parties and nodes on network */
+    private fun notifyNetworkOfChanges(
+            changedPlatform: PlatformEntity,
+            changedRoles: Iterable<RoleEntity>
+    ) {
+        for (platformRole in changedRoles) {
+            val updatedClientInfo =
+                    ClientInfo(
+                            partyID = platformRole.partyID,
+                            countryCode = platformRole.countryCode,
+                            role = platformRole.role,
+                            status = changedPlatform.status,
+                            lastUpdated = changedPlatform.lastUpdated
+                    )
+
+            val parties =
+                    hubClientInfoService.getPartiesToNotifyOfClientInfoChange(
+                            changedPlatform,
+                            updatedClientInfo
+                    )
             hubClientInfoService.notifyPartiesOfClientInfoChange(parties, updatedClientInfo)
 
             // TODO: handle connection issues
@@ -88,18 +99,22 @@ class HubClientInfoListener(
         }
     }
 
-    private fun notifyNetworkOfNewlyPlannedRole(plannedRole: NetworkClientInfoEntity) {
-        val clientInfo = ClientInfo(
-            partyID = plannedRole.party.id,
-            countryCode = plannedRole.party.country,
-            role = plannedRole.role,
-            status = ConnectionStatus.PLANNED,
-            lastUpdated = plannedRole.lastUpdated
-        )
-        val parties = hubClientInfoService.getPartiesToNotifyOfClientInfoChange(clientInfo = clientInfo)
+    private fun notifyNetworkOfRoleStatusChange(
+            role: NetworkClientInfoEntity,
+            status: ConnectionStatus
+    ) {
+        val clientInfo =
+                ClientInfo(
+                        partyID = role.party.id,
+                        countryCode = role.party.country,
+                        role = role.role,
+                        status = status,
+                        lastUpdated = role.lastUpdated
+                )
+        val parties =
+                hubClientInfoService.getPartiesToNotifyOfClientInfoChange(clientInfo = clientInfo)
         hubClientInfoService.notifyPartiesOfClientInfoChange(parties, clientInfo)
 
         hubClientInfoService.notifyNodesOfClientInfoChange(clientInfo)
     }
-
 }
