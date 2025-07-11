@@ -116,7 +116,7 @@ class HttpClientComponent {
      * @param url The target URL for the OCPI request.
      * @param headers The HTTP headers to include in the request, with each key being the header name and the value being the header value.
      * @param queryParams The query parameters to append to the request URL as key-value pairs. Defaults to null if no query parameters are provided.
-     * @param body The request body as a String, if applicable. Defaults to null if nobody is needed.
+     * @param body The request body as a String, if applicable. Defaults to null if no body is needed.
      * @return An OcpiHttpResponse object containing the response status code, headers, and parsed body of type T.
      * @throws snc.openchargingnetwork.node.models.exceptions.OcpiServerGenericException if the JSON response cannot be parsed or a generic server error occurs.
      */
