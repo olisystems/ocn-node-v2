@@ -1,0 +1,34 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "request": "attach",
+            "name": "Debug Running Process (Java 21)",
+            "hostName": "localhost",
+            "port": 5005,
+            "timeout": 30000,
+            "sourcePaths": ["${workspaceFolder}/src/main/kotlin"]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "bootRunLocalMiniKube",
+            "program": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "runtimeExecutable": "zsh",
+            "runtimeArgs": [
+                "-c",
+                "./gradlew bootRunLocalMiniKube -Pprofile=dev \"-Dorg.gradle.jvmargs=--add-opens=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED --add-opens=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED --add-opens=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED\" \"-Dagentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=\\*:5005\""
+            ],
+            "env": {
+                "JAVA_HOME": "/Users/matheusrosendo/.sdkman/candidates/java/21.0.6-tem",
+                "JAVA_OPTS": "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+            }
+        }
+    ]
+}

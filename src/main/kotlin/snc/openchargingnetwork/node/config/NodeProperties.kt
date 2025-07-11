@@ -1,5 +1,5 @@
 /*
-    Copyright 2019-2020 eMobilify GmbH
+    Copyright 2019-2020 eMobility GmbH
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -16,57 +16,34 @@
 
 package snc.openchargingnetwork.node.config
 
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.context.properties.ConfigurationProperties
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
-import javax.annotation.PostConstruct
+
 
 @ConfigurationProperties("ocn.node")
 class NodeProperties {
 
-    var apikey: String = generateUUIDv4Token()
-
-    var apiPrefix: String? = null
-
-    var base64apiKey: String = "";
-
+    // development mode
     var dev: Boolean = false
 
+    // admin key used for remote management
+    var apikey: String = generateUUIDv4Token()
+
+    // i.e., ocn-node/v2.1
+    var apiPrefix: String? = null
+
+    // Ethereum account to sign messages and txs
     var privateKey: String? = null
 
+    // Enable signature checking from communicating parties and nodes
     var signatures: Boolean = true
 
-    var haasOn: Boolean = false
-
-    var haasUrl: String =  ""
-
+    // OCN Node public URL, used for health checking and broadcasting
     lateinit var url: String
 
-    var web3 = Web3()
-
-    class Web3 {
-
-        lateinit var provider: String
-
-        var contracts = Contracts()
-
-        class Contracts {
-            lateinit var ocnRegistry: String
-        }
-    }
-
-    var stillAliveRate: String = "900000" // defaults to 15 minutes
-
+    // If Enabled keeps a record of live and unresponsive parties
     var stillAliveEnabled: Boolean = true
 
-    var plannedPartySearchRate: String = "3600000" // defaults to 1 hour
-
+    // If Enabled keeps a record of registered OCPI Parties
     var plannedPartySearchEnabled: Boolean = true
-
-    var serviceInterfaceEnabled: Boolean = true
-
-    @PostConstruct
-    fun init() {
-        base64apiKey = java.util.Base64.getEncoder().encodeToString(apikey.toByteArray());
-    }
 }

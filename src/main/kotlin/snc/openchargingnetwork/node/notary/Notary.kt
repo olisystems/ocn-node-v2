@@ -2,16 +2,16 @@ package shareandcharge.openchargingnetwork.notary
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import org.web3j.crypto.Credentials
-import org.web3j.crypto.Hash
-import java.util.*
-import java.util.zip.GZIPInputStream
-import java.util.zip.GZIPOutputStream
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
 import com.jayway.jsonpath.Configuration
 import com.jayway.jsonpath.JsonPath
 import com.jayway.jsonpath.Option
+import org.web3j.crypto.Credentials
+import org.web3j.crypto.Hash
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.util.*
+import java.util.zip.GZIPInputStream
+import java.util.zip.GZIPOutputStream
 
 /**
  * The Open Charging Network Notary signs OCPI requests and verifies OCN Signatures.
@@ -26,7 +26,8 @@ class Notary {
 
     companion object {
         private val objectMapper = jacksonObjectMapper()
-        private val jsonPath = JsonPath.using(Configuration.defaultConfiguration().addOptions(Option.SUPPRESS_EXCEPTIONS))
+        private val jsonPath =
+            JsonPath.using(Configuration.defaultConfiguration().addOptions(Option.SUPPRESS_EXCEPTIONS))
 
         /**
          * Compress signature using GZIP
@@ -126,10 +127,12 @@ class Notary {
                         mutableMsg = walk("$jsonPath['$key']", subValue, mutableMsg)
                     }
                 }
+
                 is String, is Boolean, is Int, is Byte, is Short, is Long, is Float, is Double, is Char -> {
                     fields.add(jsonPath)
                     mutableMsg += value
                 }
+
                 else -> {
                     val valueAsJsonString = objectMapper.writeValueAsString(value)
                     val valueAsMap: Map<String, Any?> = objectMapper.readValue(valueAsJsonString)

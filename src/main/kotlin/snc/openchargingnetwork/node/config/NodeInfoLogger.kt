@@ -1,5 +1,5 @@
 /*
-    Copyright 2019-2020 eMobilify GmbH
+    Copyright 2019-2020 eMobility GmbH
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -20,9 +20,14 @@ import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import org.web3j.crypto.Credentials
+import snc.openchargingnetwork.node.config.NodeBootstrap.ScheduledTasks.Companion.PLANNED_PARTY_SEARCH_RATE
+import snc.openchargingnetwork.node.config.NodeBootstrap.ScheduledTasks.Companion.STILL_ALIVE_RATE
 
 @Component
-class NodeInfoLogger(private val properties: NodeProperties, private val dataSourceProperties: DataSourceProperties) {
+class NodeInfoLogger(
+    private val properties: NodeProperties,
+    private val dataSourceProperties: DataSourceProperties,
+    private val registryIndexerProperties: RegistryIndexerProperties) {
 
     val hasPrivateKey = properties.privateKey != null
 
@@ -38,29 +43,35 @@ class NodeInfoLogger(private val properties: NodeProperties, private val dataSou
         val border = "=".repeat(borderLength)
 
         val addressText = getAddressText()
-        val registryStage = getRegistryStage()
         val stillAliveText = getStillAliveText()
         val plannedPartyText = getPlannedPartyText()
 
-        println("\n${border.substring(0, 3)} NODE INFO ${border.substring(17)}\n" +
-                " URL     | ${properties.url}/${properties.apiPrefix}\n" +
-                " ADDRESS | $addressText\n" +
-                " API KEY | ${properties.apikey}")
+        println(
+            "\n${border.substring(0, 3)} NODE INFO ${border.substring(17)}\n" +
+                    " URL     | ${properties.url}/${properties.apiPrefix}\n" +
+                    " ADDRESS | $addressText\n" +
+                    " API KEY | ${properties.apikey}"
+        )
 
-        println("${border.substring(0, 3)} NETWORK ${border.substring(15)}\n" +
-                " ETHEREUM RPC | ${properties.web3.provider}\n" +
-                " OCN_REGISTRY     | ${properties.web3.contracts.ocnRegistry} [$registryStage]\n")
+        println(
+            "${border.substring(0, 3)} REGISTRY ${border.substring(15)}\n" +
+                    " REGISTRY SUBGRAPH | ${registryIndexerProperties.url}\n"
+        )
 
-        println("${border.substring(0, 3)} FEATURES ${border.substring(16)}\n" +
-                " DEV MODE             | ${properties.dev}\n" +
-                " SIGNATURES           | ${properties.signatures}\n" +
-                " STILL ALIVE CHECK    | $stillAliveText\n" +
-                " PLANNED PARTY SEARCH | $plannedPartyText\n")
+        println(
+            "${border.substring(0, 3)} FEATURES ${border.substring(16)}\n" +
+                    " DEV MODE             | ${properties.dev}\n" +
+                    " SIGNATURES           | ${properties.signatures}\n" +
+                    " STILL ALIVE CHECK    | $stillAliveText\n" +
+                    " PLANNED PARTY SEARCH | $plannedPartyText\n"
+        )
 
-        println("${border.substring(0, 3)} DATABASE ${border.substring(16)}\n" +
-                " URL      | ${dataSourceProperties.url}\n" +
-                " USERNAME | ${dataSourceProperties.username}\n" +
-                " PASSWORD | ${maskPassword(dataSourceProperties.password)}\n")
+        println(
+            "${border.substring(0, 3)} DATABASE ${border.substring(16)}\n" +
+                    " URL      | ${dataSourceProperties.url}\n" +
+                    " USERNAME | ${dataSourceProperties.username}\n" +
+                    " PASSWORD | ${maskPassword(dataSourceProperties.password)}\n"
+        )
     }
 
     private fun calculateBorderLength(url: Int, apikey: Int): Int {
@@ -84,21 +95,14 @@ class NodeInfoLogger(private val properties: NodeProperties, private val dataSou
         }
     }
 
-    // TODO update this when redeploying the ocn registry smart contract
-    private fun getRegistryStage(): String = when (properties.web3.contracts.ocnRegistry) {
-        "0xd57595D5FA1F94725C426739C449b15D92758D55" -> "test"
-        "0x184aeD70F2aaB0Cd1FC62261C1170560cBfd0776" -> "prod"
-        else -> "custom"
-    }
-
     private fun getStillAliveText(): String = if (properties.stillAliveEnabled && hasPrivateKey) {
-        "true (${properties.stillAliveRate.toLong() / 1000}s)"
+        "true (${STILL_ALIVE_RATE/ 1000}s)"
     } else {
         "false"
     }
 
     private fun getPlannedPartyText(): String = if (properties.plannedPartySearchEnabled && hasPrivateKey) {
-        "true (${properties.plannedPartySearchRate.toLong() / 1000}s)"
+        "true (${PLANNED_PARTY_SEARCH_RATE / 1000}s)"
     } else {
         "false"
     }

@@ -1,5 +1,5 @@
 /*
-    Copyright 2019-2020 eMobilify GmbH
+    Copyright 2019-2020 eMobility GmbH
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -16,23 +16,39 @@
 
 package snc.openchargingnetwork.node.config
 
+import io.ktor.http.isSuccess
+import org.slf4j.LoggerFactory
 import org.springframework.boot.context.event.ApplicationReadyEvent
+import org.springframework.context.annotation.Profile
 import org.springframework.context.event.EventListener
+import org.springframework.http.HttpMethod
 import org.springframework.stereotype.Component
+import snc.openchargingnetwork.node.components.HttpClientComponent
+import snc.openchargingnetwork.node.models.ControllerResponse
+import snc.openchargingnetwork.node.models.GqlPartiesAndOpsData
 import snc.openchargingnetwork.node.tools.urlJoin
 import java.net.ConnectException
 import java.net.InetAddress
-import java.net.URL
+import java.net.URI
 import java.net.UnknownHostException
 import javax.net.ssl.SSLException
-import org.slf4j.LoggerFactory
 
+@Profile("!test")
 @Component
-class Verification(private val properties: NodeProperties) {
+class Verification(
+    private val properties: NodeProperties,
+    private val httpClientComponent: HttpClientComponent,
+    private val registryIndexerProperties: RegistryIndexerProperties
+) {
+    /**
+     * Self-Checks node basic health.
+     * Only executes when using profiles other than test.
+     */
 
-	companion object {
-		private val logger = LoggerFactory.getLogger(Verification::class.java)
+    companion object {
+        private val logger = LoggerFactory.getLogger(Verification::class.java)
     }
+
     @EventListener(ApplicationReadyEvent::class)
     fun testRegistry() {
         if (properties.privateKey == null) {
@@ -42,11 +58,12 @@ class Verification(private val properties: NodeProperties) {
                 throw IllegalStateException("No private key set. Unable to verify registry configuration.")
             }
         }
+        this.testRegistryAccess()
     }
 
     @EventListener(ApplicationReadyEvent::class)
     fun testPublicURL() {
-        val url = URL(this.properties.url  + "/" + this.properties.apiPrefix)
+        val url = URI(this.properties.url + "/" + this.properties.apiPrefix).toURL()
 
         val inetAddress = try {
             InetAddress.getByName(url.host)
@@ -70,14 +87,50 @@ class Verification(private val properties: NodeProperties) {
         val healthURL = urlJoin(this.properties.url, this.properties.apiPrefix, "/health")
 
         try {
-            val response = khttp.get(healthURL)
-            if (response.statusCode != 200) {
-				logger.warn("Received status code ${response.statusCode} from $healthURL application may not be healthy.")
+            val response = httpClientComponent.sendHttpRequest(healthURL.toString(), HttpMethod.GET)
+            if (!response.statusCode.isSuccess()) {
+                logger.warn("${response.body}. Application stack may not be healthy.")
             }
         } catch (e: ConnectException) {
             throw IllegalArgumentException("Unable to connect. Ensure $healthURL is reachable.")
         } catch (e: SSLException) {
             throw IllegalArgumentException("Experienced SSL exception. Ensure $healthURL has correct certificates.")
+        } catch (e: Exception) {
+            throw e
+        }
+    }
+
+    private fun testRegistryAccess() {
+        val query = """
+            { party(id: "DE/OLI") {
+                    active, 
+                    id, 
+                    countryCode, 
+                    partyId, 
+                    partyAddress, 
+                    name, 
+                    url, 
+                    paymentStatus, 
+                    cvStatus, 
+                    operator {
+                      id,
+                      domain
+                    }
+                }
+            }
+        """.trimIndent()
+
+        val response: ControllerResponse<GqlPartiesAndOpsData> = httpClientComponent.getIndexedOcnRegistry(
+            registryIndexerProperties.url,
+            registryIndexerProperties.token,
+            query
+        )
+
+        if (!response.success) {
+            throw IllegalArgumentException(
+                "Unable to connect to Registry Indexer. " +
+                        "Ensure ${registryIndexerProperties.url} is reachable. " + "Reason: ${response.error}"
+            )
         }
     }
 

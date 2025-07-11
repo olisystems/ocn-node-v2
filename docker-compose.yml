@@ -1,0 +1,55 @@
+name: ocn-node-dev
+
+networks:
+  ocn-node-dev:
+    # external: true
+volumes:
+  pg-data:
+
+services:
+  postgres:
+    image: postgres
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    networks:
+      - ocn-node-dev
+#    ports:
+#      - "5432:5432"
+    environment:
+      POSTGRES_DB: ocn_node
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ocn_node_postgres_pwd
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d ocn_node -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+
+  ocn-node:
+    build:
+      context: .  # Directory to build Docker image from.
+      dockerfile: Dockerfile  # Dockerfile to use for building the image.
+    ports:
+      - "9999:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ocn-node-dev
+    environment:
+      OCN_NODE_PORT: 8080
+      OCN_NODE_DEV_MODE: true
+      SPRING_PROFILES_ACTIVE: dev
+      OCN_NODE_ENABLE_SIGNING: false
+      OCN_NODE_URL: http://localhost:8080
+      OCN_NODE_ADMIN_KEY: randomkey
+      OCN_NODE_WEB3_PROVIDER: asd
+      OCN_REGISTRY_CONTRACT_ADDRESS: 0x6d2eecf5a50fB741D39244E9B485bA3e4e676AE8
+      OCN_NODE_PRIVATE_KEY:
+      OCN_NODE_API: ocn-v2
+      OCN_NODE_HAAS_ON: false
+      OCN_NODE_HAAS_URL:
+      # database
+      OCN_NODE_POSTGRES_DATABASE: jdbc:postgresql://postgres:5432/ocn_node
+      OCN_NODE_POSTGRES_USER: postgres
+      OCN_NODE_POSTGRES_PASSWORD: ocn_node_postgres_pwd

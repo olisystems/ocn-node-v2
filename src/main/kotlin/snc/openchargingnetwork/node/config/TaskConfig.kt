@@ -1,5 +1,5 @@
 /*
-    Copyright 2019-2020 eMobilify GmbH
+    Copyright 2019-2020 eMobility GmbH
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import org.springframework.scheduling.config.ScheduledTaskRegistrar
 
 
 @Configuration
-class TaskConfig(private val scheduledTasks: List<IntervalTask>): SchedulingConfigurer {
+class TaskConfig(private val scheduledTasks: List<IntervalTask>) : SchedulingConfigurer {
 
     override fun configureTasks(taskRegistrar: ScheduledTaskRegistrar) {
         // override default thread pool task scheduler as follows:

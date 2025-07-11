@@ -1,5 +1,5 @@
 /*
-    Copyright 2019-2020 eMobilify GmbH
+    Copyright 2019-2020 eMobility GmbH
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -27,14 +27,16 @@ import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
 class MessageController(private val requestHandlerBuilder: OcpiRequestHandlerBuilder) {
 
     @PostMapping
-    fun postMessage(@RequestHeader("X-Request-ID") requestID: String,
-                    @RequestHeader("OCN-Signature") signature: String,
-                    @RequestBody body: String): ResponseEntity<OcpiResponse<Any>> {
+    fun postMessage(
+        @RequestHeader("X-Request-ID") requestID: String,
+        @RequestHeader("OCN-Signature") signature: String,
+        @RequestBody body: String
+    ): ResponseEntity<OcpiResponse<Any>> {
 
         return requestHandlerBuilder
-                .build<Any>(body)
-                .forwardFromOcn(signature)
-                .getResponseWithAllHeaders()
+            .build<Any>(body)
+            .forwardFromOcn(signature)
+            .getResponseWithAllHeaders()
     }
 
 }
