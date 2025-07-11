@@ -46,8 +46,13 @@ class RegistryService(
         val op = filterOperatorByParty(registry, role)
         if (belongsToMe) {
             val myKey = Credentials.create(properties.privateKey).address
-            val domainMatches = op.domain == properties.url
-            val idMatches = Keys.toChecksumAddress(op.id) == Keys.toChecksumAddress(myKey)
+            var domainMatches = op.domain == properties.url
+            var idMatches = Keys.toChecksumAddress(op.id) == Keys.toChecksumAddress(myKey)
+            // TODO: once we have a local subgraph pointing to a local blockchain this validation will not be necessary anymore
+            if (properties.dev){
+                domainMatches  = true
+                idMatches = true
+            }
             return domainMatches && idMatches
         }
         return op.domain == properties.url
