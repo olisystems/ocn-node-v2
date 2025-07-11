@@ -179,25 +179,39 @@ class HubClientInfoService(
      */
     fun notifyPartiesOfClientInfoChange(parties: Iterable<RoleEntity>, changedClientInfo: ClientInfo) {
         for (party in parties) {
-            val sender = BasicRole(
-                id = "OCN",
-                country = "CH"
-            ) // TODO: put node platformID and countryCode in a shared, configurable location
-            val receiver = BasicRole(party.partyID, party.countryCode)
-            val requestVariables = OcpiRequestVariables(
-                module = ModuleID.HUB_CLIENT_INFO,
-                interfaceRole = InterfaceRole.RECEIVER,
-                method = HttpMethod.PUT,
-                headers = OcnHeaders(
-                    authorization = "Token ${platformRepo.findById(party.platformID).get().auth.tokenB}",
-                    requestID = generateUUIDv4Token(),
-                    correlationID = generateUUIDv4Token(),
-                    sender = sender,
-                    receiver = receiver
-                ),
-                body = changedClientInfo,
-                urlPath = "${changedClientInfo.countryCode}/${changedClientInfo.partyID}"
-            )
+            val tokenB = platformRepo.findById(party.platformID).get().auth.tokenB;
+            if (tokenB != null) {
+                notifyPartyOfClientInfoChange(party.partyID, party.countryCode, tokenB, changedClientInfo)
+            }
+        }
+    }
+
+    fun notifyPartyOfClientInfoChange(partyId: String, countryCode: String, tokenB: String, changedClientInfo: ClientInfo) {
+        val sender =
+                    BasicRole(
+                            id = "OCN",
+                            country = "CH"
+                    ) // TODO: put node platformID and countryCode in a shared, configurable
+            // location
+            val receiver = BasicRole(partyId, countryCode)
+            val requestVariables =
+                    OcpiRequestVariables(
+                            module = ModuleID.HUB_CLIENT_INFO,
+                            interfaceRole = InterfaceRole.RECEIVER,
+                            method = HttpMethod.PUT,
+                            headers =
+                                    OcnHeaders(
+                                            authorization =
+                                                    "Token ${tokenB}",
+                                            requestID = generateUUIDv4Token(),
+                                            correlationID = generateUUIDv4Token(),
+                                            sender = sender,
+                                            receiver = receiver
+                                    ),
+                            body = changedClientInfo,
+                            urlPath =
+                                    "${changedClientInfo.countryCode}/${changedClientInfo.partyID}"
+                    )
 
             val (url, headers) = routingService.prepareLocalPlatformRequest(requestVariables, proxied = false)
 
@@ -206,7 +220,6 @@ class HubClientInfoService(
             } catch (e: Exception) { // fire and forget; catch any error and log
                 logger.warn("Error notifying $receiver of client info change: ${e.message}")
             }
-        }
     }
 
     /**
@@ -341,13 +354,10 @@ class HubClientInfoService(
     @Async
     fun syncHubClientInfo() {
         logger.info("Starting comprehensive hub client info sync...")
-
         try {
             val indexedParties = getIndexedParties()
-
             checkForNewPartiesFromRegistry(indexedParties)
             checkForSuspendedUpdates(indexedParties)
-
             logger.info("Broadcasting is handled automatically by the event system.")
         } catch (e: Exception) {
             logger.error("Error during hub client info sync: ${e.message}", e)
@@ -358,5 +368,26 @@ class HubClientInfoService(
     /** Get all hub client info for a requesting platform (alias for getList for consistency) */
     fun getHubClientInfoList(fromAuthorization: String): List<ClientInfo> {
         return getList(fromAuthorization)
+    }
+
+    /**
+     * Get all connected parties (both local and network) as ClientInfo objects
+     */
+    fun getAllRegisteredParties(): List<ClientInfo> {
+        val allParties = mutableListOf<ClientInfo>()
+
+        for (role in networkClientInfoRepo.findAll()) {
+            allParties.add(
+                ClientInfo(
+                    partyID = role.party.id,
+                    countryCode = role.party.country,
+                    role = role.role,
+                    status = role.status,
+                    lastUpdated = role.lastUpdated
+                )
+            )
+        }
+
+        return allParties
     }
 }

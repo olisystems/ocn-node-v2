@@ -27,6 +27,7 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import snc.openchargingnetwork.node.models.OcnRegistry
 import snc.openchargingnetwork.node.repositories.*
+import snc.openchargingnetwork.node.scheduledTasks.HubClientInfoStillAliveCheck
 import snc.openchargingnetwork.node.scheduledTasks.OcpiHubClientInfoSyncTask
 import snc.openchargingnetwork.node.services.HubClientInfoService
 
@@ -117,20 +118,19 @@ class NodeBootstrap(
             private val hubClientInfoService: HubClientInfoService
     ) {
         companion object {
-            const val STILL_ALIVE_RATE: Long = 900000 // defaults to 15 minutes
+            const val STILL_ALIVE_RATE: Long = 5000 // defaults to 15 minutes
             const val HUB_CLIENT_INFO_SYNC_RATE: Long =
-                    3600000 // defaults to 1 hour (same as old planned party search)
+                    10000 // defaults to 1 hour (same as old planned party search)
         }
 
-        // @Scheduled(fixedRate = STILL_ALIVE_RATE)
-        // fun runStillAliveCheck() {
-        //     if (properties.stillAliveEnabled) {
-        //         val stillAliveTask =
-        //                 HubClientInfoStillAliveCheck(httpClientComponent, platformRepo,
-        // properties)
-        //         stillAliveTask.run()
-        //     }
-        // }
+         @Scheduled(fixedRate = STILL_ALIVE_RATE)
+         fun runStillAliveCheck() {
+             if (properties.stillAliveEnabled) {
+                 val stillAliveTask =
+                         HubClientInfoStillAliveCheck(httpClientComponent, platformRepo, properties)
+                 stillAliveTask.run()
+             }
+         }
 
         @Scheduled(fixedRate = HUB_CLIENT_INFO_SYNC_RATE)
         fun runHubClientInfoSync() {

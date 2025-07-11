@@ -47,7 +47,7 @@ class HttpClientComponent {
 
     val mapper = jacksonObjectMapper()
 
-    val configurationModules: List<ModuleID> = listOf(ModuleID.CREDENTIALS, ModuleID.HUB_CLIENT_INFO)
+    val configurationModules: List<ModuleID> = listOf(ModuleID.CREDENTIALS)
 
     fun convertToRequestVariables(stringBody: String): OcpiRequestVariables = mapper.readValue(stringBody)
 
@@ -116,7 +116,7 @@ class HttpClientComponent {
      * @param url The target URL for the OCPI request.
      * @param headers The HTTP headers to include in the request, with each key being the header name and the value being the header value.
      * @param queryParams The query parameters to append to the request URL as key-value pairs. Defaults to null if no query parameters are provided.
-     * @param body The request body as a String, if applicable. Defaults to null if no body is needed.
+     * @param body The request body as a String, if applicable. Defaults to null if nobody is needed.
      * @return An OcpiHttpResponse object containing the response status code, headers, and parsed body of type T.
      * @throws snc.openchargingnetwork.node.models.exceptions.OcpiServerGenericException if the JSON response cannot be parsed or a generic server error occurs.
      */
@@ -412,7 +412,7 @@ class HttpClientComponent {
                     "getIndexedOcnRegistryCertificates query error: ${queryResult.errors}"
                 )
                 // Success
-                queryResult.data != null -> ControllerResponse<GqlCertificateData>(true, queryResult.data)
+                queryResult.data != null -> ControllerResponse(true, queryResult.data)
                 // Undefined behaviour
                 else -> ControllerResponse(
                     false, null,
@@ -423,5 +423,83 @@ class HttpClientComponent {
         } catch (e: Exception) {
             ControllerResponse(false, null, "Unexpected error: ${e.message}")
         }
+    }
+
+    /**
+     * Sends a GraphQL query to the specified URL to fetch a list of operators from the indexed OCN registry.
+     *
+     * @param url The endpoint URL to send the GraphQL request.
+     * @param authorization The bearer token used for authorization with the specified URL.
+     * @param query The GraphQL query string to execute.
+     * @return A ControllerResponse containing a list of Operator objects if the operation is successful,
+     *         or an error message in case of failure.
+     */
+    fun getIndexedOcnRegistryOperators(url: String, authorization: String, query: String):
+            ControllerResponse<GqlData> = runBlocking {
+        try {
+            val gqlQuery = GqlQuery(
+                query = query.trimIndent(),
+                operationName = "Subgraphs",
+                variables = emptyMap()
+            )
+
+            val response = sendHttpRequest(
+                endpoint = url,
+                method = HttpMethod.POST,
+                body = Json.Default.encodeToString(gqlQuery),
+                headers = mapOf(
+                    HttpHeaders.Authorization to "Bearer $authorization",
+                    HttpHeaders.ContentType to ContentType.Application.Json.toString()
+                )
+            )
+
+            if (!response.statusCode.isSuccess()) {
+                return@runBlocking ControllerResponse(
+                    false, null,
+                    "getIndexedOcnRegistryOperators returned HTTP ${response.statusCode}; Error: ${response.body}"
+                )
+            }
+
+            val queryResult: GqlResponse<GqlData> = Json.Default.decodeFromString(response.body)
+
+            return@runBlocking when {
+                // Error
+                queryResult.errors != null -> ControllerResponse(false, null,
+                    "getIndexedOcnRegistryOperators query error: ${queryResult.errors}")
+                // Success
+                queryResult.data != null -> ControllerResponse(true, queryResult.data)
+                // Undefined behaviour
+                else -> ControllerResponse(false, null,
+                    "No data received from the GraphQL query")
+            }
+
+        } catch (e: Exception) {
+            ControllerResponse(false, null,"Unexpected error: ${e.message}")
+        }
+    }
+
+    /**
+     * Fetches both operators and parties from the indexed OCN registry in parallel.
+     *
+     * @param url The endpoint URL to send the GraphQL requests.
+     * @param authorization The bearer token used for authorization with the specified URL.
+     * @param operatorsQuery The GraphQL query string for fetching operators.
+     * @param partiesQuery The GraphQL query string for fetching parties.
+     * @return A pair containing ControllerResponse for operators and parties respectively.
+     */
+    fun getIndexedOcnRegistryOperatorsAndParties(
+        url: String, 
+        authorization: String, 
+        operatorsQuery: String,
+        partiesQuery: String
+    ): Pair<ControllerResponse<GqlData>, ControllerResponse<GqlData>> = runBlocking {
+        // Execute both queries in parallel
+        val operatorsDeferred = async { getIndexedOcnRegistryOperators(url, authorization, operatorsQuery) }
+        val partiesDeferred = async { getIndexedOcnRegistryParties(url, authorization, partiesQuery) }
+        
+        val operatorsResponse = operatorsDeferred.await()
+        val partiesResponse = partiesDeferred.await()
+        
+        return@runBlocking Pair(operatorsResponse, partiesResponse)
     }
 }

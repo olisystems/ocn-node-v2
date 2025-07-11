@@ -62,6 +62,14 @@ class PlatformEntity(
                         registerEvent(PlatformDisconnectedDomainEvent(this))
                 }
         }
+
+        /**
+         * Sends all connected parties to a newly connected party if it supports the HubClientInfo module.
+         * This method should be called after a platform has been successfully registered and connected.
+         */
+        fun sendAllPartiesToNewlyConnectedParty(countryCode: String, partyId: String) {
+                registerEvent(PlatformSendAllPartiesDomainEvent(this, countryCode, partyId))
+        }
 }
 
 /**

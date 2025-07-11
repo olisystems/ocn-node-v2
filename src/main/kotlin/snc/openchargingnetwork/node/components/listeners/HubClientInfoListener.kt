@@ -16,6 +16,7 @@
 
 package snc.openchargingnetwork.node.components.listeners
 
+import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component
 import org.springframework.transaction.event.TransactionalEventListener
@@ -25,15 +26,16 @@ import snc.openchargingnetwork.node.models.entities.RoleEntity
 import snc.openchargingnetwork.node.models.events.*
 import snc.openchargingnetwork.node.models.ocpi.ClientInfo
 import snc.openchargingnetwork.node.models.ocpi.ConnectionStatus
+import snc.openchargingnetwork.node.repositories.PlatformRepository
 import snc.openchargingnetwork.node.repositories.RoleRepository
 import snc.openchargingnetwork.node.services.HubClientInfoService
 
 @Component
 class HubClientInfoListener(
         private val hubClientInfoService: HubClientInfoService,
-        private val roleRepo: RoleRepository
+        private val roleRepo: RoleRepository,
+        private val platformRepo: PlatformRepository
 ) {
-
     @Async
     @TransactionalEventListener
     fun handlePlatformRegisteredDomainEvent(event: PlatformRegisteredDomainEvent) {
@@ -72,6 +74,16 @@ class HubClientInfoListener(
         notifyNetworkOfRoleStatusChange(event.role, ConnectionStatus.SUSPENDED)
     }
 
+    @Async
+    @TransactionalEventListener
+    fun handlePlatformSendAllPartiesDomainEvent(event: PlatformSendAllPartiesDomainEvent) {
+        sendAllPartiesToNewlyConnectedParty(event.platform, event.partyId, event.countryCode)
+    }
+
+    companion object {
+        private val logger = LoggerFactory.getLogger(HubClientInfoListener::class.java)
+    }
+
     /** Sends out ClientInfo updates to locally connected parties and nodes on network */
     private fun notifyNetworkOfChanges(
             changedPlatform: PlatformEntity,
@@ -93,10 +105,32 @@ class HubClientInfoListener(
                             updatedClientInfo
                     )
             hubClientInfoService.notifyPartiesOfClientInfoChange(parties, updatedClientInfo)
-
-            // TODO: handle connection issues
-            hubClientInfoService.notifyNodesOfClientInfoChange(updatedClientInfo)
+            //hubClientInfoService.notifyNodesOfClientInfoChange(updatedClientInfo)
         }
+    }
+
+    /**
+     * Sends all connected parties to a newly connected party if it supports the HubClientInfo module.
+     * This method checks if the newly connected platform supports HubClientInfo and sends all existing
+     * connected parties to it.
+     */
+    private fun sendAllPartiesToNewlyConnectedParty(newlyConnectedPlatform: PlatformEntity, partyId: String, countryCode:  String) {
+            val allRegisteredParties = hubClientInfoService.getAllRegisteredParties();
+
+            newlyConnectedPlatform.id
+
+            for (clientInfo in allRegisteredParties) {
+                try {
+                    val tokenB = newlyConnectedPlatform.auth.tokenB;
+
+                    if(tokenB != null) {
+                        hubClientInfoService.notifyPartyOfClientInfoChange(partyId, countryCode, tokenB, clientInfo)
+                    }
+                } catch (e: Exception) {
+                    // Log error but continue with other parties
+                    logger.warn("Error sending client info ${clientInfo.partyID} to newly connected platform ${newlyConnectedPlatform.id}: ${e.message}")
+                }
+            }
     }
 
     private fun notifyNetworkOfRoleStatusChange(
