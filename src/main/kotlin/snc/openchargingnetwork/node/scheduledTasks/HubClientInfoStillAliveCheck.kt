@@ -20,7 +20,9 @@ import snc.openchargingnetwork.node.components.HttpClientComponent
 import snc.openchargingnetwork.node.config.NodeBootstrap.ScheduledTasks.Companion.STILL_ALIVE_RATE
 import snc.openchargingnetwork.node.models.entities.PlatformEntity
 import snc.openchargingnetwork.node.models.exceptions.OcpiServerUnusableApiException
+import snc.openchargingnetwork.node.models.ocpi.ClientInfo
 import snc.openchargingnetwork.node.models.ocpi.ConnectionStatus
+import snc.openchargingnetwork.node.repositories.NetworkClientInfoRepository
 import snc.openchargingnetwork.node.repositories.PlatformRepository
 import snc.openchargingnetwork.node.tools.getInstant
 import java.time.Instant

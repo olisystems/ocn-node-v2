@@ -358,7 +358,6 @@ class HubClientInfoService(
             val indexedParties = getIndexedParties()
             checkForNewPartiesFromRegistry(indexedParties)
             checkForSuspendedUpdates(indexedParties)
-            logger.info("Broadcasting is handled automatically by the event system.")
         } catch (e: Exception) {
             logger.error("Error during hub client info sync: ${e.message}", e)
             throw e
@@ -389,5 +388,19 @@ class HubClientInfoService(
         }
 
         return allParties
+    }
+
+    fun updateClientInfo(clientInfo: ClientInfo) {
+        val basicRole = BasicRole(clientInfo.partyID, clientInfo.countryCode)
+        val existingClientInfo = networkClientInfoRepo.findByPartyAndRole(basicRole, clientInfo.role)
+        if (existingClientInfo != null) {
+            existingClientInfo.apply {
+                status = clientInfo.status
+                lastUpdated = clientInfo.lastUpdated
+            }
+            networkClientInfoRepo.save(existingClientInfo)
+        } else {
+            logger.warn("Client info not found for party: ${clientInfo.partyID} (${clientInfo.countryCode}) with role: ${clientInfo.role}")
+        }
     }
 }

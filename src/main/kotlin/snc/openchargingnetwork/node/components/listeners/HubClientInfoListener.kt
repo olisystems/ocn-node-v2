@@ -104,8 +104,9 @@ class HubClientInfoListener(
                             changedPlatform,
                             updatedClientInfo
                     )
+
+            hubClientInfoService.updateClientInfo(updatedClientInfo);
             hubClientInfoService.notifyPartiesOfClientInfoChange(parties, updatedClientInfo)
-            //hubClientInfoService.notifyNodesOfClientInfoChange(updatedClientInfo)
         }
     }
 
@@ -116,9 +117,6 @@ class HubClientInfoListener(
      */
     private fun sendAllPartiesToNewlyConnectedParty(newlyConnectedPlatform: PlatformEntity, partyId: String, countryCode:  String) {
             val allRegisteredParties = hubClientInfoService.getAllRegisteredParties();
-
-            newlyConnectedPlatform.id
-
             for (clientInfo in allRegisteredParties) {
                 try {
                     val tokenB = newlyConnectedPlatform.auth.tokenB;
@@ -148,7 +146,7 @@ class HubClientInfoListener(
         val parties =
                 hubClientInfoService.getPartiesToNotifyOfClientInfoChange(clientInfo = clientInfo)
         hubClientInfoService.notifyPartiesOfClientInfoChange(parties, clientInfo)
-
+        hubClientInfoService.updateClientInfo(clientInfo);
         hubClientInfoService.notifyNodesOfClientInfoChange(clientInfo)
     }
 }
