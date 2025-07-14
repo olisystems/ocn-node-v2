@@ -18,14 +18,11 @@ package snc.openchargingnetwork.node.services
 
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpMethod
-import org.springframework.http.HttpStatus
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
-import org.springframework.web.server.ResponseStatusException
-import snc.openchargingnetwork.node.config.HttpClientComponent
+import snc.openchargingnetwork.node.components.HttpClientComponent
+import snc.openchargingnetwork.node.components.OcnRegistryComponent
 import snc.openchargingnetwork.node.config.RegistryIndexerProperties
-import snc.openchargingnetwork.node.models.ControllerResponse
-import snc.openchargingnetwork.node.models.GqlData
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.entities.NetworkClientInfoEntity
 import snc.openchargingnetwork.node.models.entities.PlatformEntity
@@ -38,6 +35,7 @@ import snc.openchargingnetwork.node.repositories.RoleRepository
 import snc.openchargingnetwork.node.tools.extractToken
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
 import snc.openchargingnetwork.node.tools.getTimestamp
+import java.time.Instant
 
 /**
  * Enhanced HubClientInfoService with both push and pull models for party discovery and updates This
@@ -51,6 +49,7 @@ class HubClientInfoService(
         private val endpointRepo: EndpointRepository,
         private val networkClientInfoRepo: NetworkClientInfoRepository,
         private val httpClientComponent: HttpClientComponent,
+        private val ocnRegistryComponent: OcnRegistryComponent,
         private val routingService: RoutingService,
         private val walletService: WalletService,
         private val ocnRulesService: OcnRulesService,
@@ -258,20 +257,7 @@ class HubClientInfoService(
 
     fun getIndexedParties(): List<snc.openchargingnetwork.node.models.Party> {
         logger.debug("Fetching indexed parties from registry...")
-
-        val response: ControllerResponse<GqlData> =
-                httpClientComponent.getIndexedOcnRegistryParties(
-                        registryIndexerProperties.url,
-                        registryIndexerProperties.token,
-                        registryIndexerProperties.partiesQuery
-                )
-
-        if (!response.success) {
-            logger.error("Failed to fetch registry parties: ${response.error}")
-            throw ResponseStatusException(HttpStatus.METHOD_FAILURE, response.error)
-        }
-
-        val parties = response.data!!.parties!!
+        val parties = ocnRegistryComponent.getRegistry().parties;
         logger.debug("Retrieved ${parties.size} parties from registry indexer")
         return parties
     }

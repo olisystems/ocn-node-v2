@@ -25,6 +25,7 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
+import snc.openchargingnetwork.node.components.HttpClientComponent
 import snc.openchargingnetwork.node.models.OcnRegistry
 import snc.openchargingnetwork.node.repositories.*
 import snc.openchargingnetwork.node.scheduledTasks.HubClientInfoStillAliveCheck
@@ -47,62 +48,6 @@ class NodeBootstrap(
             proxyResourceRepository: ProxyResourceRepository
     ) = ApplicationRunner {}
 
-    // TODO: Use the indexer instead
-    @Bean
-    fun ocnRegistry(): OcnRegistry {
-        return try {
-            // Fetch both operators and parties in parallel
-            val (operatorsResponse, partiesResponse) =
-                    httpClientComponent.getIndexedOcnRegistryOperatorsAndParties(
-                            registryIndexerProperties.url,
-                            registryIndexerProperties.token,
-                            registryIndexerProperties.operatorsQuery,
-                            registryIndexerProperties.partiesQuery
-                    )
-
-            val operators =
-                    if (operatorsResponse.success) {
-                        operatorsResponse.data?.operators ?: emptyList()
-                    } else {
-                        println("Warning: Failed to fetch operators: ${operatorsResponse.error}")
-                        emptyList()
-                    }
-
-            val parties =
-                    if (partiesResponse.success) {
-                        partiesResponse.data?.parties ?: emptyList()
-                    } else {
-                        println("Warning: Failed to fetch parties: ${partiesResponse.error}")
-                        emptyList()
-                    }
-
-            // Merge operators with complete party information
-            val enrichedOperators =
-                    operators.map { operator ->
-                        // Find all parties that belong to this operator
-                        val operatorParties =
-                                parties.filter { party -> party.operator.id == operator.id }
-
-                        // Create new operator with complete party information
-                        operator.copy(parties = operatorParties)
-                    }
-
-            OcnRegistry(
-                    url = registryIndexerProperties.url,
-                    operators = enrichedOperators,
-                    parties = parties
-            )
-        } catch (e: Exception) {
-            println("Error initializing OCN Registry: ${e.message}")
-            // Return empty registry as fallback
-            OcnRegistry(
-                    url = registryIndexerProperties.url,
-                    operators = emptyList(),
-                    parties = emptyList()
-            )
-        }
-    }
-
     @Bean
     fun coroutineScope(): CoroutineScope {
         return CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -112,9 +57,7 @@ class NodeBootstrap(
     class ScheduledTasks(
             private val httpClientComponent: HttpClientComponent,
             private val platformRepo: PlatformRepository,
-            private val networkClientInfoRepo: NetworkClientInfoRepository,
             private val properties: NodeProperties,
-            private val registryIndexerProperties: RegistryIndexerProperties,
             private val hubClientInfoService: HubClientInfoService
     ) {
         companion object {
@@ -127,7 +70,7 @@ class NodeBootstrap(
          fun runStillAliveCheck() {
              if (properties.stillAliveEnabled) {
                  val stillAliveTask =
-                         HubClientInfoStillAliveCheck(httpClientComponent, platformRepo, properties)
+                         HubClientInfoStillAliveCheck(httpClientComponent, platformRepo)
                  stillAliveTask.run()
              }
          }

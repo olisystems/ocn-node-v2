@@ -31,6 +31,7 @@ import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
 import snc.openchargingnetwork.node.models.ocpi.Tariff
 import snc.openchargingnetwork.node.services.HubClientInfoService
 import snc.openchargingnetwork.node.services.RoutingService
+import snc.openchargingnetwork.node.tools.filterNull
 
 @RestController
 @RequestMapping("\${ocn.node.apiPrefix}/ocpi/2.2/hubclientinfo")
@@ -60,6 +61,14 @@ class HubClientInfoController(
             return this.handleInternalClientInfoRequest(fromCountryCode, fromPartyID, authorization);
         }
 
+        val params =
+            mapOf(
+                "date_from" to dateFrom,
+                "date_to" to dateTo,
+                "offset" to offset,
+                "limit" to limit
+            ).filterNull()
+
         val sender = BasicRole(fromPartyID, fromCountryCode)
         val receiver = BasicRole(toPartyID, toCountryCode)
 
@@ -68,6 +77,7 @@ class HubClientInfoController(
             interfaceRole = InterfaceRole.SENDER,
             method = HttpMethod.GET,
             headers = OcnHeaders(authorization, signature, requestID, correlationID, sender, receiver),
+            queryParams = params
         )
 
         return requestHandlerBuilder
