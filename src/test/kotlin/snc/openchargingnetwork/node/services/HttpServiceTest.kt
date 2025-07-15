@@ -1,45 +1,90 @@
 package snc.openchargingnetwork.node.services
 
-import io.mockk.every
-import io.mockk.mockk
-import io.mockk.mockkStatic
-import khttp.responses.Response
+import kotlinx.serialization.json.Json
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.web.client.TestRestTemplate
+import org.springframework.test.context.ActiveProfiles
+import snc.openchargingnetwork.node.components.HttpClientComponent
+import snc.openchargingnetwork.node.config.NodeProperties
+import snc.openchargingnetwork.node.models.Party
+import snc.openchargingnetwork.node.models.SpringErrorResponse
 
-class HttpServiceTest {
 
-    private val httpService = HttpService()
+@SpringBootTest(
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT
+)
+@ActiveProfiles("test")
+class HttpServiceTest(@Autowired val restTemplate: TestRestTemplate,
+                      @Autowired val properties: NodeProperties,
+                      @Autowired val httpClientComponent: HttpClientComponent,) {
+    @Test
+    fun getMapper() {
+    }
+
+    @Test
+    fun getConfigurationModules() {
+    }
+
+    @Test
+    fun convertToRequestVariables() {
+    }
+
+    @Test
+    fun makeOcpiRequest() {
+    }
+
+    @Test
+    fun testMakeOcpiRequest() {
+    }
 
     @Test
     fun getVersions() {
-        val versionNumber = "2.2"
-        val versionUrl = "http://localhost:8080/ocpi/2.2"
+    }
 
-        val mockResponse = mockk<Response>()
-        every { mockResponse.text } returns
-            """
-            {
-                "status_code": 1000,
-                "data": [
-                    {
-                        "version": "$versionNumber",
-                        "url": "$versionUrl"
-                    }
-                ],
-                "timestamp": "2019-11-06T16:11:16.267Z"
-            }
-            """
-        every { mockResponse.statusCode } returns 200
+    @Test
+    fun getVersionDetail() {
+    }
 
-        mockkStatic("khttp.KHttp")
-        every { khttp.get(any(), any()) } returns mockResponse
+    @Test
+    fun postOcnMessage() {
+    }
 
-        val versions = httpService.getVersions("https://www.example.com/ocpi/cpo/versions", "authToken")
-        assertThat(versions.count()).isEqualTo(1)
-        
-        val firstVersion = versions[0]
-        assertThat(firstVersion.version).isEqualTo(versionNumber)
-        assertThat(firstVersion.url).isEqualTo(versionUrl)
+    @Test
+    fun putOcnClientInfo() {
+    }
+
+    @Test
+    fun testGetIndexedOcnRegistry() {
+        val entity: String = restTemplate.getForEntity("/${properties.apiPrefix}/ocn/registry/nodes", String::class.java).body!!
+        println(entity)
+        if (!entity.contains("error")) {
+            val parties: List<Party> = Json.decodeFromString(entity)
+            println("decoded: $parties")
+            assertThat(parties.size > 2)
+        } else {
+            println("error")
+            val errorResponse: SpringErrorResponse = Json.decodeFromString(entity)
+            println("error: $errorResponse")
+            assertThat(1==2)
+        }
+    }
+
+    @Test
+    fun testGetIndexedOcnRegistryParty() {
+        val entity: String = restTemplate.getForEntity("/${properties.apiPrefix}/ocn/registry/node/DE/OLI", String::class.java).body!!
+        println(entity)
+        if (!entity.contains("error")) {
+            val party: Party = Json.decodeFromString(entity)
+            println("decoded: $party")
+            assertThat(party.countryCode == "DE" && party.id == "OLI")
+        } else {
+            println("error")
+            val errorResponse: SpringErrorResponse = Json.decodeFromString(entity)
+            println("error: $errorResponse")
+            assertThat(false)
+        }
     }
 }

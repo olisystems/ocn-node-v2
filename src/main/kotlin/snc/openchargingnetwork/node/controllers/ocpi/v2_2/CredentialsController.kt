@@ -1,5 +1,5 @@
 /*
-    Copyright 2019-2020 eMobilify GmbH
+    Copyright 2019-2020 eMobility GmbH
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package snc.openchargingnetwork.node.controllers.ocpi.v2_2
 
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
+import snc.openchargingnetwork.node.components.HttpClientComponent
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.entities.Auth
 import snc.openchargingnetwork.node.models.entities.EndpointEntity
@@ -25,32 +26,36 @@ import snc.openchargingnetwork.node.models.entities.RoleEntity
 import snc.openchargingnetwork.node.models.exceptions.OcpiClientInvalidParametersException
 import snc.openchargingnetwork.node.models.exceptions.OcpiServerNoMatchingEndpointsException
 import snc.openchargingnetwork.node.models.ocpi.*
-import snc.openchargingnetwork.node.models.ocpi.Role
 import snc.openchargingnetwork.node.repositories.*
-import snc.openchargingnetwork.node.services.HttpService
 import snc.openchargingnetwork.node.services.RegistryService
 import snc.openchargingnetwork.node.tools.*
 
 @RequestMapping("\${ocn.node.apiPrefix}/ocpi/2.2/credentials")
 @RestController
-class CredentialsController(private val platformRepo: PlatformRepository,
-                            private val roleRepo: RoleRepository,
-                            private val endpointRepo: EndpointRepository,
-                            private val networkClientInfoRepository: NetworkClientInfoRepository,
-                            private val ocnRulesListRepo: OcnRulesListRepository,
-                            private val properties: NodeProperties,
-                            private val registryService: RegistryService,
-                            private val httpService: HttpService) {
+class CredentialsController(
+    private val platformRepo: PlatformRepository,
+    private val roleRepo: RoleRepository,
+    private val endpointRepo: EndpointRepository,
+    private val networkClientInfoRepository: NetworkClientInfoRepository,
+    private val ocnRulesListRepo: OcnRulesListRepository,
+    private val properties: NodeProperties,
+    private val registryService: RegistryService,
+    private val httpClientComponent: HttpClientComponent
+) {
 
     private fun myCredentials(token: String): Credentials {
         return Credentials(
-                token = token,
-                url = urlJoin(properties.url, properties.apiPrefix, "/ocpi/versions"),
-                roles = listOf(CredentialsRole(
-                        role = Role.HUB,
-                        businessDetails = BusinessDetails(name = "Open Charging Network Node"),
-                        partyID = "OCN",
-                        countryCode = "CH")))
+            token = token,
+            url = urlJoin(properties.url, properties.apiPrefix, "/ocpi/versions"),
+            roles = listOf(
+                CredentialsRole(
+                    role = Role.HUB,
+                    businessDetails = BusinessDetails(name = "Open Charging Network Node"),
+                    partyID = "OCN",
+                    countryCode = "CH"
+                )
+            )
+        )
     }
 
     @GetMapping
@@ -59,33 +64,36 @@ class CredentialsController(private val platformRepo: PlatformRepository,
         return platformRepo.findByAuth_TokenC(authorization.extractToken())?.let {
 
             OcpiResponse(
-                    statusCode = OcpiStatus.SUCCESS.code,
-                    data = myCredentials(it.auth.tokenC!!.fromBs64String()))
+                statusCode = OcpiStatus.SUCCESS.code,
+                data = myCredentials(it.auth.tokenC!!.fromBs64String())
+            )
 
         } ?: throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_C")
     }
 
     @PostMapping
     @Transactional
-    fun postCredentials(@RequestHeader("Authorization") authorization: String,
-                        @RequestBody body: Credentials): OcpiResponse<Credentials> {
+    fun postCredentials(
+        @RequestHeader("Authorization") authorization: String,
+        @RequestBody body: Credentials
+    ): OcpiResponse<Credentials> {
 
         // TODO: create credentials service
         // TODO: detect changes to public URL to automatically update credentials on connected platforms
 
         // check platform previously registered by admin
         val platform = platformRepo.findByAuth_TokenA(authorization.extractToken())
-                ?: throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_A")
+            ?: throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_A")
 
         // GET versions information endpoint with TOKEN_B (both provided in request body)
-        val versionsInfo = httpService.getVersions(body.url, body.token.toBs64String())
+        val versionsInfo = httpClientComponent.getVersions(body.url, body.token.toBs64String())
 
         // try to match version 2.2
         val correctVersion = versionsInfo.firstOrNull { it.version == "2.2" || it.version == "2.2.1" }
-                ?: throw OcpiServerNoMatchingEndpointsException("Expected version 2.2 or 2.2.1 from $versionsInfo")
+            ?: throw OcpiServerNoMatchingEndpointsException("Expected version 2.2 or 2.2.1 from $versionsInfo")
 
         // GET 2.2 version details
-        val versionDetail = httpService.getVersionDetail(correctVersion.url, body.token.toBs64String())
+        val versionDetail = httpClientComponent.getVersionDetail(correctVersion.url, body.token.toBs64String())
 
         // ensure each role does not already exist; delete if planned
         for (role in body.roles) {
@@ -115,12 +123,15 @@ class CredentialsController(private val platformRepo: PlatformRepository,
         val roles = mutableListOf<RoleEntity>()
 
         for (role in body.roles) {
-            roles.add(RoleEntity(
+            roles.add(
+                RoleEntity(
                     platformID = platform.id!!,
                     role = role.role,
                     businessDetails = role.businessDetails,
                     partyID = role.partyID,
-                    countryCode = role.countryCode))
+                    countryCode = role.countryCode
+                )
+            )
         }
 
         platform.register(roles)
@@ -129,38 +140,43 @@ class CredentialsController(private val platformRepo: PlatformRepository,
 
         // set platform's endpoints
         for (endpoint in versionDetail.endpoints) {
-            endpointRepo.save(EndpointEntity(
+            endpointRepo.save(
+                EndpointEntity(
                     platformID = platform.id!!,
                     identifier = endpoint.identifier,
                     role = endpoint.role,
                     url = endpoint.url
-            ))
+                )
+            )
         }
 
         // return OCN's platform connection information and role credentials
         return OcpiResponse(
-                statusCode = OcpiStatus.SUCCESS.code,
-                data = myCredentials(tokenC))
+            statusCode = OcpiStatus.SUCCESS.code,
+            data = myCredentials(tokenC)
+        )
     }
 
     @PutMapping
     @Transactional
-    fun putCredentials(@RequestHeader("Authorization") authorization: String,
-                       @RequestBody body: Credentials): OcpiResponse<Credentials> {
+    fun putCredentials(
+        @RequestHeader("Authorization") authorization: String,
+        @RequestBody body: Credentials
+    ): OcpiResponse<Credentials> {
 
         // find platform (required to have already been fully registered)
         val platform = platformRepo.findByAuth_TokenC(authorization.extractToken())
-                ?: throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_C")
+            ?: throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_C")
 
         // GET versions information endpoint with TOKEN_B (both provided in request body)
-        val versionsInfo: List<Version> = httpService.getVersions(body.url, body.token.toBs64String())
+        val versionsInfo: List<Version> = httpClientComponent.getVersions(body.url, body.token.toBs64String())
 
         // try to match version 2.2 or 2.2.1
         val correctVersion = versionsInfo.firstOrNull { it.version == "2.2" || it.version == "2.2.1" }
             ?: throw OcpiServerNoMatchingEndpointsException("Expected version 2.2 or 2.2.1 from $versionsInfo")
 
         // GET version details
-        val versionDetail = httpService.getVersionDetail(correctVersion.url, body.token.toBs64String())
+        val versionDetail = httpClientComponent.getVersionDetail(correctVersion.url, body.token.toBs64String())
 
         // generate TOKEN_C
         val tokenC = generateUUIDv4Token()
@@ -178,12 +194,15 @@ class CredentialsController(private val platformRepo: PlatformRepository,
         val roles = mutableListOf<RoleEntity>()
 
         for (role in body.roles) {
-            roles.add(RoleEntity(
+            roles.add(
+                RoleEntity(
                     platformID = platform.id!!,
                     role = role.role,
                     businessDetails = role.businessDetails,
                     partyID = role.partyID,
-                    countryCode = role.countryCode))
+                    countryCode = role.countryCode
+                )
+            )
         }
 
         platformRepo.save(platform)
@@ -191,17 +210,21 @@ class CredentialsController(private val platformRepo: PlatformRepository,
 
         // set platform's endpoints
         for (endpoint in versionDetail.endpoints) {
-            endpointRepo.save(EndpointEntity(
+            endpointRepo.save(
+                EndpointEntity(
                     platformID = platform.id!!,
                     identifier = endpoint.identifier,
                     role = endpoint.role,
-                    url = endpoint.url))
+                    url = endpoint.url
+                )
+            )
         }
 
         // return OCN Node's platform connection information and role credentials (same for all nodes)
         return OcpiResponse(
-                statusCode = OcpiStatus.SUCCESS.code,
-                data = myCredentials(tokenC))
+            statusCode = OcpiStatus.SUCCESS.code,
+            data = myCredentials(tokenC)
+        )
     }
 
     @DeleteMapping
@@ -209,7 +232,7 @@ class CredentialsController(private val platformRepo: PlatformRepository,
     fun deleteCredentials(@RequestHeader("Authorization") authorization: String): OcpiResponse<Nothing?> {
 
         val platform = platformRepo.findByAuth_TokenC(authorization.extractToken())
-                ?: throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_C")
+            ?: throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_C")
 
         val roles = roleRepo.findAllByPlatformID(platform.id)
         platform.unregister(roles)

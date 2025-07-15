@@ -1,8 +1,0 @@
-// used in CICD to be renamed as settings.gradle.kts
-pluginManagement {
-    repositories {
-        gradlePluginPortal()
-    }
-}
-rootProject.name = "ocn-node"
-

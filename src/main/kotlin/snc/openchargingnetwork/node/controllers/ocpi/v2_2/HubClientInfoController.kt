@@ -1,5 +1,5 @@
 /*
-    Copyright 2019-2020 eMobilify GmbH
+    Copyright 2019-2020 eMobility GmbH
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -19,28 +19,34 @@ package snc.openchargingnetwork.node.controllers.ocpi.v2_2
 import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
-import snc.openchargingnetwork.node.models.ocpi.*
+import snc.openchargingnetwork.node.models.ocpi.BasicRole
+import snc.openchargingnetwork.node.models.ocpi.ClientInfo
+import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
 import snc.openchargingnetwork.node.services.HubClientInfoService
 import snc.openchargingnetwork.node.services.RoutingService
 
 @RestController
 @RequestMapping("\${ocn.node.apiPrefix}/ocpi/2.2/hubclientinfo")
-class HubClientInfoController(private val routingService: RoutingService,
-                              private val hubClientInfoService: HubClientInfoService) {
+class HubClientInfoController(
+    private val routingService: RoutingService,
+    private val hubClientInfoService: HubClientInfoService
+) {
 
     @GetMapping
-    fun getHubClientInfo(@RequestHeader("authorization") authorization: String,
-                         @RequestHeader("OCN-Signature") signature: String? = null,
-                         @RequestHeader("X-Request-ID") requestID: String,
-                         @RequestHeader("X-Correlation-ID") correlationID: String,
-                         @RequestHeader("OCPI-from-country-code") fromCountryCode: String,
-                         @RequestHeader("OCPI-from-party-id") fromPartyID: String,
-                         @RequestHeader("OCPI-to-country-code") toCountryCode: String,
-                         @RequestHeader("OCPI-to-party-id") toPartyID: String,
-                         @RequestParam("date_from", required = false) dateFrom: String?,
-                         @RequestParam("date_to", required = false) dateTo: String?,
-                         @RequestParam("offset", required = false) offset: Int?,
-                         @RequestParam("limit", required = false) limit: Int?): ResponseEntity<OcpiResponse<Array<ClientInfo>>> {
+    fun getHubClientInfo(
+        @RequestHeader("authorization") authorization: String,
+        @RequestHeader("OCN-Signature") signature: String? = null,
+        @RequestHeader("X-Request-ID") requestID: String,
+        @RequestHeader("X-Correlation-ID") correlationID: String,
+        @RequestHeader("OCPI-from-country-code") fromCountryCode: String,
+        @RequestHeader("OCPI-from-party-id") fromPartyID: String,
+        @RequestHeader("OCPI-to-country-code") toCountryCode: String,
+        @RequestHeader("OCPI-to-party-id") toPartyID: String,
+        @RequestParam("date_from", required = false) dateFrom: String?,
+        @RequestParam("date_to", required = false) dateTo: String?,
+        @RequestParam("offset", required = false) offset: Int?,
+        @RequestParam("limit", required = false) limit: Int?
+    ): ResponseEntity<OcpiResponse<Array<ClientInfo>>> {
 
         // TODO: implement pagination
         // for now we ignore requests to paginate, only responding with required "last page" pagination headers
@@ -58,12 +64,15 @@ class HubClientInfoController(private val routingService: RoutingService,
         headers["X-Limit"] = count
 
         return ResponseEntity
-                .ok()
-                .headers(headers)
-                .body(OcpiResponse(
-                        statusCode = 1000,
-                        statusMessage = "Pagination request parameters were ignored due to lack of their implementation on the OCN.",
-                        data = result))
+            .ok()
+            .headers(headers)
+            .body(
+                OcpiResponse(
+                    statusCode = 1000,
+                    statusMessage = "Pagination request parameters were ignored due to lack of their implementation on the OCN.",
+                    data = result
+                )
+            )
     }
 
 

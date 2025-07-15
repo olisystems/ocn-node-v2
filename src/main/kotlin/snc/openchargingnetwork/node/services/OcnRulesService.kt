@@ -1,5 +1,5 @@
 /*
-    Copyright 2019-2020 eMobilify GmbH
+    Copyright 2019-2020 eMobility GmbH
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -26,15 +26,16 @@ import snc.openchargingnetwork.node.models.entities.PlatformEntity
 import snc.openchargingnetwork.node.models.exceptions.OcpiClientGenericException
 import snc.openchargingnetwork.node.models.exceptions.OcpiClientInvalidParametersException
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
-import snc.openchargingnetwork.node.models.ocpi.ModuleID
 import snc.openchargingnetwork.node.repositories.OcnRulesListRepository
 import snc.openchargingnetwork.node.repositories.PlatformRepository
 import snc.openchargingnetwork.node.tools.extractToken
 
 
 @Service
-class OcnRulesService(private val platformRepo: PlatformRepository,
-                      private val ocnRulesListRepo: OcnRulesListRepository) {
+class OcnRulesService(
+    private val platformRepo: PlatformRepository,
+    private val ocnRulesListRepo: OcnRulesListRepository
+) {
 
     /**
      * OcnRules GET receiver interface (retrieve list of client-owned rules as saved on node)
@@ -43,26 +44,31 @@ class OcnRulesService(private val platformRepo: PlatformRepository,
         val platform = findPlatform(authorization)
 
         val rulesList = ocnRulesListRepo.findAllByPlatformID(platform.id)
-                .map { OcnRulesListParty(
-                        id = it.counterparty.id,
-                        country = it.counterparty.country,
-                        modules = it.modules)
-                }
+            .map {
+                OcnRulesListParty(
+                    id = it.counterparty.id,
+                    country = it.counterparty.country,
+                    modules = it.modules
+                )
+            }
 
         return OcnRules(
-                signatures = platform.rules.signatures,
-                whitelist = OcnRulesList(
-                        active = platform.rules.whitelist,
-                        list = when (platform.rules.whitelist) {
-                            true -> rulesList
-                            false -> listOf()
-                        }),
-                blacklist = OcnRulesList(
-                        active = platform.rules.blacklist,
-                        list = when (platform.rules.blacklist) {
-                            true -> rulesList
-                            false -> listOf()
-                        }))
+            signatures = platform.rules.signatures,
+            whitelist = OcnRulesList(
+                active = platform.rules.whitelist,
+                list = when (platform.rules.whitelist) {
+                    true -> rulesList
+                    false -> listOf()
+                }
+            ),
+            blacklist = OcnRulesList(
+                active = platform.rules.blacklist,
+                list = when (platform.rules.blacklist) {
+                    true -> rulesList
+                    false -> listOf()
+                }
+            )
+        )
     }
 
     /**
@@ -120,10 +126,12 @@ class OcnRulesService(private val platformRepo: PlatformRepository,
         // 5. re-apply whitelist
         ocnRulesListRepo.deleteByPlatformID(platform.id)
 
-        ocnRulesListRepo.saveAll(parties.map { OcnRulesListEntity(
-            platformID = platform.id!!,
-            counterparty = BasicRole(it.id, it.country).uppercase(),
-            modules = it.modules)
+        ocnRulesListRepo.saveAll(parties.map {
+            OcnRulesListEntity(
+                platformID = platform.id!!,
+                counterparty = BasicRole(it.id, it.country).uppercase(),
+                modules = it.modules
+            )
         })
     }
 
@@ -155,10 +163,13 @@ class OcnRulesService(private val platformRepo: PlatformRepository,
         // 5. re-apply blacklist
         ocnRulesListRepo.deleteByPlatformID(platform.id)
 
-        ocnRulesListRepo.saveAll(parties.map { OcnRulesListEntity(
+        ocnRulesListRepo.saveAll(parties.map {
+            OcnRulesListEntity(
                 platformID = platform.id!!,
                 counterparty = BasicRole(it.id, it.country).uppercase(),
-                modules = it.modules)})
+                modules = it.modules
+            )
+        })
     }
 
     /**
@@ -178,7 +189,7 @@ class OcnRulesService(private val platformRepo: PlatformRepository,
         platform.rules.whitelist = true
 
         // 5. check entry does not already exist
-        if (ocnRulesListRepo.existsByCounterparty(BasicRole( id = body.id, country = body.country).uppercase())) {
+        if (ocnRulesListRepo.existsByCounterparty(BasicRole(id = body.id, country = body.country).uppercase())) {
             throw OcpiClientInvalidParametersException("Party already on OCN Rules whitelist")
         }
 
@@ -186,16 +197,19 @@ class OcnRulesService(private val platformRepo: PlatformRepository,
         platformRepo.save(platform)
 
         // 7. add to whitelist
-        ocnRulesListRepo.save(OcnRulesListEntity(
+        ocnRulesListRepo.save(
+            OcnRulesListEntity(
                 platformID = platform.id!!,
-                counterparty = BasicRole( id = body.id, country = body.country).uppercase(),
-                modules = body.modules))
+                counterparty = BasicRole(id = body.id, country = body.country).uppercase(),
+                modules = body.modules
+            )
+        )
     }
 
     /**
      * OcnRules POST receiver interface (appends single entry to blacklist)
      */
-    fun appendToBlacklist (authorization: String, body: OcnRulesListParty) {
+    fun appendToBlacklist(authorization: String, body: OcnRulesListParty) {
         // 1. check module of party is not empty
         checkModule(body.modules)
 
@@ -209,7 +223,7 @@ class OcnRulesService(private val platformRepo: PlatformRepository,
         platform.rules.blacklist = true
 
         // 5. check entry does not already exist
-        if (ocnRulesListRepo.existsByCounterparty(BasicRole( id = body.id, country = body.country).uppercase())) {
+        if (ocnRulesListRepo.existsByCounterparty(BasicRole(id = body.id, country = body.country).uppercase())) {
             throw OcpiClientInvalidParametersException("Party already on OCN Rules blacklist")
         }
 
@@ -217,10 +231,13 @@ class OcnRulesService(private val platformRepo: PlatformRepository,
         platformRepo.save(platform)
 
         // 7. add to blacklist
-        ocnRulesListRepo.save(OcnRulesListEntity(
+        ocnRulesListRepo.save(
+            OcnRulesListEntity(
                 platformID = platform.id!!,
-                counterparty = BasicRole( id = body.id, country = body.country).uppercase(),
-                modules = body.modules))
+                counterparty = BasicRole(id = body.id, country = body.country).uppercase(),
+                modules = body.modules
+            )
+        )
     }
 
     /**
@@ -293,13 +310,13 @@ class OcnRulesService(private val platformRepo: PlatformRepository,
 
     private fun findPlatform(authorization: String): PlatformEntity {
         return platformRepo.findByAuth_TokenC(authorization.extractToken())
-                ?: throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_C")
+            ?: throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_C")
     }
 
     private fun checkModule(modules: List<String>) {
-        val result = modules.any{ it.isEmpty() }
+        val result = modules.any { it.isEmpty() }
 
-        if(result) {
+        if (result) {
             throw OcpiClientGenericException("Module list is empty")
         }
     }
@@ -308,14 +325,14 @@ class OcnRulesService(private val platformRepo: PlatformRepository,
         // 1. check Module is empty or not
         var result = parties.any { it.modules.isNullOrEmpty() }
 
-        if(result) {
+        if (result) {
             throw OcpiClientGenericException("Module list of one the party is empty")
         }
 
         // 2. check each element of module is empty or not
         result = parties.any { it -> it.modules.any { it.isEmpty() } }
 
-        if(result) {
+        if (result) {
             throw OcpiClientGenericException("One of the element of module list is empty")
         }
     }
@@ -333,7 +350,7 @@ class OcnRulesService(private val platformRepo: PlatformRepository,
     /**
      * For whitelist check receiver has allowed the module of sender to send them message
      */
-    private fun validateWhiteListWithModule (rule: OcnRulesListEntity, sender: BasicRole, moduleID: String): Boolean {
+    private fun validateWhiteListWithModule(rule: OcnRulesListEntity, sender: BasicRole, moduleID: String): Boolean {
         if (rule.counterparty == sender) {
             if (!rule.modules.contains(moduleID)) {
                 throw OcpiClientGenericException("Sender not whitelisted to request $moduleID from receiver.")
@@ -346,7 +363,7 @@ class OcnRulesService(private val platformRepo: PlatformRepository,
     /**
      * For blacklist check receiver has allowed the module of sender to send them message
      */
-    private fun validateBlackListWithModule (rule: OcnRulesListEntity, sender: BasicRole, moduleID: String): Boolean {
+    private fun validateBlackListWithModule(rule: OcnRulesListEntity, sender: BasicRole, moduleID: String): Boolean {
         println("sender = $sender")
         println("rule = ${rule.counterparty} ${rule.modules}}")
         if (rule.counterparty == sender) {
