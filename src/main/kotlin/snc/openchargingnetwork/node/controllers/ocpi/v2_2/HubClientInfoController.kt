@@ -28,13 +28,12 @@ import snc.openchargingnetwork.node.models.ocpi.InterfaceRole
 import snc.openchargingnetwork.node.models.ocpi.ModuleID
 import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
 import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
-import snc.openchargingnetwork.node.models.ocpi.Tariff
 import snc.openchargingnetwork.node.services.HubClientInfoService
 import snc.openchargingnetwork.node.services.RoutingService
 import snc.openchargingnetwork.node.tools.filterNull
 
 @RestController
-@RequestMapping("\${ocn.node.apiPrefix}/ocpi/2.2/hubclientinfo")
+@RequestMapping("\${ocn.node.apiPrefix}/ocpi/2.2.1/hubclientinfo")
 class HubClientInfoController(
     private val routingService: RoutingService,
     private val hubClientInfoService: HubClientInfoService,

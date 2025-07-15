@@ -32,7 +32,7 @@ import snc.openchargingnetwork.node.tools.urlJoin
 
 @RestController
 @RequestMapping("\${ocn.node.apiPrefix}/ocpi")
-class VersionsController(
+class InternalVersionsController(
     private val repository: PlatformRepository,
     private val properties: NodeProperties
 ) {
