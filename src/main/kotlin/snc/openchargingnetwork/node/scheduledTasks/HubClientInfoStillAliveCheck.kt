@@ -17,25 +17,24 @@
 package snc.openchargingnetwork.node.scheduledTasks
 
 import snc.openchargingnetwork.node.components.HttpClientComponent
-import snc.openchargingnetwork.node.config.NodeBootstrap.ScheduledTasks.Companion.STILL_ALIVE_RATE
+import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.entities.PlatformEntity
 import snc.openchargingnetwork.node.models.exceptions.OcpiServerUnusableApiException
-import snc.openchargingnetwork.node.models.ocpi.ClientInfo
 import snc.openchargingnetwork.node.models.ocpi.ConnectionStatus
-import snc.openchargingnetwork.node.repositories.NetworkClientInfoRepository
 import snc.openchargingnetwork.node.repositories.PlatformRepository
 import snc.openchargingnetwork.node.tools.getInstant
 import java.time.Instant
 
 
 class HubClientInfoStillAliveCheck(
+    private val properties: NodeProperties,
     private val httpClientComponent: HttpClientComponent,
     private val platformRepo: PlatformRepository
 ) : Runnable {
 
     override fun run() {
         val checkExecutionInstant = Instant.now()
-        val lastUpdatedCutoff = checkExecutionInstant.minusMillis(STILL_ALIVE_RATE)
+        val lastUpdatedCutoff = checkExecutionInstant.minusMillis(properties.stillAliveRate)
         val clients = platformRepo.findByStatusIn(listOf(ConnectionStatus.CONNECTED, ConnectionStatus.OFFLINE))
         for (client in clients) {
             updateClientStatus(client, lastUpdatedCutoff, checkExecutionInstant)

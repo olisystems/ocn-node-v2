@@ -20,8 +20,6 @@ import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import org.web3j.crypto.Credentials
-import snc.openchargingnetwork.node.config.NodeBootstrap.ScheduledTasks.Companion.STILL_ALIVE_RATE
-import snc.openchargingnetwork.node.config.NodeBootstrap.ScheduledTasks.Companion.HUB_CLIENT_INFO_SYNC_RATE
 
 @Component
 class NodeInfoLogger(
@@ -100,14 +98,14 @@ class NodeInfoLogger(
 
     private fun getStillAliveText(): String =
             if (properties.stillAliveEnabled && hasPrivateKey) {
-                "true (${STILL_ALIVE_RATE/ 1000}s)"
+                "true (${properties.stillAliveRate/ 1000}s)"
             } else {
                 "false"
             }
 
     private fun getHubClientInfoSyncText(): String =
             if (properties.hubClientInfoSyncEnabled && hasPrivateKey) {
-                "true (${HUB_CLIENT_INFO_SYNC_RATE / 1000}s)"
+                "true (${properties.hubClientInfoSyncRate / 1000}s)"
             } else {
                 "false"
             }

@@ -65,7 +65,7 @@ class NodeBootstrap(
          fun runStillAliveCheck() {
              if (properties.stillAliveEnabled) {
                  val stillAliveTask =
-                         HubClientInfoStillAliveCheck(httpClientComponent, platformRepo)
+                         HubClientInfoStillAliveCheck(properties, httpClientComponent, platformRepo)
                  stillAliveTask.run()
              }
          }

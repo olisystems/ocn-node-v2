@@ -43,6 +43,10 @@ class NodeProperties {
     // If Enabled keeps a record of live and unresponsive parties
     var stillAliveEnabled: Boolean = true
 
+    var stillAliveRate: Long = 900000
+
+    var hubClientInfoSyncRate: Long = 3600000
+
     // If Enabled runs the enhanced hub client info sync task (includes pull + push operations)
     var hubClientInfoSyncEnabled: Boolean = false
 }
