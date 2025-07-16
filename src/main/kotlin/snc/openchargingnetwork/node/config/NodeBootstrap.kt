@@ -60,13 +60,8 @@ class NodeBootstrap(
             private val properties: NodeProperties,
             private val hubClientInfoService: HubClientInfoService
     ) {
-        companion object {
-            const val STILL_ALIVE_RATE: Long = 5000 // defaults to 15 minutes
-            const val HUB_CLIENT_INFO_SYNC_RATE: Long =
-                    10000 // defaults to 1 hour (same as old planned party search)
-        }
 
-         @Scheduled(fixedRate = STILL_ALIVE_RATE)
+         @Scheduled(fixedRateString = "\${ocn.node.stillAliveRate}")
          fun runStillAliveCheck() {
              if (properties.stillAliveEnabled) {
                  val stillAliveTask =
@@ -75,7 +70,7 @@ class NodeBootstrap(
              }
          }
 
-        @Scheduled(fixedRate = HUB_CLIENT_INFO_SYNC_RATE)
+        @Scheduled(fixedRateString = "\${ocn.node.hubClientInfoSyncRate}")
         fun runHubClientInfoSync() {
             if (properties.hubClientInfoSyncEnabled) {
                 val hubClientInfoSyncTask = OcpiHubClientInfoSyncTask(hubClientInfoService)
