@@ -9,8 +9,10 @@ import org.springframework.web.bind.annotation.RestController
 import snc.openchargingnetwork.node.components.HttpClientComponent
 import snc.openchargingnetwork.node.components.OcpiRequestHandlerBuilder
 import snc.openchargingnetwork.node.models.OcnHeaders
+import snc.openchargingnetwork.node.models.entities.PlatformEntity
 import snc.openchargingnetwork.node.models.exceptions.OcpiServerGenericException
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
+import snc.openchargingnetwork.node.models.ocpi.CDR
 import snc.openchargingnetwork.node.models.ocpi.ClientInfo
 import snc.openchargingnetwork.node.models.ocpi.InterfaceRole
 import snc.openchargingnetwork.node.models.ocpi.ModuleID
@@ -20,6 +22,7 @@ import snc.openchargingnetwork.node.models.ocpi.OcpiStatus
 import snc.openchargingnetwork.node.models.ocpi.Version
 import snc.openchargingnetwork.node.repositories.PlatformRepository
 import snc.openchargingnetwork.node.repositories.RoleRepository
+import snc.openchargingnetwork.node.services.VersionsService
 import snc.openchargingnetwork.node.tools.filterNull
 
 
@@ -27,9 +30,7 @@ import snc.openchargingnetwork.node.tools.filterNull
 @RequestMapping("\${ocn.node.apiPrefix}/ocpi/2.2")
 class VersionsController(
     private val requestHandlerBuilder: OcpiRequestHandlerBuilder,
-    private val roleRepo: RoleRepository,
-    private val platformRepo: PlatformRepository,
-    private val httpClientComponent: HttpClientComponent
+    private val versionsService: VersionsService
 ) {
 
     @GetMapping("/versions")
@@ -43,16 +44,31 @@ class VersionsController(
         @RequestHeader("OCPI-to-country-code") toCountryCode: String,
         @RequestHeader("OCPI-to-party-id") toPartyID: String,
     ): ResponseEntity<OcpiResponse<List<Version>>> {
-        val role = roleRepo.findFirstByCountryCodeAndPartyIDAllIgnoreCaseOrderByIdAsc(toCountryCode, toPartyID);
+        val (isLocalParty, versions) = versionsService.getPartyVersions(toCountryCode, toPartyID);
 
-        if (role == null) {
-            throw OcpiServerGenericException("PartyID and Country Code not found in OCN network");
+        if(isLocalParty) {
+            return ResponseEntity.ok(
+                OcpiResponse(
+                    statusCode = OcpiStatus.SUCCESS.code,
+                    data = versions
+                )
+            )
         }
 
-        val platform = platformRepo.findById(role.platformID).get();
-        return ResponseEntity.ok(OcpiResponse(
-            OcpiStatus.SUCCESS.code,
-            data = httpClientComponent.getVersions(platform.versionsUrl!!, platform.auth.tokenB!!)
-        ));
+        // Remote party
+        val sender = BasicRole(fromPartyID, fromCountryCode);
+        val receiver = BasicRole(toPartyID, toCountryCode);
+
+        val requestVariables = OcpiRequestVariables(
+            module = ModuleID.VERSIONS,
+            interfaceRole = InterfaceRole.SENDER,
+            method = HttpMethod.GET,
+            headers = OcnHeaders(authorization, signature, requestID, correlationID, sender, receiver),
+        )
+
+        return requestHandlerBuilder
+            .build<List<Version>>(requestVariables)
+            .forwardDefault()
+            .getResponseWithPaginationHeaders()
     }
 }
