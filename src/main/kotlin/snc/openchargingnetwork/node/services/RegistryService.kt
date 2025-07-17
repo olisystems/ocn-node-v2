@@ -55,7 +55,7 @@ class RegistryService(
             }
             return domainMatches && idMatches
         }
-        return op.domain == properties.url
+        return op.domain != ""
     }
 
     /**

@@ -20,14 +20,13 @@ import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import org.web3j.crypto.Credentials
-import snc.openchargingnetwork.node.config.NodeBootstrap.ScheduledTasks.Companion.PLANNED_PARTY_SEARCH_RATE
-import snc.openchargingnetwork.node.config.NodeBootstrap.ScheduledTasks.Companion.STILL_ALIVE_RATE
 
 @Component
 class NodeInfoLogger(
-    private val properties: NodeProperties,
-    private val dataSourceProperties: DataSourceProperties,
-    private val registryIndexerProperties: RegistryIndexerProperties) {
+        private val properties: NodeProperties,
+        private val dataSourceProperties: DataSourceProperties,
+        private val registryIndexerProperties: RegistryIndexerProperties
+) {
 
     val hasPrivateKey = properties.privateKey != null
 
@@ -44,67 +43,70 @@ class NodeInfoLogger(
 
         val addressText = getAddressText()
         val stillAliveText = getStillAliveText()
-        val plannedPartyText = getPlannedPartyText()
+        val hubClientInfoSyncText = getHubClientInfoSyncText()
 
         println(
-            "\n${border.substring(0, 3)} NODE INFO ${border.substring(17)}\n" +
-                    " URL     | ${properties.url}/${properties.apiPrefix}\n" +
-                    " ADDRESS | $addressText\n" +
-                    " API KEY | ${properties.apikey}"
+                "\n${border.substring(0, 3)} NODE INFO ${border.substring(17)}\n" +
+                        " URL     | ${properties.url}/${properties.apiPrefix}\n" +
+                        " ADDRESS | $addressText\n" +
+                        " API KEY | ${properties.apikey}"
         )
 
         println(
-            "${border.substring(0, 3)} REGISTRY ${border.substring(15)}\n" +
-                    " REGISTRY SUBGRAPH | ${registryIndexerProperties.url}\n"
+                "${border.substring(0, 3)} REGISTRY ${border.substring(15)}\n" +
+                        " REGISTRY SUBGRAPH | ${registryIndexerProperties.url}\n"
         )
 
         println(
-            "${border.substring(0, 3)} FEATURES ${border.substring(16)}\n" +
-                    " DEV MODE             | ${properties.dev}\n" +
-                    " SIGNATURES           | ${properties.signatures}\n" +
-                    " STILL ALIVE CHECK    | $stillAliveText\n" +
-                    " PLANNED PARTY SEARCH | $plannedPartyText\n"
+                "${border.substring(0, 3)} FEATURES ${border.substring(16)}\n" +
+                        " DEV MODE             | ${properties.dev}\n" +
+                        " SIGNATURES           | ${properties.signatures}\n" +
+                        " STILL ALIVE CHECK    | $stillAliveText\n" +
+                        " HUB CLIENT INFO SYNC | $hubClientInfoSyncText\n"
         )
 
         println(
-            "${border.substring(0, 3)} DATABASE ${border.substring(16)}\n" +
-                    " URL      | ${dataSourceProperties.url}\n" +
-                    " USERNAME | ${dataSourceProperties.username}\n" +
-                    " PASSWORD | ${maskPassword(dataSourceProperties.password)}\n"
+                "${border.substring(0, 3)} DATABASE ${border.substring(16)}\n" +
+                        " URL      | ${dataSourceProperties.url}\n" +
+                        " USERNAME | ${dataSourceProperties.username}\n" +
+                        " PASSWORD | ${maskPassword(dataSourceProperties.password)}\n"
         )
     }
 
     private fun calculateBorderLength(url: Int, apikey: Int): Int {
         val baseLength = 27
         val address = 42
-        return baseLength + when {
-            url >= apikey && url >= address -> url
-            apikey >= url && apikey >= address -> apikey
-            address >= url && address >= apikey -> address
-            else -> 50
-        }
+        return baseLength +
+                when {
+                    url >= apikey && url >= address -> url
+                    apikey >= url && apikey >= address -> apikey
+                    address >= url && address >= apikey -> address
+                    else -> 50
+                }
     }
 
-    private fun getAddressText(): String = if (hasPrivateKey) {
-        Credentials.create(properties.privateKey).address
-    } else {
-        if (properties.dev) {
-            "0x9bC1169Ca09555bf2721A5C9eC6D69c8073bfeB4  [Warning: Generated from a hardcoded private key that should only be used in a local development environment!]"
-        } else {
-            "Please set \"ocn.node.privateKey\" in your application properties."
-        }
-    }
+    private fun getAddressText(): String =
+            if (hasPrivateKey) {
+                Credentials.create(properties.privateKey).address
+            } else {
+                if (properties.dev) {
+                    "0x9bC1169Ca09555bf2721A5C9eC6D69c8073bfeB4  [Warning: Generated from a hardcoded private key that should only be used in a local development environment!]"
+                } else {
+                    "Please set \"ocn.node.privateKey\" in your application properties."
+                }
+            }
 
-    private fun getStillAliveText(): String = if (properties.stillAliveEnabled && hasPrivateKey) {
-        "true (${STILL_ALIVE_RATE/ 1000}s)"
-    } else {
-        "false"
-    }
+    private fun getStillAliveText(): String =
+            if (properties.stillAliveEnabled && hasPrivateKey) {
+                "true (${properties.stillAliveRate/ 1000}s)"
+            } else {
+                "false"
+            }
 
-    private fun getPlannedPartyText(): String = if (properties.plannedPartySearchEnabled && hasPrivateKey) {
-        "true (${PLANNED_PARTY_SEARCH_RATE / 1000}s)"
-    } else {
-        "false"
-    }
-
+    private fun getHubClientInfoSyncText(): String =
+            if (properties.hubClientInfoSyncEnabled && hasPrivateKey) {
+                "true (${properties.hubClientInfoSyncRate / 1000}s)"
+            } else {
+                "false"
+            }
 }

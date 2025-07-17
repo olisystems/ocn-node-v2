@@ -18,5 +18,6 @@ package snc.openchargingnetwork.node.models.events
 
 import snc.openchargingnetwork.node.models.entities.NetworkClientInfoEntity
 
-
 class PlannedRoleFoundDomainEvent(val role: NetworkClientInfoEntity)
+
+class SuspendedRoleFoundDomainEvent(val role: NetworkClientInfoEntity)

@@ -22,26 +22,30 @@ import kotlinx.coroutines.SupervisorJob
 import org.springframework.boot.ApplicationRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.scheduling.annotation.EnableScheduling
+import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.stereotype.Component
+import snc.openchargingnetwork.node.components.HttpClientComponent
+import snc.openchargingnetwork.node.models.OcnRegistry
 import snc.openchargingnetwork.node.repositories.*
 import snc.openchargingnetwork.node.scheduledTasks.HubClientInfoStillAliveCheck
-import snc.openchargingnetwork.node.scheduledTasks.PlannedPartySearch
-import org.springframework.scheduling.annotation.EnableScheduling
-import org.springframework.stereotype.Component
-import org.springframework.scheduling.annotation.Scheduled
-import snc.openchargingnetwork.node.components.HttpClientComponent
-import snc.openchargingnetwork.node.components.OcnRegistryComponent
-
+import snc.openchargingnetwork.node.scheduledTasks.OcpiHubClientInfoSyncTask
+import snc.openchargingnetwork.node.services.HubClientInfoService
 
 @Configuration
 @EnableScheduling
-class NodeBootstrap() {
+class NodeBootstrap(
+        private val properties: NodeProperties,
+        private val registryIndexerProperties: RegistryIndexerProperties,
+        private val httpClientComponent: HttpClientComponent
+) {
 
     @Bean
     fun databaseInitializer(
-        platformRepo: PlatformRepository,
-        roleRepo: RoleRepository,
-        endpointRepo: EndpointRepository,
-        proxyResourceRepository: ProxyResourceRepository
+            platformRepo: PlatformRepository,
+            roleRepo: RoleRepository,
+            endpointRepo: EndpointRepository,
+            proxyResourceRepository: ProxyResourceRepository
     ) = ApplicationRunner {}
 
     @Bean
@@ -51,39 +55,26 @@ class NodeBootstrap() {
 
     @Component
     class ScheduledTasks(
-        private val httpClientComponent: HttpClientComponent,
-        private val platformRepo: PlatformRepository,
-        private val networkClientInfoRepo: NetworkClientInfoRepository,
-        private val properties: NodeProperties,
-        private val roleRepository: RoleRepository,
-        private val ocnRegistryComponent: OcnRegistryComponent,
+            private val httpClientComponent: HttpClientComponent,
+            private val platformRepo: PlatformRepository,
+            private val properties: NodeProperties,
+            private val hubClientInfoService: HubClientInfoService
     ) {
-        companion object {
-            const val STILL_ALIVE_RATE: Long = 900000 // defaults to 15 minutes
-            const val PLANNED_PARTY_SEARCH_RATE: Long = 3600000 // defaults to 1 hour
-        }
 
-        @Scheduled(fixedRate = STILL_ALIVE_RATE)
-        fun runStillAliveCheck() {
-            if (properties.stillAliveEnabled) {
-                val stillAliveTask = HubClientInfoStillAliveCheck(
-                    httpClientComponent = httpClientComponent,
-                    platformRepo = platformRepo
-                )
-                stillAliveTask.run()
-            }
-        }
+         @Scheduled(fixedRateString = "\${ocn.node.stillAliveRate}")
+         fun runStillAliveCheck() {
+             if (properties.stillAliveEnabled) {
+                 val stillAliveTask =
+                         HubClientInfoStillAliveCheck(properties, httpClientComponent, platformRepo)
+                 stillAliveTask.run()
+             }
+         }
 
-        @Scheduled(fixedRate = PLANNED_PARTY_SEARCH_RATE)
-        fun runPlannedPartySearch() {
-            if (properties.plannedPartySearchEnabled) {
-                val plannedPartyTask = PlannedPartySearch(
-                    ocnRegistryComponent = ocnRegistryComponent,
-                    networkClientInfoRepo = networkClientInfoRepo,
-                    roleRepository = roleRepository,
-                    properties = properties
-                )
-                plannedPartyTask.run()
+        @Scheduled(fixedRateString = "\${ocn.node.hubClientInfoSyncRate}")
+        fun runHubClientInfoSync() {
+            if (properties.hubClientInfoSyncEnabled) {
+                val hubClientInfoSyncTask = OcpiHubClientInfoSyncTask(hubClientInfoService)
+                hubClientInfoSyncTask.run()
             }
         }
     }

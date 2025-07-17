@@ -19,7 +19,6 @@ package snc.openchargingnetwork.node.config
 import org.springframework.boot.context.properties.ConfigurationProperties
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
 
-
 @ConfigurationProperties("ocn.node")
 class NodeProperties {
 
@@ -44,6 +43,10 @@ class NodeProperties {
     // If Enabled keeps a record of live and unresponsive parties
     var stillAliveEnabled: Boolean = true
 
-    // If Enabled keeps a record of registered OCPI Parties
-    var plannedPartySearchEnabled: Boolean = true
+    var stillAliveRate: Long = 900000
+
+    var hubClientInfoSyncRate: Long = 3600000
+
+    // If Enabled runs the enhanced hub client info sync task (includes pull + push operations)
+    var hubClientInfoSyncEnabled: Boolean = false
 }

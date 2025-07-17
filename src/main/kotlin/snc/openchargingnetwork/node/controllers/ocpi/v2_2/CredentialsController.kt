@@ -150,6 +150,11 @@ class CredentialsController(
             )
         }
 
+        // Send all connected parties to the newly connected party if it supports HubClientInfo
+        if(roles.size > 0) {
+            platform.sendAllPartiesToNewlyConnectedParty( roles[0].countryCode, roles[0].partyID,);
+        }
+
         // return OCN's platform connection information and role credentials
         return OcpiResponse(
             statusCode = OcpiStatus.SUCCESS.code,
@@ -205,6 +210,7 @@ class CredentialsController(
             )
         }
 
+        platform.register(roles)
         platformRepo.save(platform)
         roleRepo.saveAll(roles)
 
@@ -218,6 +224,11 @@ class CredentialsController(
                     url = endpoint.url
                 )
             )
+        }
+
+        // Send all connected parties to the newly connected party if it supports HubClientInfo
+        if(roles.size > 0) {
+            platform.sendAllPartiesToNewlyConnectedParty( roles[0].countryCode, roles[0].partyID,);
         }
 
         // return OCN Node's platform connection information and role credentials (same for all nodes)
