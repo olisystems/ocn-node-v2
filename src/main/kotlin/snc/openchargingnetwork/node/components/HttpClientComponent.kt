@@ -1,7 +1,11 @@
 package snc.openchargingnetwork.node.components
 
+import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.core.JsonParseException
 import com.fasterxml.jackson.core.JsonProcessingException
+import com.fasterxml.jackson.databind.JsonSerializer
+import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.databind.SerializerProvider
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import io.ktor.client.HttpClient
@@ -45,9 +49,22 @@ import snc.openchargingnetwork.node.tools.urlJoin
 @Component
 class HttpClientComponent {
 
-    val mapper = jacksonObjectMapper()
+    class HttpMethodSerializer : JsonSerializer<org.springframework.http.HttpMethod>() {
+        override fun serialize(value: org.springframework.http.HttpMethod?, gen: JsonGenerator, serializers: SerializerProvider) {
+            if (value != null) {
+                gen.writeString(value.toString())
+            }
+        }
+    }
 
-    val configurationModules: List<ModuleID> = listOf(ModuleID.CREDENTIALS, ModuleID.HUB_CLIENT_INFO)
+    val mapper = jacksonObjectMapper().apply {
+        configure(SerializationFeature.WRITE_ENUMS_USING_TO_STRING, true)
+        registerModule(com.fasterxml.jackson.databind.module.SimpleModule().apply {
+            addSerializer(org.springframework.http.HttpMethod::class.java, HttpMethodSerializer())
+        })
+    }
+
+    val configurationModules: List<ModuleID> = listOf(ModuleID.CREDENTIALS)
 
     fun convertToRequestVariables(stringBody: String): OcpiRequestVariables = mapper.readValue(stringBody)
 
@@ -197,6 +214,38 @@ class HttpClientComponent {
                 method = HttpMethod.GET,
                 headers = mapOf(
                     "Authorization" to "Token $authorization",
+                    "X-Correlation-ID" to generateUUIDv4Token(),
+                    "X-Request-ID" to generateUUIDv4Token()
+                )
+            )
+
+            val body: OcpiResponse<List<Version>> = mapper.readValue(response.body)
+
+            when {
+                !response.statusCode.toString().startsWith("2") ->
+                    throw OcpiServerUnusableApiException("Unexpected HTTP status code: ${response.statusCode}")
+
+                body.statusCode != 1000 ->
+                    throw OcpiServerUnusableApiException("Unexpected OCPI status code: ${body.statusCode} - ${body.statusMessage}")
+
+                body.data == null ->
+                    throw OcpiServerUnusableApiException("No version data received")
+
+                else -> return body.data
+            }
+        } catch (e: JsonProcessingException) {
+            throw OcpiServerUnusableApiException("Failed to parse response: ${e.message}")
+        } catch (e: Exception) {
+            throw OcpiServerUnusableApiException("Failed to request from $url: ${e.message}")
+        }
+    }
+
+    fun checkVersionsHealth(url: String): List<Version> {
+        try {
+            val response = sendHttpRequest(
+                endpoint = url,
+                method = HttpMethod.GET,
+                headers = mapOf(
                     "X-Correlation-ID" to generateUUIDv4Token(),
                     "X-Request-ID" to generateUUIDv4Token()
                 )
@@ -412,7 +461,7 @@ class HttpClientComponent {
                     "getIndexedOcnRegistryCertificates query error: ${queryResult.errors}"
                 )
                 // Success
-                queryResult.data != null -> ControllerResponse<GqlCertificateData>(true, queryResult.data)
+                queryResult.data != null -> ControllerResponse(true, queryResult.data)
                 // Undefined behaviour
                 else -> ControllerResponse(
                     false, null,

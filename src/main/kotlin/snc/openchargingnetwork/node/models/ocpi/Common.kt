@@ -173,7 +173,8 @@ enum class ModuleID(val id: String) {
     SESSIONS("sessions"),
     TARIFFS("tariffs"),
     TOKENS("tokens"),
-    CUSTOM("custom")
+    CUSTOM("custom"),
+    VERSIONS("versions")
 }
 
 

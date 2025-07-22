@@ -18,6 +18,7 @@ package snc.openchargingnetwork.node.config
 
 import org.springframework.context.annotation.Configuration
 import org.springframework.scheduling.annotation.SchedulingConfigurer
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler
 import org.springframework.scheduling.config.IntervalTask
 import org.springframework.scheduling.config.ScheduledTaskRegistrar
 
@@ -26,14 +27,11 @@ import org.springframework.scheduling.config.ScheduledTaskRegistrar
 class TaskConfig(private val scheduledTasks: List<IntervalTask>) : SchedulingConfigurer {
 
     override fun configureTasks(taskRegistrar: ScheduledTaskRegistrar) {
-        // override default thread pool task scheduler as follows:
-        // note: not the same as the thread executor which runs async tasks (methods with with @Async annotations)
-
-        // val threadPoolTaskScheduler = ThreadPoolTaskScheduler()
-        // threadPoolTaskScheduler.poolSize = 10
-        // threadPoolTaskScheduler.setThreadNamePrefix("task-pool-")
-        // threadPoolTaskScheduler.initialize()
-        // taskRegistrar.setTaskScheduler(threadPoolTaskScheduler)
+         val threadPoolTaskScheduler = ThreadPoolTaskScheduler()
+         threadPoolTaskScheduler.poolSize = 10
+         threadPoolTaskScheduler.setThreadNamePrefix("task-pool-")
+         threadPoolTaskScheduler.initialize()
+         taskRegistrar.setTaskScheduler(threadPoolTaskScheduler)
 
         for (task in scheduledTasks) {
             taskRegistrar.addFixedRateTask(task)
