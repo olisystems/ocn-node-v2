@@ -33,7 +33,7 @@ import snc.openchargingnetwork.node.services.RoutingService
 import snc.openchargingnetwork.node.tools.filterNull
 
 @RestController
-@RequestMapping("\${ocn.node.apiPrefix}/ocpi/2.2.1/hubclientinfo")
+@RequestMapping("\${ocn.node.apiPrefix}/ocpi/2.2/hubclientinfo")
 class HubClientInfoController(
     private val routingService: RoutingService,
     private val hubClientInfoService: HubClientInfoService,
