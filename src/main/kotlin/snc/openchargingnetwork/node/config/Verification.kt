@@ -17,6 +17,11 @@
 package snc.openchargingnetwork.node.config
 
 import io.ktor.http.isSuccess
+import java.net.ConnectException
+import java.net.InetAddress
+import java.net.URI
+import java.net.UnknownHostException
+import javax.net.ssl.SSLException
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.annotation.Profile
@@ -27,24 +32,15 @@ import snc.openchargingnetwork.node.components.HttpClientComponent
 import snc.openchargingnetwork.node.models.ControllerResponse
 import snc.openchargingnetwork.node.models.GqlPartiesAndOpsData
 import snc.openchargingnetwork.node.tools.urlJoin
-import java.net.ConnectException
-import java.net.InetAddress
-import java.net.URI
-import java.net.UnknownHostException
-import javax.net.ssl.SSLException
 
 @Profile("!test")
 @Component
 class Verification(
-    private val properties: NodeProperties,
-    private val httpClientComponent: HttpClientComponent,
-    private val registryIndexerProperties: RegistryIndexerProperties
+        private val properties: NodeProperties,
+        private val httpClientComponent: HttpClientComponent,
+        private val registryIndexerProperties: RegistryIndexerProperties
 ) {
-    /**
-     * Self-Checks node basic health.
-     * Only executes when using profiles other than test.
-     */
-
+    /** Self-Checks node basic health. Only executes when using profiles other than test. */
     companion object {
         private val logger = LoggerFactory.getLogger(Verification::class.java)
     }
@@ -53,9 +49,12 @@ class Verification(
     fun testRegistry() {
         if (properties.privateKey == null) {
             if (properties.dev) {
-                properties.privateKey = "0x1c3e5453c0f9aa74a8eb0216310b2b013f017813a648fce364bf41dbc0b37647"
+                properties.privateKey =
+                        "0x1c3e5453c0f9aa74a8eb0216310b2b013f017813a648fce364bf41dbc0b37647"
             } else {
-                throw IllegalStateException("No private key set. Unable to verify registry configuration.")
+                throw IllegalStateException(
+                        "No private key set. Unable to verify registry configuration."
+                )
             }
         }
         this.testRegistryAccess()
@@ -65,18 +64,23 @@ class Verification(
     fun testPublicURL() {
         val url = URI(this.properties.url + "/" + this.properties.apiPrefix).toURL()
 
-        val inetAddress = try {
-            InetAddress.getByName(url.host)
-        } catch (e: UnknownHostException) {
-            throw IllegalArgumentException("Provided host \"${url.host}\" unknown.")
-        }
+        val inetAddress =
+                try {
+                    InetAddress.getByName(url.host)
+                } catch (e: UnknownHostException) {
+                    throw IllegalArgumentException("Provided host \"${url.host}\" unknown.")
+                }
 
         if (!this.properties.dev) {
             if (url.protocol != "https") {
-                throw IllegalArgumentException("Must use https in prod mode. Provided url has protocol \"${url.protocol}\".")
+                throw IllegalArgumentException(
+                        "Must use https in prod mode. Provided url has protocol \"${url.protocol}\"."
+                )
             }
             if (inetAddress.isAnyLocalAddress || inetAddress.isLoopbackAddress) {
-                throw IllegalArgumentException("Must use publicly accessible url in prod mode. Provided url has local/loopback host address \"${inetAddress.hostAddress}\".")
+                throw IllegalArgumentException(
+                        "Must use publicly accessible url in prod mode. Provided url has local/loopback host address \"${inetAddress.hostAddress}\"."
+                )
             }
         }
 
@@ -94,14 +98,17 @@ class Verification(
         } catch (e: ConnectException) {
             throw IllegalArgumentException("Unable to connect. Ensure $healthURL is reachable.")
         } catch (e: SSLException) {
-            throw IllegalArgumentException("Experienced SSL exception. Ensure $healthURL has correct certificates.")
+            throw IllegalArgumentException(
+                    "Experienced SSL exception. Ensure $healthURL has correct certificates."
+            )
         } catch (e: Exception) {
             throw e
         }
     }
 
     private fun testRegistryAccess() {
-        val query = """
+        val query =
+                """
             { party(id: "DE/OLI") {
                     active, 
                     id, 
@@ -120,18 +127,19 @@ class Verification(
             }
         """.trimIndent()
 
-        val response: ControllerResponse<GqlPartiesAndOpsData> = httpClientComponent.getIndexedOcnRegistry(
-            registryIndexerProperties.url,
-            registryIndexerProperties.token,
-            query
-        )
+        val response: ControllerResponse<GqlPartiesAndOpsData> =
+                httpClientComponent.getIndexedOcnRegistry(
+                        registryIndexerProperties.url,
+                        registryIndexerProperties.token,
+                        query
+                )
 
         if (!response.success) {
             throw IllegalArgumentException(
-                "Unable to connect to Registry Indexer. " +
-                        "Ensure ${registryIndexerProperties.url} is reachable. " + "Reason: ${response.error}"
+                    "Unable to connect to Registry Indexer. " +
+                            "Ensure ${registryIndexerProperties.url} is reachable. " +
+                            "Reason: ${response.error}"
             )
         }
     }
-
 }
