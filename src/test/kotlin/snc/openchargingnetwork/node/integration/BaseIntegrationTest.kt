@@ -17,7 +17,7 @@ import snc.openchargingnetwork.node.Application
  * - Ensures proper cleanup after each test
  */
 @SpringBootTest(
-        classes = [Application::class, IntegrationTestConfig::class],
+        classes = [Application::class, IntegrationTestConfig::class, MockRegistryConfig::class],
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT
 )
 @ActiveProfiles("test")
