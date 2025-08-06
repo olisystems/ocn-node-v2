@@ -9,5 +9,6 @@ import org.springframework.test.context.ActiveProfiles
 class ApplicationTest {
 
     @Test
-    fun contextLoads() {}
+    fun contextLoads() {
+    }
 }

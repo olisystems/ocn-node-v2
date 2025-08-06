@@ -109,7 +109,7 @@ class WalletService(
         if (signingAddress.lowercase() != op.id) {
             throw InvalidOcnSignatureException(
                 "Invalid OCN-Signature header. " +
-                        "Client registered with operator $op but update signed by $signingAddress."
+                        "Client registered with operator ${op.id} but update signed by $signingAddress."
             )
         }
         return clientInfo

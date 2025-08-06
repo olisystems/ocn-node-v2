@@ -25,8 +25,8 @@ class VersionsService(
     private fun getLocalPlatform(countryCode: String, partyID: String): PlatformEntity? {
         val role = roleRepo.findFirstByCountryCodeAndPartyIDAllIgnoreCaseOrderByIdAsc(countryCode, partyID);
         if (role == null) return null;
-        val platform = platformRepo.findById(role.platformID).get();
-        if (platform == null) return null;
-        return platform;
+        val platform = platformRepo.findById(role.platformID);
+        if (platform.isEmpty) return null;
+        return platform.get();
     }
 }
