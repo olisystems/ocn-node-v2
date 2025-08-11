@@ -50,7 +50,7 @@ data class CDR(
     @JsonProperty("credit") val credit: Boolean? = null,
     @JsonProperty("credit_reference_id") val creditReferenceID: String? = null,
     @JsonProperty("last_updated") val lastUpdated: String,
-    @JsonProperty("home_charging_compensation") val homeChargingCompensation: Boolean? = null,
+    @JsonProperty("home_charging_compensation") val homeChargingCompensation: Boolean? = null
 )
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
