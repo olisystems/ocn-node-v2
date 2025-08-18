@@ -64,6 +64,11 @@ data class EmpCertificate (
     val bilanzkreis: String,
     val lieferant: String,
     val vatid: String,
+    val billingAddress: String,
+    val billingCity: String,
+    val billingPostalCode: String,
+    val billingCountry: String,
+    val billingEmail: String,
     val owner: String,
     val blockNumber: Int
 )
