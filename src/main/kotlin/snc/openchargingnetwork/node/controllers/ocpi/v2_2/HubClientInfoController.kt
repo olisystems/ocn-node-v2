@@ -123,14 +123,16 @@ class HubClientInfoController(
         val parties =
             moduleNotificationService.getPartiesToNotifyOfModuleChange(
                 moduleId = ModuleID.HUB_CLIENT_INFO,
-                partyId = clientInfo.partyID,
-                countryCode = clientInfo.countryCode
+                partyId = fromPartyID,
+                countryCode = fromCountryCode
             )
 
         if (parties.isNotEmpty()) {
+            val filteredParties = parties.filter { it.countryCode != clientInfo.countryCode && it.partyID != clientInfo.partyID }
+
             moduleNotificationService.notifyPartiesOfModuleChangeAsync(
                 moduleId = ModuleID.HUB_CLIENT_INFO,
-                parties = parties,
+                parties = filteredParties,
                 changedData = clientInfo,
                 urlPath = "${clientInfo.countryCode}/${clientInfo.partyID}"
             )
