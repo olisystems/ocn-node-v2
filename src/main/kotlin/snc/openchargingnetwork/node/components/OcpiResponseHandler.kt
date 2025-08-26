@@ -159,7 +159,7 @@ class OcpiResponseHandler<T : Any>(
                 response.headers["Location"]?.let {
                     val resourceId =
                         routingService.setProxyResource(it, request.headers.sender, request.headers.receiver)
-                    val newLocation = urlJoin(properties.url, proxyPath, resourceId)
+                    val newLocation = urlJoin(properties.url, properties.apiPrefix, proxyPath, resourceId)
                     headers["Location"] = newLocation
 
                     if (isSigningActive(request.headers.sender)) {

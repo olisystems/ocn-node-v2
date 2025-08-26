@@ -303,8 +303,8 @@ class RoutingService(
     ): String {
         val cleanResource = resource
             .trim()
-            .removeSurrounding("[", "]")   // remove accidental square brackets
-            .removeSurrounding("<", ">")   // also defensive against angle brackets
+            .removeSurrounding("[", "]")
+            .removeSurrounding("<", ">")
             .trim()
 
         val proxyResource =
