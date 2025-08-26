@@ -301,9 +301,15 @@ class RoutingService(
             receiver: BasicRole,
             alternativeUID: String? = null
     ): String {
+        val cleanResource = resource
+            .trim()
+            .removeSurrounding("[", "]")
+            .removeSurrounding("<", ">")
+            .trim()
+
         val proxyResource =
                 ProxyResourceEntity(
-                        resource = resource,
+                        resource = cleanResource,
                         sender = sender,
                         receiver = receiver,
                         alternativeUID = alternativeUID
