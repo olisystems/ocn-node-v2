@@ -81,6 +81,11 @@ class RegistryIndexerProperties {
                     bilanzkreis,
                     marktfunktion,
                     lieferant,
+                    billingAddress,
+                    billingCity,
+                    billingPostalCode,
+                    billingCountry,
+                    billingEmail,
                     blockNumber,
                 },
             }
