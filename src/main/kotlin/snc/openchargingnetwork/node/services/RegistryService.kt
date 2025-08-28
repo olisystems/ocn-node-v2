@@ -29,6 +29,19 @@ class RegistryService(
     }
 
     /**
+     * Helper to extract the main domain (e.g., oli-system.com) from a URL.
+     */
+    private fun extractMainDomain(url: String): String {
+        // Remove protocol
+        val domain = url.replace(Regex("^https?://"), "")
+            .split("/")[0]
+            .split(":")[0]
+        // Extract last two parts (e.g., oli-system.com)
+        val parts = domain.split(".")
+        return if (parts.size >= 2) parts.takeLast(2).joinToString(".") else domain
+    }
+
+    /**
      * Get nodes listed in registry
      */
     fun getNodes(omitMine: Boolean = false): List<RegistryNode> {
@@ -58,10 +71,13 @@ class RegistryService(
 
         if (belongsToMe) {
             val myKey = Credentials.create(properties.privateKey).address
-            var domainMatches = op.domain == properties.url
+            // Extract main domains before comparison
+            val opMainDomain = extractMainDomain(op.domain)
+            val myMainDomain = extractMainDomain(properties.url)
+            var domainMatches = opMainDomain == myMainDomain
             var idMatches = Keys.toChecksumAddress(op.id) == Keys.toChecksumAddress(myKey)
 
-            logger.info("Verifying if domain matches | op.domain == properties.url | {} == {}", op.domain, properties.url)
+            logger.info("Verifying if main domain matches | opMainDomain == myMainDomain | {} == {}", opMainDomain, myMainDomain)
             logger.info("Domain matches: {}", domainMatches)
             logger.info("Verifying if Address id matches | op.id == myKey | {} == {}", op.id, myKey)
             logger.info("Address id matches: {}", idMatches)
