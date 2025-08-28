@@ -220,7 +220,7 @@ class RoutingService(
         val headers =
                 request.headers.copy(
                         authorization = "Token $tokenB",
-                        requestID = generateUUIDv4Token()
+                        requestID = generateUUIDv4Token(),
                 )
 
         return Pair(url, headers)
@@ -301,9 +301,15 @@ class RoutingService(
             receiver: BasicRole,
             alternativeUID: String? = null
     ): String {
+        val cleanResource = resource
+            .trim()
+            .removeSurrounding("[", "]")
+            .removeSurrounding("<", ">")
+            .trim()
+
         val proxyResource =
                 ProxyResourceEntity(
-                        resource = resource,
+                        resource = cleanResource,
                         sender = sender,
                         receiver = receiver,
                         alternativeUID = alternativeUID

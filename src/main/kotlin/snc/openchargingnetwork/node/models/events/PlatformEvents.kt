@@ -23,3 +23,4 @@ class PlatformRegisteredDomainEvent(val platform: PlatformEntity, val roles: Ite
 class PlatformUnregisteredDomainEvent(val platform: PlatformEntity, val roles: Iterable<RoleEntity>)
 class PlatformReconnectedDomainEvent(val platform: PlatformEntity)
 class PlatformDisconnectedDomainEvent(val platform: PlatformEntity)
+class PlatformSendAllPartiesDomainEvent(val platform: PlatformEntity, val countryCode: String, val partyId: String)
