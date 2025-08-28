@@ -1,9 +1,12 @@
 package snc.openchargingnetwork.node.services
 
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.web3j.crypto.Credentials
 import org.web3j.crypto.Keys
 import snc.openchargingnetwork.node.components.OcnRegistryComponent
+import snc.openchargingnetwork.node.components.OcpiRequestHandler
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.RegistryNode
 import snc.openchargingnetwork.node.models.RegistryPartyDetailsBasic
@@ -18,7 +21,25 @@ import snc.openchargingnetwork.node.tools.filterOperatorByParty
 class RegistryService(
     private val ocnRegistryComponent: OcnRegistryComponent,
     private val properties: NodeProperties,
-) {
+
+    ) {
+
+    companion object {
+        private var logger: Logger = LoggerFactory.getLogger(OcpiRequestHandler::class.java)
+    }
+
+    /**
+     * Helper to extract the main domain (e.g., oli-system.com) from a URL.
+     */
+    private fun extractMainDomain(url: String): String {
+        // Remove protocol
+        val domain = url.replace(Regex("^https?://"), "")
+            .split("/")[0]
+            .split(":")[0]
+        // Extract last two parts (e.g., oli-system.com)
+        val parts = domain.split(".")
+        return if (parts.size >= 2) parts.takeLast(2).joinToString(".") else domain
+    }
 
     /**
      * Get nodes listed in registry
@@ -42,20 +63,39 @@ class RegistryService(
      * check OCN registry to see if basic role is registered
      */
     fun isRoleKnown(role: BasicRole, belongsToMe: Boolean = true): Boolean {
+        logger.info("### BEGIN isRoleKnown verifications ###")
         val registry = ocnRegistryComponent.getRegistry()
         val op = filterOperatorByParty(registry, role)
+
+        logger.info("belongsToMe: {}", belongsToMe)
+
         if (belongsToMe) {
             val myKey = Credentials.create(properties.privateKey).address
-            var domainMatches = op.domain == properties.url
+            // Extract main domains before comparison
+            val opMainDomain = extractMainDomain(op.domain)
+            val myMainDomain = extractMainDomain(properties.url)
+            var domainMatches = opMainDomain == myMainDomain
             var idMatches = Keys.toChecksumAddress(op.id) == Keys.toChecksumAddress(myKey)
-            // TODO: once we have a local subgraph pointing to a local blockchain this validation will not be necessary anymore
+
+            logger.info("Verifying if main domain matches | opMainDomain == myMainDomain | {} == {}", opMainDomain, myMainDomain)
+            logger.info("Domain matches: {}", domainMatches)
+            logger.info("Verifying if Address id matches | op.id == myKey | {} == {}", op.id, myKey)
+            logger.info("Address id matches: {}", idMatches)
+
+            // bypass checks in dev mode, used for local development
             if (properties.dev){
+                logger.info("Dev mode enabled - bypassing Domain and ID match checks")
                 domainMatches  = true
                 idMatches = true
             }
+            logger.info("### END isRoleKnown verifications ###")
             return domainMatches && idMatches
         }
-        return op.domain != ""
+
+        val result = op.domain != ""
+        logger.info("belongsToMe is false - checking if op.domain is not empty: {} -> result: {}", op.domain, result)
+        logger.info("### END isRoleKnown verifications ###")
+        return result
     }
 
     /**
