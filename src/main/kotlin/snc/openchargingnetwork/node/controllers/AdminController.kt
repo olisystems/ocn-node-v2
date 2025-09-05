@@ -180,16 +180,23 @@ class AdminController(
         var responseMessage = "No role found for party $partyID in country $countryCode"
         val role = roleRepo.findAllByCountryCodeAndPartyIDAllIgnoreCase(countryCode, partyID).firstOrNull()
         if (role != null) {
-            roleRepo.delete(role)
-            responseMessage = "Role deleted successfully"
-
+            // resolve platform before deletions
             val platform = platformRepo.findByIdOrNull(role.platformID)
+
+            // 1) delete endpoints (depend on platform)
+            if (platform != null) {
+                endpointRepo.deleteByPlatformID(platform.id)
+                responseMessage = "Endpoints deleted successfully"
+            }
+
+            // 2) delete role (depends on platform)
+            roleRepo.delete(role)
+            responseMessage = if (responseMessage.isBlank()) "Role deleted successfully" else "$responseMessage | Role deleted successfully"
+
+            // 3) delete platform (after dependents removed)
             if (platform != null) {
                 platformRepo.delete(platform)
                 responseMessage += " | Platform deleted successfully"
-
-                endpointRepo.deleteByPlatformID(platform.id)
-                responseMessage += " | Endpoints deleted successfully"
             }
         }
 
