@@ -199,3 +199,5 @@ Temporary Items
 
 # local properties
 application-localMinikube.properties
+
+**/kotlin-compiler-*

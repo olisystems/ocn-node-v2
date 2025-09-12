@@ -21,6 +21,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
+import snc.openchargingnetwork.node.components.OcnRegistryComponent
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.entities.Auth
 import snc.openchargingnetwork.node.models.entities.EndpointEntity
@@ -34,7 +35,6 @@ import snc.openchargingnetwork.node.repositories.RoleRepository
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
 import snc.openchargingnetwork.node.tools.toBs64String
 import snc.openchargingnetwork.node.tools.urlJoin
-import java.util.Base64
 
 
 @RestController
@@ -43,7 +43,8 @@ class AdminController(
     private val platformRepo: PlatformRepository,
     private val roleRepo: RoleRepository,
     private val endpointRepo: EndpointRepository,
-    private val properties: NodeProperties
+    private val properties: NodeProperties,
+    private val ocnRegistryComponent: OcnRegistryComponent
 ) {
 
     fun isAuthorized(authorization: String): Boolean {
@@ -179,21 +180,42 @@ class AdminController(
         var responseMessage = "No role found for party $partyID in country $countryCode"
         val role = roleRepo.findAllByCountryCodeAndPartyIDAllIgnoreCase(countryCode, partyID).firstOrNull()
         if (role != null) {
-            roleRepo.delete(role)
-            responseMessage = "Role deleted successfully"
-
+            // resolve platform before deletions
             val platform = platformRepo.findByIdOrNull(role.platformID)
+
+            // 1) delete endpoints (depend on platform)
+            if (platform != null) {
+                endpointRepo.deleteByPlatformID(platform.id)
+                responseMessage = "Endpoints deleted successfully"
+            }
+
+            // 2) delete role (depends on platform)
+            roleRepo.delete(role)
+            responseMessage = if (responseMessage.isBlank()) "Role deleted successfully" else "$responseMessage | Role deleted successfully"
+
+            // 3) delete platform (after dependents removed)
             if (platform != null) {
                 platformRepo.delete(platform)
                 responseMessage += " | Platform deleted successfully"
-
-                endpointRepo.deleteByPlatformID(platform.id)
-                responseMessage += " | Endpoints deleted successfully"
             }
         }
 
         return ResponseEntity.ok().body(responseMessage)
     }
 
+    @PostMapping("/refresh-blockchain")
+    fun refreshBlockchain(
+        @RequestHeader("Authorization") authorization: String
+    ): ResponseEntity<String> {
+        if (!isAuthorized(authorization)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized")
+        }
+        return try {
+            ocnRegistryComponent.getRegistry(true)
+            ResponseEntity.ok("Registry refreshed from subgraph")
+        } catch (ex: Exception) {
+            ResponseEntity.status(HttpStatus.BAD_GATEWAY).body("Failed to refresh registry: ${ex.message}")
+        }
+    }
 
 }

@@ -49,13 +49,15 @@ open class OcpiMessageHandler(
      *
      */
     fun isSigningActive(recipient: BasicRole? = null): Boolean {
-        var active = properties.signatures || request.headers.signature != null
-        if(active) {
+        // Only activate signing if the property is true
+        if (!properties.signatures) return false
+        var hasSignatureHeader = request.headers.signature != null
+        if(hasSignatureHeader) {
            if (recipient != null) {
                val recipientRules = routingService.getPlatformRules(recipient)
-               active = active || recipientRules.signatures
+               hasSignatureHeader = recipientRules.signatures
            }
-           return active
+           return hasSignatureHeader
         }
         return false
     }
