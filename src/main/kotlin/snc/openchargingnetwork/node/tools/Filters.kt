@@ -12,6 +12,6 @@ fun filterOperatorByParty(registry: OcnRegistry, role: BasicRole): Operator {
     val parties = registry.parties.filter {
             it.partyId == role.id && it.countryCode == role.country
     }
-    if (parties.isEmpty()) throw OcpiHubUnknownReceiverException("Recipient not registered on OCN")
+    if (parties.isEmpty()) throw OcpiHubUnknownReceiverException("Role ${role.country}-${role.id} not registered on OCN Registry")
     return parties.first().operator
 }
