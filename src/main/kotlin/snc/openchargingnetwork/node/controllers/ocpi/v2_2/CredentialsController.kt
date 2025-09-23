@@ -50,9 +50,9 @@ class CredentialsController(
             roles = listOf(
                 CredentialsRole(
                     role = Role.HUB,
-                    businessDetails = BusinessDetails(name = "Open Charging Network Node"),
-                    partyID = "OCN",
-                    countryCode = "CH"
+                    businessDetails = BusinessDetails(name = "OCN Node Managed by DE BAN"),
+                    partyID = "BAN",
+                    countryCode = "DE"
                 )
             )
         )

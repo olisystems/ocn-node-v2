@@ -160,7 +160,7 @@ class HubClientInfoService(
         val basicRole = BasicRole(id = clientInfo.partyID, country = clientInfo.countryCode)
 
         val updatedClientInfo: NetworkClientInfoEntity? =
-                networkClientInfoRepo.findByPartyAndRole(basicRole, clientInfo.role)?.let {
+                networkClientInfoRepo.findFirstByPartyAndRoleOrderByIdAsc(basicRole, clientInfo.role)?.let {
                     // check status has changed
                     if (it.status != clientInfo.status) {
                         it.apply {
