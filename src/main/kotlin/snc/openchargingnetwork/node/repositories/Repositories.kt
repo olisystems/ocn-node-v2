@@ -79,5 +79,6 @@ interface OcnRulesListRepository : CrudRepository<OcnRulesListEntity, Long> {
 interface NetworkClientInfoRepository : CrudRepository<NetworkClientInfoEntity, Long> {
     fun existsByPartyAndRole(party: BasicRole, role: Role): Boolean
     fun findByPartyAndRole(party: BasicRole, role: Role): NetworkClientInfoEntity?
+    fun findFirstByPartyAndRoleOrderByIdAsc(party: BasicRole, role: Role): NetworkClientInfoEntity?
     fun deleteByPartyAndRole(party: BasicRole, role: Role)
 }

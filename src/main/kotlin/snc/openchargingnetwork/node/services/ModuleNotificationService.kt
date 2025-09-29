@@ -21,6 +21,7 @@ import org.springframework.http.HttpMethod
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 import snc.openchargingnetwork.node.components.HttpClientComponent
+import snc.openchargingnetwork.node.config.HCIProperties
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.entities.PlatformEntity
 import snc.openchargingnetwork.node.models.entities.RoleEntity
@@ -42,7 +43,8 @@ class ModuleNotificationService(
     private val endpointRepo: EndpointRepository,
     private val httpClientComponent: HttpClientComponent,
     private val routingService: RoutingService,
-    private val ocnRulesService: OcnRulesService
+    private val ocnRulesService: OcnRulesService,
+    private val hciProperties: HCIProperties
 ) {
 
     companion object {
@@ -143,8 +145,8 @@ class ModuleNotificationService(
     ) {
         val sender =
             BasicRole(
-                id = "OCN",
-                country = "CH"
+                id = hciProperties.partyId!!,
+                country = hciProperties.countryCode!!
             ) // TODO: put node platformID and countryCode in a shared, configurable location
 
         val receiver = BasicRole(partyId, countryCode)
