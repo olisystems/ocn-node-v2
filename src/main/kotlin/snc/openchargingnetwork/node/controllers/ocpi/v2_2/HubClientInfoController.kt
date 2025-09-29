@@ -111,11 +111,6 @@ class HubClientInfoController(
         @PathVariable("country_code") countryCode: String,
         @PathVariable("party_id") partyID: String
     ): ResponseEntity<OcpiResponse<ClientInfo>> {
-
-        if (toCountryCode == "OCN" && toPartyID == "CH") {
-            //return this.handleInternalClientInfoRequest(fromCountryCode, fromPartyID, authorization);
-        }
-
         val sender = BasicRole(fromPartyID, fromCountryCode)
         val receiver = BasicRole(toPartyID, toCountryCode)
 
