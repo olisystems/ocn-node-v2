@@ -47,6 +47,7 @@ class OcpiRequestHandlerBuilder(
     private val hubClientInfoService: HubClientInfoService,
     private val asyncTaskService: AsyncTaskService,
     private val responseHandlerBuilder: OcpiResponseHandlerBuilder,
+    private val integrationsRoutingService: IntegrationsRoutingService,
     private val properties: NodeProperties,
     private val haasProperties: HaasProperties,
     private val coroutineScope: CoroutineScope
@@ -58,7 +59,7 @@ class OcpiRequestHandlerBuilder(
     fun <T : Any> build(requestVariables: OcpiRequestVariables): OcpiRequestHandler<T> {
         return OcpiRequestHandler(
             requestVariables, routingService, registryService, httpClientComponent, hubClientInfoService,
-            walletService, asyncTaskService, responseHandlerBuilder, properties, haasProperties, coroutineScope
+            walletService, asyncTaskService, responseHandlerBuilder, integrationsRoutingService,properties, haasProperties, coroutineScope
         )
     }
 
@@ -69,7 +70,7 @@ class OcpiRequestHandlerBuilder(
         val requestVariables = httpClientComponent.convertToRequestVariables(requestVariablesString)
         return OcpiRequestHandler(
             requestVariables, routingService, registryService, httpClientComponent, hubClientInfoService,
-            walletService, asyncTaskService, responseHandlerBuilder, properties, haasProperties, coroutineScope
+            walletService, asyncTaskService, responseHandlerBuilder, integrationsRoutingService,properties, haasProperties, coroutineScope
         )
     }
 
