@@ -16,6 +16,10 @@ class IntegrationsRoutingService(
             throw NotImplementedError("Module integration support not yet implemented");
         }
 
-        return listOf(BasicRole("OLI", "DE"))
+        val receivers = listOf(BasicRole("OLI", "DE")).filter { role ->
+            role.id != from.id && role.country != from.country
+        }
+
+        return receivers
     }
 }
