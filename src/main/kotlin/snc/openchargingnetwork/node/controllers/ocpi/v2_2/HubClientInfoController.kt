@@ -69,7 +69,7 @@ class HubClientInfoController(
         @RequestParam("limit", required = false) limit: Int?
     ): ResponseEntity<OcpiResponse<Array<ClientInfo>>> {
 
-        if (toCountryCode == "OCN" && toPartyID == "CH") {
+        if (toPartyID == "OCN" && toCountryCode == "CH") {
             return this.handleInternalClientInfoRequest(fromCountryCode, fromPartyID, authorization);
         }
 
