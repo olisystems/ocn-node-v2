@@ -61,14 +61,14 @@ class AdminController(
 
         // check admin is authorized
         if (!isAuthorized(authorization)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized")
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid admin / api key")
         }
 
         val role = roleRepo.findAllByCountryCodeAndPartyIDAllIgnoreCase(countryCode, partyID).firstOrNull()
-            ?: return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Role not found")
+            ?: return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Role not found in this node")
 
         val platform = platformRepo.findByIdOrNull(role.platformID)
-            ?: return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Could not find connection status")
+            ?: return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Role found but could not find connection status")
 
         return ResponseEntity.ok().body(platform.status.toString())
     }
@@ -82,13 +82,13 @@ class AdminController(
 
         // check admin is authorized
         if (!isAuthorized(authorization)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized")
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid admin / api key")
         }
 
         // check each role does not already exist
         for (role in body) {
             if (roleRepo.existsByCountryCodeAndPartyIDAllIgnoreCase(role.country, role.id)) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Role $role already exists")
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Role ${role.country}-${role.id} already exists")
             }
         }
 
@@ -107,18 +107,18 @@ class AdminController(
         @RequestHeader("Authorization") authorization: String,
         @PathVariable countryCode: String,
         @PathVariable partyID: String
-    ): ResponseEntity<PlatformEntity> {
+    ): ResponseEntity<Any> {
 
         // check admin is authorized
         if (!isAuthorized(authorization)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid admin / api key")
         }
 
         val role = roleRepo.findAllByCountryCodeAndPartyIDAllIgnoreCase(countryCode, partyID).firstOrNull()
-            ?: return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null)
+            ?: return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Role not found in this node")
 
         val platform = platformRepo.findByIdOrNull(role.platformID)
-            ?: return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null)
+            ?: return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Role found but could not find connection status")
 
         return ResponseEntity.ok().body(platform)
     }
@@ -128,11 +128,10 @@ class AdminController(
         @RequestHeader("Authorization") authorization: String,
         @PathVariable countryCode: String,
         @PathVariable partyID: String
-    ): ResponseEntity<RoleEntity> {
-
+    ): ResponseEntity<Any> {
         // check admin is authorized
         if (!isAuthorized(authorization)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid admin / api key")
         }
 
         val role = roleRepo.findAllByCountryCodeAndPartyIDAllIgnoreCase(countryCode, partyID).firstOrNull()
@@ -174,7 +173,7 @@ class AdminController(
 
         // check admin is authorized
         if (!isAuthorized(authorization)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid admin / api key")
         }
 
         var responseMessage = "No role found for party $partyID in country $countryCode"

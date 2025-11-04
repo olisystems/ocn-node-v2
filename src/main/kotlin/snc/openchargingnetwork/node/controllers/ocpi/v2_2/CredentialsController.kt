@@ -30,7 +30,7 @@ import snc.openchargingnetwork.node.repositories.*
 import snc.openchargingnetwork.node.services.RegistryService
 import snc.openchargingnetwork.node.tools.*
 
-@RequestMapping("\${ocn.node.apiPrefix}/ocpi/2.2/credentials")
+@RequestMapping("\${ocn.node.apiPrefix}/ocpi/2.2.1/credentials")
 @RestController
 class CredentialsController(
     private val platformRepo: PlatformRepository,
@@ -50,9 +50,9 @@ class CredentialsController(
             roles = listOf(
                 CredentialsRole(
                     role = Role.HUB,
-                    businessDetails = BusinessDetails(name = "Open Charging Network Node"),
-                    partyID = "OCN",
-                    countryCode = "CH"
+                    businessDetails = BusinessDetails(name = "OCN Node Managed by DE BAN"),
+                    partyID = "BAN",
+                    countryCode = "DE"
                 )
             )
         )
@@ -99,10 +99,10 @@ class CredentialsController(
         for (role in body.roles) {
             val basicRole = BasicRole(role.partyID, role.countryCode)
             if (!registryService.isRoleKnown(basicRole)) {
-                throw OcpiClientInvalidParametersException("Role with party_id=${basicRole.id} and country_code=${basicRole.country} not listed in OCN Registry with my node info!")
+                throw OcpiClientInvalidParametersException("Role with party_id=${basicRole.id} and country_code=${basicRole.country} not listed in OCN Registry with my node info")
             }
             if (roleRepo.existsByCountryCodeAndPartyIDAllIgnoreCase(basicRole.country, basicRole.id)) {
-                throw OcpiClientInvalidParametersException("Role with party_id=${basicRole.id} and country_code=${basicRole.country} already connected to this node!")
+                throw OcpiClientInvalidParametersException("Role with party_id=${basicRole.id} and country_code=${basicRole.country} already connected to this node")
             }
             if (networkClientInfoRepository.existsByPartyAndRole(basicRole.uppercase(), role.role)) {
                 networkClientInfoRepository.deleteByPartyAndRole(basicRole.uppercase(), role.role)

@@ -17,6 +17,7 @@
 package snc.openchargingnetwork.node.controllers.ocpi.v2_2
 
 import com.fasterxml.jackson.module.kotlin.readValue
+import jakarta.websocket.server.PathParam
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
@@ -40,7 +41,7 @@ import snc.openchargingnetwork.node.services.WalletService
 import snc.openchargingnetwork.node.tools.filterNull
 
 @RestController
-@RequestMapping("\${ocn.node.apiPrefix}/ocpi/2.2/hubclientinfo")
+@RequestMapping("\${ocn.node.apiPrefix}/ocpi/2.2.1/hubclientinfo")
 class HubClientInfoController(
     private val routingService: RoutingService,
     private val hubClientInfoService: HubClientInfoService,
@@ -68,7 +69,7 @@ class HubClientInfoController(
         @RequestParam("limit", required = false) limit: Int?
     ): ResponseEntity<OcpiResponse<Array<ClientInfo>>> {
 
-        if (toCountryCode == "OCN" && toPartyID == "CH") {
+        if (toPartyID == "OCN" && toCountryCode == "CH") {
             return this.handleInternalClientInfoRequest(fromCountryCode, fromPartyID, authorization);
         }
 
@@ -93,6 +94,36 @@ class HubClientInfoController(
 
         return requestHandlerBuilder
             .build<Array<ClientInfo>>(requestVariables)
+            .forwardDefault() // retrieves proxied Link response header
+            .getResponseWithPaginationHeaders()
+    }
+
+    @GetMapping("/{country_code}/{party_id}")
+    fun getHubClientInfo(
+        @RequestHeader("authorization") authorization: String,
+        @RequestHeader("OCN-Signature") signature: String? = null,
+        @RequestHeader("X-Request-ID") requestID: String,
+        @RequestHeader("X-Correlation-ID") correlationID: String,
+        @RequestHeader("OCPI-from-country-code") fromCountryCode: String,
+        @RequestHeader("OCPI-from-party-id") fromPartyID: String,
+        @RequestHeader("OCPI-to-country-code") toCountryCode: String,
+        @RequestHeader("OCPI-to-party-id") toPartyID: String,
+        @PathVariable("country_code") countryCode: String,
+        @PathVariable("party_id") partyID: String
+    ): ResponseEntity<OcpiResponse<ClientInfo>> {
+        val sender = BasicRole(fromPartyID, fromCountryCode)
+        val receiver = BasicRole(toPartyID, toCountryCode)
+
+        val requestVariables = OcpiRequestVariables(
+            module = ModuleID.HUB_CLIENT_INFO,
+            interfaceRole = InterfaceRole.SENDER,
+            method = HttpMethod.GET,
+            headers = OcnHeaders(authorization, signature, requestID, correlationID, sender, receiver),
+            urlPath = countryCode + "/" + partyID
+        )
+
+        return requestHandlerBuilder
+            .build<ClientInfo>(requestVariables)
             .forwardDefault() // retrieves proxied Link response header
             .getResponseWithPaginationHeaders()
     }
