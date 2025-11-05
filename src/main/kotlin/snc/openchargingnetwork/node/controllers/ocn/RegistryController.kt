@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ResponseStatusException
 import org.web3j.crypto.Credentials
 import snc.openchargingnetwork.node.components.HttpClientComponent
+import snc.openchargingnetwork.node.components.OcnRegistryComponent
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.config.RegistryIndexerProperties
 import snc.openchargingnetwork.node.models.ControllerResponse
@@ -41,6 +42,7 @@ class RegistryController(
     private val properties: NodeProperties,
     private val registryIndexerProperties: RegistryIndexerProperties,
     private val httpClientComponent: HttpClientComponent,
+    private val ocnRegistryComponent: OcnRegistryComponent,
 ) {
 
     @GetMapping("/node-info")
@@ -75,6 +77,16 @@ class RegistryController(
         } else {
             throw ResponseStatusException(HttpStatus.METHOD_FAILURE, response.error)
         }
+    }
+
+    @GetMapping("/my-parties")
+    fun getMyParties(): List<Party> {
+        return ocnRegistryComponent.findMyPartiesList()
+    }
+
+    @GetMapping("/all-parties")
+    fun getAllParties(): List<Party> {
+        return ocnRegistryComponent.findAllPartiesList()
     }
 
     @GetMapping("/node/{countryCode}/{partyID}")
