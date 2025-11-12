@@ -20,7 +20,7 @@ package snc.openchargingnetwork.node.components
         private var registry = OcnRegistry()
 
         fun getRegistry(forceReload: Boolean = false): OcnRegistry {
-            if (!forceReload and registry.parties.isNotEmpty() and registry.operators.isNotEmpty()) {
+            if (!forceReload && registry.parties.isNotEmpty() && registry.operators.isNotEmpty()) {
                 return registry
             }
             val response = httpClientComponent.getIndexedOcnRegistry(
