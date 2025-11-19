@@ -183,28 +183,6 @@ class TariffsController(
         val sender = BasicRole(fromPartyID, fromCountryCode)
         val receiver = BasicRole(toPartyID, toCountryCode)
 
-        val requestVariables =
-            OcpiRequestVariables(
-                module = ModuleID.TARIFFS,
-                interfaceRole = InterfaceRole.RECEIVER,
-                method = HttpMethod.PUT,
-                headers =
-                    OcnHeaders(
-                        authorization,
-                        signature,
-                        requestID,
-                        correlationID,
-                        sender,
-                        receiver
-                    ),
-                urlPath = "/$countryCode/$partyID/$tariffID",
-                body = body
-            )
-
-        // Forward the request to the original destination
-        val response =
-            requestHandlerBuilder.build<Unit>(requestVariables).forwardDefault().getResponse()
-
         // If the message is addressed to this node, broadcast the change
         if (toCountryCode.equals(nodeProperties.countryCode, true) &&
             toPartyID.equals(nodeProperties.partyId, true)
@@ -225,9 +203,39 @@ class TariffsController(
                     sender = senderRole
                 )
             }
+
+            return ResponseEntity
+                .status(200)
+                .body(
+                    OcpiResponse(
+                        OcpiStatus.SUCCESS.code
+                    )
+                )
         }
 
-        return response
+        val requestVariables =
+            OcpiRequestVariables(
+                module = ModuleID.TARIFFS,
+                interfaceRole = InterfaceRole.RECEIVER,
+                method = HttpMethod.PUT,
+                headers =
+                    OcnHeaders(
+                        authorization,
+                        signature,
+                        requestID,
+                        correlationID,
+                        sender,
+                        receiver
+                    ),
+                urlPath = "/$countryCode/$partyID/$tariffID",
+                body = body
+            )
+
+        // Forward the request to the original destination
+        return requestHandlerBuilder
+            .build<Unit>(requestVariables)
+            .forwardDefault()
+            .getResponse()
     }
 
     @DeleteMapping("/ocpi/receiver/2.2.1/tariffs/{countryCode}/{partyID}/{tariffID}")
