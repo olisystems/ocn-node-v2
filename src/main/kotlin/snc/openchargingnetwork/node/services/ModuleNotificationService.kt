@@ -38,13 +38,13 @@ import snc.openchargingnetwork.node.tools.generateUUIDv4Token
  */
 @Service
 class ModuleNotificationService(
-        private val platformRepo: PlatformRepository,
-        private val roleRepo: RoleRepository,
-        private val endpointRepo: EndpointRepository,
-        private val httpClientComponent: HttpClientComponent,
-        private val routingService: RoutingService,
-        private val ocnRulesService: OcnRulesService,
-        private val hciProperties: HCIProperties
+    private val platformRepo: PlatformRepository,
+    private val roleRepo: RoleRepository,
+    private val endpointRepo: EndpointRepository,
+    private val httpClientComponent: HttpClientComponent,
+    private val routingService: RoutingService,
+    private val ocnRulesService: OcnRulesService,
+    private val hciProperties: HCIProperties
 ) {
 
     companion object {
@@ -56,10 +56,10 @@ class ModuleNotificationService(
      * provided)
      */
     fun getPartiesToNotifyOfModuleChange(
-            moduleId: ModuleID,
-            changedPlatform: PlatformEntity? = null,
-            partyId: String,
-            countryCode: String
+        moduleId: ModuleID,
+        changedPlatform: PlatformEntity? = null,
+        partyId: String,
+        countryCode: String
     ): List<RoleEntity> {
         val clientsToNotify = mutableListOf<RoleEntity>()
         var changedPlatformId = changedPlatform?.id
@@ -78,11 +78,11 @@ class ModuleNotificationService(
             if (platform.status == ConnectionStatus.CONNECTED && platform.id != changedPlatformId) {
                 // Only push the update if the platform has implemented the module Receiver endpoint
                 val modulePutEndpoint =
-                        endpointRepo.findFirstByPlatformIDAndIdentifierAndRoleOrderByIdAsc(
-                                platformID = platform.id,
-                                identifier = moduleId.id,
-                                Role = InterfaceRole.RECEIVER
-                        )
+                    endpointRepo.findFirstByPlatformIDAndIdentifierAndRoleOrderByIdAsc(
+                        platformID = platform.id,
+                        identifier = moduleId.id,
+                        Role = InterfaceRole.RECEIVER
+                    )
 
                 if (modulePutEndpoint != null) {
                     for (clientRole in roleRepo.findAllByPlatformID(platform.id)) {
@@ -101,24 +101,24 @@ class ModuleNotificationService(
 
     /** Send a notification of a module change to a list of parties */
     fun notifyPartiesOfModuleChange(
-            moduleId: ModuleID,
-            parties: Iterable<RoleEntity>,
-            changedData: Any,
-            urlPath: String
+        moduleId: ModuleID,
+        parties: Iterable<RoleEntity>,
+        changedData: Any,
+        urlPath: String
     ) {
         val defaultSender =
-                BasicRole(id = hciProperties.partyId!!, country = hciProperties.countryCode!!)
+            BasicRole(id = hciProperties.partyId!!, country = hciProperties.countryCode!!)
         for (party in parties) {
             val tokenB = platformRepo.findById(party.platformID).get().auth.tokenB
             if (tokenB != null) {
                 notifyPartyOfModuleChange(
-                        moduleId = moduleId,
-                        partyId = party.partyID,
-                        countryCode = party.countryCode,
-                        tokenB = tokenB,
-                        changedData = changedData,
-                        urlPath = urlPath,
-                        sender = defaultSender
+                    moduleId = moduleId,
+                    partyId = party.partyID,
+                    countryCode = party.countryCode,
+                    tokenB = tokenB,
+                    changedData = changedData,
+                    urlPath = urlPath,
+                    sender = defaultSender
                 )
             }
         }
@@ -126,23 +126,23 @@ class ModuleNotificationService(
 
     /** Send a notification of a module change to a list of parties with a custom sender */
     fun notifyPartiesOfModuleChange(
-            moduleId: ModuleID,
-            parties: Iterable<RoleEntity>,
-            changedData: Any,
-            urlPath: String,
-            sender: BasicRole
+        moduleId: ModuleID,
+        parties: Iterable<RoleEntity>,
+        changedData: Any,
+        urlPath: String,
+        sender: BasicRole
     ) {
         for (party in parties) {
             val tokenB = platformRepo.findById(party.platformID).get().auth.tokenB
             if (tokenB != null) {
                 notifyPartyOfModuleChange(
-                        moduleId = moduleId,
-                        partyId = party.partyID,
-                        countryCode = party.countryCode,
-                        tokenB = tokenB,
-                        changedData = changedData,
-                        urlPath = urlPath,
-                        sender = sender
+                    moduleId = moduleId,
+                    partyId = party.partyID,
+                    countryCode = party.countryCode,
+                    tokenB = tokenB,
+                    changedData = changedData,
+                    urlPath = urlPath,
+                    sender = sender
                 )
             }
         }
@@ -151,13 +151,13 @@ class ModuleNotificationService(
     /** Send a notification of a module change to a list of parties asynchronously */
     @Async
     fun notifyPartiesOfModuleChangeAsync(
-            moduleId: ModuleID,
-            parties: Iterable<RoleEntity>,
-            changedData: Any,
-            urlPath: String
+        moduleId: ModuleID,
+        parties: Iterable<RoleEntity>,
+        changedData: Any,
+        urlPath: String
     ) {
         logger.info(
-                "Starting async notification of ${moduleId.id} change to ${parties.count()} parties"
+            "Starting async notification of ${moduleId.id} change to ${parties.count()} parties"
         )
         notifyPartiesOfModuleChange(moduleId, parties, changedData, urlPath)
         logger.info("Completed async notification of ${moduleId.id} change")
@@ -169,48 +169,48 @@ class ModuleNotificationService(
      */
     @Async
     fun notifyPartiesOfModuleChangeAsync(
-            moduleId: ModuleID,
-            parties: Iterable<RoleEntity>,
-            changedData: Any,
-            urlPath: String,
-            sender: BasicRole
+        moduleId: ModuleID,
+        parties: Iterable<RoleEntity>,
+        changedData: Any,
+        urlPath: String,
+        sender: BasicRole
     ) {
         logger.info(
-                "Starting async notification of ${moduleId.id} change to ${parties.count()} parties (custom sender)"
+            "Starting async notification of ${moduleId.id} change to ${parties.count()} parties (custom sender)"
         )
         notifyPartiesOfModuleChange(moduleId, parties, changedData, urlPath, sender)
         logger.info("Completed async notification of ${moduleId.id} change (custom sender)")
     }
 
     fun notifyPartyOfModuleChange(
-            moduleId: ModuleID,
-            partyId: String,
-            countryCode: String,
-            tokenB: String,
-            changedData: Any,
-            urlPath: String,
-            sender: BasicRole
+        moduleId: ModuleID,
+        partyId: String,
+        countryCode: String,
+        tokenB: String,
+        changedData: Any,
+        urlPath: String,
+        sender: BasicRole
     ) {
         val receiver = BasicRole(partyId, countryCode)
         val requestVariables =
-                OcpiRequestVariables(
-                        module = moduleId,
-                        interfaceRole = InterfaceRole.RECEIVER,
-                        method = HttpMethod.PUT,
-                        headers =
-                                OcnHeaders(
-                                        authorization = "Token ${tokenB}",
-                                        requestID = generateUUIDv4Token(),
-                                        correlationID = generateUUIDv4Token(),
-                                        sender = sender,
-                                        receiver = receiver
-                                ),
-                        body = changedData,
-                        urlPath = urlPath
-                )
+            OcpiRequestVariables(
+                module = moduleId,
+                interfaceRole = InterfaceRole.RECEIVER,
+                method = HttpMethod.PUT,
+                headers =
+                    OcnHeaders(
+                        authorization = "Token ${tokenB}",
+                        requestID = generateUUIDv4Token(),
+                        correlationID = generateUUIDv4Token(),
+                        sender = sender,
+                        receiver = receiver
+                    ),
+                body = changedData,
+                urlPath = urlPath
+            )
 
         val (url, headers) =
-                routingService.prepareLocalPlatformRequest(requestVariables, proxied = false)
+            routingService.prepareLocalPlatformRequest(requestVariables, proxied = false)
 
         try {
             httpClientComponent.makeOcpiRequest<Unit>(url, headers, requestVariables)
