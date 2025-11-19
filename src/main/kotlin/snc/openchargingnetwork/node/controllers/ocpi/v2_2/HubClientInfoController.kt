@@ -42,118 +42,118 @@ import snc.openchargingnetwork.node.tools.filterNull
 @RestController
 @RequestMapping("\${ocn.node.apiPrefix}/ocpi/2.2.1/hubclientinfo")
 class HubClientInfoController(
-        private val routingService: RoutingService,
-        private val hubClientInfoService: HubClientInfoService,
-        private val requestHandlerBuilder: OcpiRequestHandlerBuilder,
-        private val hciProperties: HCIProperties,
-        private val nodeProperties: NodeProperties,
-        private val walletService: WalletService,
-        private val httpClientComponent: HttpClientComponent,
-        private val moduleNotificationService: ModuleNotificationService,
+    private val routingService: RoutingService,
+    private val hubClientInfoService: HubClientInfoService,
+    private val requestHandlerBuilder: OcpiRequestHandlerBuilder,
+    private val hciProperties: HCIProperties,
+    private val nodeProperties: NodeProperties,
+    private val walletService: WalletService,
+    private val httpClientComponent: HttpClientComponent,
+    private val moduleNotificationService: ModuleNotificationService,
 ) {
 
     @GetMapping
     fun getHubClientInfo(
-            @RequestHeader("authorization") authorization: String,
-            @RequestHeader("OCN-Signature") signature: String? = null,
-            @RequestHeader("X-Request-ID") requestID: String,
-            @RequestHeader("X-Correlation-ID") correlationID: String,
-            @RequestHeader("OCPI-from-country-code") fromCountryCode: String,
-            @RequestHeader("OCPI-from-party-id") fromPartyID: String,
-            @RequestHeader("OCPI-to-country-code") toCountryCode: String,
-            @RequestHeader("OCPI-to-party-id") toPartyID: String,
-            @RequestParam("date_from", required = false) dateFrom: String?,
-            @RequestParam("date_to", required = false) dateTo: String?,
-            @RequestParam("offset", required = false) offset: Int?,
-            @RequestParam("limit", required = false) limit: Int?
+        @RequestHeader("authorization") authorization: String,
+        @RequestHeader("OCN-Signature") signature: String? = null,
+        @RequestHeader("X-Request-ID") requestID: String,
+        @RequestHeader("X-Correlation-ID") correlationID: String,
+        @RequestHeader("OCPI-from-country-code") fromCountryCode: String,
+        @RequestHeader("OCPI-from-party-id") fromPartyID: String,
+        @RequestHeader("OCPI-to-country-code") toCountryCode: String,
+        @RequestHeader("OCPI-to-party-id") toPartyID: String,
+        @RequestParam("date_from", required = false) dateFrom: String?,
+        @RequestParam("date_to", required = false) dateTo: String?,
+        @RequestParam("offset", required = false) offset: Int?,
+        @RequestParam("limit", required = false) limit: Int?
     ): ResponseEntity<OcpiResponse<Array<ClientInfo>>> {
 
         if (toPartyID.equals(nodeProperties.partyId, true) &&
-                        toCountryCode.equals(nodeProperties.countryCode, true)
+            toCountryCode.equals(nodeProperties.countryCode, true)
         ) {
             return this.handleInternalClientInfoRequest(fromCountryCode, fromPartyID, authorization)
         }
 
         val params =
-                mapOf(
-                                "date_from" to dateFrom,
-                                "date_to" to dateTo,
-                                "offset" to offset,
-                                "limit" to limit
-                        )
-                        .filterNull()
+            mapOf(
+                "date_from" to dateFrom,
+                "date_to" to dateTo,
+                "offset" to offset,
+                "limit" to limit
+            )
+                .filterNull()
 
         val sender = BasicRole(fromPartyID, fromCountryCode)
         val receiver = BasicRole(toPartyID, toCountryCode)
 
         val requestVariables =
-                OcpiRequestVariables(
-                        module = ModuleID.HUB_CLIENT_INFO,
-                        interfaceRole = InterfaceRole.SENDER,
-                        method = HttpMethod.GET,
-                        headers =
-                                OcnHeaders(
-                                        authorization,
-                                        signature,
-                                        requestID,
-                                        correlationID,
-                                        sender,
-                                        receiver
-                                ),
-                        queryParams = params
-                )
+            OcpiRequestVariables(
+                module = ModuleID.HUB_CLIENT_INFO,
+                interfaceRole = InterfaceRole.SENDER,
+                method = HttpMethod.GET,
+                headers =
+                    OcnHeaders(
+                        authorization,
+                        signature,
+                        requestID,
+                        correlationID,
+                        sender,
+                        receiver
+                    ),
+                queryParams = params
+            )
 
         return requestHandlerBuilder
-                .build<Array<ClientInfo>>(requestVariables)
-                .forwardDefault() // retrieves proxied Link response header
-                .getResponseWithPaginationHeaders()
+            .build<Array<ClientInfo>>(requestVariables)
+            .forwardDefault() // retrieves proxied Link response header
+            .getResponseWithPaginationHeaders()
     }
 
     @GetMapping("/{country_code}/{party_id}")
     fun getHubClientInfo(
-            @RequestHeader("authorization") authorization: String,
-            @RequestHeader("OCN-Signature") signature: String? = null,
-            @RequestHeader("X-Request-ID") requestID: String,
-            @RequestHeader("X-Correlation-ID") correlationID: String,
-            @RequestHeader("OCPI-from-country-code") fromCountryCode: String,
-            @RequestHeader("OCPI-from-party-id") fromPartyID: String,
-            @RequestHeader("OCPI-to-country-code") toCountryCode: String,
-            @RequestHeader("OCPI-to-party-id") toPartyID: String,
-            @PathVariable("country_code") countryCode: String,
-            @PathVariable("party_id") partyID: String
+        @RequestHeader("authorization") authorization: String,
+        @RequestHeader("OCN-Signature") signature: String? = null,
+        @RequestHeader("X-Request-ID") requestID: String,
+        @RequestHeader("X-Correlation-ID") correlationID: String,
+        @RequestHeader("OCPI-from-country-code") fromCountryCode: String,
+        @RequestHeader("OCPI-from-party-id") fromPartyID: String,
+        @RequestHeader("OCPI-to-country-code") toCountryCode: String,
+        @RequestHeader("OCPI-to-party-id") toPartyID: String,
+        @PathVariable("country_code") countryCode: String,
+        @PathVariable("party_id") partyID: String
     ): ResponseEntity<OcpiResponse<ClientInfo>> {
         val sender = BasicRole(fromPartyID, fromCountryCode)
         val receiver = BasicRole(toPartyID, toCountryCode)
 
         val requestVariables =
-                OcpiRequestVariables(
-                        module = ModuleID.HUB_CLIENT_INFO,
-                        interfaceRole = InterfaceRole.SENDER,
-                        method = HttpMethod.GET,
-                        headers =
-                                OcnHeaders(
-                                        authorization,
-                                        signature,
-                                        requestID,
-                                        correlationID,
-                                        sender,
-                                        receiver
-                                ),
-                        urlPath = countryCode + "/" + partyID
-                )
+            OcpiRequestVariables(
+                module = ModuleID.HUB_CLIENT_INFO,
+                interfaceRole = InterfaceRole.SENDER,
+                method = HttpMethod.GET,
+                headers =
+                    OcnHeaders(
+                        authorization,
+                        signature,
+                        requestID,
+                        correlationID,
+                        sender,
+                        receiver
+                    ),
+                urlPath = countryCode + "/" + partyID
+            )
 
         return requestHandlerBuilder
-                .build<ClientInfo>(requestVariables)
-                .forwardDefault() // retrieves proxied Link response header
-                .getResponseWithPaginationHeaders()
+            .build<ClientInfo>(requestVariables)
+            .forwardDefault() // retrieves proxied Link response header
+            .getResponseWithPaginationHeaders()
     }
 
     @PutMapping
     fun updateClientInfo(
-            @RequestHeader("OCPI-from-country-code") fromCountryCode: String,
-            @RequestHeader("OCPI-from-party-id") fromPartyID: String,
-            @RequestHeader("OCN-Signature") signature: String?,
-            @RequestBody body: String
+        @RequestHeader("OCPI-from-country-code") fromCountryCode: String,
+        @RequestHeader("OCPI-from-party-id") fromPartyID: String,
+        @RequestHeader("OCN-Signature") signature: String?,
+        @RequestBody body: String
     ): ResponseEntity<Any> {
         val sender = BasicRole(fromPartyID, fromCountryCode)
 
@@ -165,29 +165,29 @@ class HubClientInfoController(
 
         if (hciProperties.countryCode != fromCountryCode || hciProperties.partyId != fromPartyID) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("Invalid Hub Client Info publisher")
+                .body("Invalid Hub Client Info publisher")
         }
 
         hubClientInfoService.saveClientInfo(clientInfo)
 
         val parties =
-                moduleNotificationService.getPartiesToNotifyOfModuleChange(
-                        moduleId = ModuleID.HUB_CLIENT_INFO,
-                        partyId = fromPartyID,
-                        countryCode = fromCountryCode
-                )
+            moduleNotificationService.getPartiesToNotifyOfModuleChange(
+                moduleId = ModuleID.HUB_CLIENT_INFO,
+                partyId = fromPartyID,
+                countryCode = fromCountryCode
+            )
 
         if (parties.isNotEmpty()) {
             val filteredParties =
-                    parties.filter {
-                        it.countryCode != clientInfo.countryCode && it.partyID != clientInfo.partyID
-                    }
+                parties.filter {
+                    it.countryCode != clientInfo.countryCode && it.partyID != clientInfo.partyID
+                }
 
             moduleNotificationService.notifyPartiesOfModuleChangeAsync(
-                    moduleId = ModuleID.HUB_CLIENT_INFO,
-                    parties = filteredParties,
-                    changedData = clientInfo,
-                    urlPath = "${clientInfo.countryCode}/${clientInfo.partyID}"
+                moduleId = ModuleID.HUB_CLIENT_INFO,
+                parties = filteredParties,
+                changedData = clientInfo,
+                urlPath = "${clientInfo.countryCode}/${clientInfo.partyID}"
             )
         }
 
@@ -195,9 +195,9 @@ class HubClientInfoController(
     }
 
     private fun handleInternalClientInfoRequest(
-            fromCountryCode: String,
-            fromPartyID: String,
-            authorization: String,
+        fromCountryCode: String,
+        fromPartyID: String,
+        authorization: String,
     ): ResponseEntity<OcpiResponse<Array<ClientInfo>>> {
         // TODO: implement pagination
         val sender = BasicRole(fromPartyID, fromCountryCode)
@@ -211,14 +211,14 @@ class HubClientInfoController(
         headers["X-Limit"] = count
 
         return ResponseEntity.ok()
-                .headers(headers)
-                .body(
-                        OcpiResponse(
-                                statusCode = 1000,
-                                statusMessage =
-                                        "Pagination request parameters were ignored due to lack of their implementation on the OCN.",
-                                data = result
-                        )
+            .headers(headers)
+            .body(
+                OcpiResponse(
+                    statusCode = 1000,
+                    statusMessage =
+                        "Pagination request parameters were ignored due to lack of their implementation on the OCN.",
+                    data = result
                 )
+            )
     }
 }
