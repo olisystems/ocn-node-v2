@@ -43,8 +43,7 @@ class ModuleNotificationService(
     private val endpointRepo: EndpointRepository,
     private val httpClientComponent: HttpClientComponent,
     private val routingService: RoutingService,
-    private val ocnRulesService: OcnRulesService,
-    private val hciProperties: HCIProperties
+    private val ocnRulesService: OcnRulesService
 ) {
 
     companion object {
@@ -99,31 +98,6 @@ class ModuleNotificationService(
         return clientsToNotify
     }
 
-    /** Send a notification of a module change to a list of parties */
-    fun notifyPartiesOfModuleChange(
-        moduleId: ModuleID,
-        parties: Iterable<RoleEntity>,
-        changedData: Any,
-        urlPath: String
-    ) {
-        val defaultSender =
-            BasicRole(id = hciProperties.partyId!!, country = hciProperties.countryCode!!)
-        for (party in parties) {
-            val tokenB = platformRepo.findById(party.platformID).get().auth.tokenB
-            if (tokenB != null) {
-                notifyPartyOfModuleChange(
-                    moduleId = moduleId,
-                    partyId = party.partyID,
-                    countryCode = party.countryCode,
-                    tokenB = tokenB,
-                    changedData = changedData,
-                    urlPath = urlPath,
-                    sender = defaultSender
-                )
-            }
-        }
-    }
-
     /** Send a notification of a module change to a list of parties with a custom sender */
     fun notifyPartiesOfModuleChange(
         moduleId: ModuleID,
@@ -146,21 +120,6 @@ class ModuleNotificationService(
                 )
             }
         }
-    }
-
-    /** Send a notification of a module change to a list of parties asynchronously */
-    @Async
-    fun notifyPartiesOfModuleChangeAsync(
-        moduleId: ModuleID,
-        parties: Iterable<RoleEntity>,
-        changedData: Any,
-        urlPath: String
-    ) {
-        logger.info(
-            "Starting async notification of ${moduleId.id} change to ${parties.count()} parties"
-        )
-        notifyPartiesOfModuleChange(moduleId, parties, changedData, urlPath)
-        logger.info("Completed async notification of ${moduleId.id} change")
     }
 
     /**

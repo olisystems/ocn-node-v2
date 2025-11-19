@@ -183,11 +183,15 @@ class HubClientInfoController(
                     it.countryCode != clientInfo.countryCode && it.partyID != clientInfo.partyID
                 }
 
+            val sender =
+                BasicRole(id = hciProperties.partyId!!, country = hciProperties.countryCode!!)
+
             moduleNotificationService.notifyPartiesOfModuleChangeAsync(
                 moduleId = ModuleID.HUB_CLIENT_INFO,
                 parties = filteredParties,
                 changedData = clientInfo,
-                urlPath = "${clientInfo.countryCode}/${clientInfo.partyID}"
+                urlPath = "${clientInfo.countryCode}/${clientInfo.partyID}",
+                sender
             )
         }
 
