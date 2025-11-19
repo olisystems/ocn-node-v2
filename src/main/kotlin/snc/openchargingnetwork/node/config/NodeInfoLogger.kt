@@ -49,7 +49,9 @@ class NodeInfoLogger(
                 "\n${border.substring(0, 3)} NODE INFO ${border.substring(17)}\n" +
                         " URL     | ${properties.url}/${properties.apiPrefix}\n" +
                         " ADDRESS | $addressText\n" +
-                        " API KEY | ${properties.apikey}"
+                        " API KEY | ${properties.apikey}" +
+                        " COUNTRY CODE | ${properties.countryCode}" +
+                        " PARTY ID     | ${properties.partyId}"
         )
 
         println(
