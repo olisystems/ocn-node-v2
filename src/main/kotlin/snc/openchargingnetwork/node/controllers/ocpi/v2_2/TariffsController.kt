@@ -20,232 +20,251 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import snc.openchargingnetwork.node.components.OcpiRequestHandlerBuilder
+import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.ocpi.*
+import snc.openchargingnetwork.node.services.ModuleNotificationService
 import snc.openchargingnetwork.node.tools.filterNull
 
 @RestController
 @RequestMapping("\${ocn.node.apiPrefix}")
-class TariffsController(private val requestHandlerBuilder: OcpiRequestHandlerBuilder) {
+class TariffsController(
+        private val requestHandlerBuilder: OcpiRequestHandlerBuilder,
+        private val moduleNotificationService: ModuleNotificationService,
+        private val nodeProperties: NodeProperties
+) {
 
     /** SENDER INTERFACE */
     @GetMapping("/ocpi/sender/2.2.1/tariffs")
     fun getTariffsFromDataOwner(
-        @RequestHeader("authorization") authorization: String,
-        @RequestHeader("OCN-Signature") signature: String? = null,
-        @RequestHeader("X-Request-ID") requestID: String,
-        @RequestHeader("X-Correlation-ID") correlationID: String,
-        @RequestHeader("OCPI-from-country-code") fromCountryCode: String,
-        @RequestHeader("OCPI-from-party-id") fromPartyID: String,
-        @RequestHeader("OCPI-to-country-code") toCountryCode: String,
-        @RequestHeader("OCPI-to-party-id") toPartyID: String,
-        @RequestParam("date_from", required = false) dateFrom: String?,
-        @RequestParam("date_to", required = false) dateTo: String?,
-        @RequestParam("offset", required = false) offset: Int?,
-        @RequestParam("limit", required = false) limit: Int?
+            @RequestHeader("authorization") authorization: String,
+            @RequestHeader("OCN-Signature") signature: String? = null,
+            @RequestHeader("X-Request-ID") requestID: String,
+            @RequestHeader("X-Correlation-ID") correlationID: String,
+            @RequestHeader("OCPI-from-country-code") fromCountryCode: String,
+            @RequestHeader("OCPI-from-party-id") fromPartyID: String,
+            @RequestHeader("OCPI-to-country-code") toCountryCode: String,
+            @RequestHeader("OCPI-to-party-id") toPartyID: String,
+            @RequestParam("date_from", required = false) dateFrom: String?,
+            @RequestParam("date_to", required = false) dateTo: String?,
+            @RequestParam("offset", required = false) offset: Int?,
+            @RequestParam("limit", required = false) limit: Int?
     ): ResponseEntity<OcpiResponse<Array<Tariff>>> {
 
         val sender = BasicRole(fromPartyID, fromCountryCode)
         val receiver = BasicRole(toPartyID, toCountryCode)
 
         val params =
-            mapOf(
-                "date_from" to dateFrom,
-                "date_to" to dateTo,
-                "offset" to offset,
-                "limit" to limit
-            )
-                .filterNull()
+                mapOf(
+                                "date_from" to dateFrom,
+                                "date_to" to dateTo,
+                                "offset" to offset,
+                                "limit" to limit
+                        )
+                        .filterNull()
 
         val requestVariables =
-            OcpiRequestVariables(
-                module = ModuleID.TARIFFS,
-                interfaceRole = InterfaceRole.SENDER,
-                method = HttpMethod.GET,
-                headers =
-                    OcnHeaders(
-                        authorization,
-                        signature,
-                        requestID,
-                        correlationID,
-                        sender,
-                        receiver
-                    ),
-                queryParams = params
-            )
+                OcpiRequestVariables(
+                        module = ModuleID.TARIFFS,
+                        interfaceRole = InterfaceRole.SENDER,
+                        method = HttpMethod.GET,
+                        headers =
+                                OcnHeaders(
+                                        authorization,
+                                        signature,
+                                        requestID,
+                                        correlationID,
+                                        sender,
+                                        receiver
+                                ),
+                        queryParams = params
+                )
 
         return requestHandlerBuilder
-            .build<Array<Tariff>>(requestVariables)
-            .forwardDefault()
-            .getResponseWithPaginationHeaders() // proxies Link response header
+                .build<Array<Tariff>>(requestVariables)
+                .forwardDefault()
+                .getResponseWithPaginationHeaders() // proxies Link response header
     }
 
     @GetMapping("/ocpi/sender/2.2.1/tariffs/page/{uid}")
     fun getTariffsPageFromDataOwner(
-        @RequestHeader("authorization") authorization: String,
-        @RequestHeader("OCN-Signature") signature: String? = null,
-        @RequestHeader("X-Request-ID") requestID: String,
-        @RequestHeader("X-Correlation-ID") correlationID: String,
-        @RequestHeader("OCPI-from-country-code") fromCountryCode: String,
-        @RequestHeader("OCPI-from-party-id") fromPartyID: String,
-        @RequestHeader("OCPI-to-country-code") toCountryCode: String,
-        @RequestHeader("OCPI-to-party-id") toPartyID: String,
-        @PathVariable uid: String
+            @RequestHeader("authorization") authorization: String,
+            @RequestHeader("OCN-Signature") signature: String? = null,
+            @RequestHeader("X-Request-ID") requestID: String,
+            @RequestHeader("X-Correlation-ID") correlationID: String,
+            @RequestHeader("OCPI-from-country-code") fromCountryCode: String,
+            @RequestHeader("OCPI-from-party-id") fromPartyID: String,
+            @RequestHeader("OCPI-to-country-code") toCountryCode: String,
+            @RequestHeader("OCPI-to-party-id") toPartyID: String,
+            @PathVariable uid: String
     ): ResponseEntity<OcpiResponse<Array<Tariff>>> {
 
         val sender = BasicRole(fromPartyID, fromCountryCode)
         val receiver = BasicRole(toPartyID, toCountryCode)
 
         val requestVariables =
-            OcpiRequestVariables(
-                module = ModuleID.TARIFFS,
-                interfaceRole = InterfaceRole.SENDER,
-                method = HttpMethod.GET,
-                headers =
-                    OcnHeaders(
-                        authorization,
-                        signature,
-                        requestID,
-                        correlationID,
-                        sender,
-                        receiver
-                    ),
-                urlPath = uid
-            )
+                OcpiRequestVariables(
+                        module = ModuleID.TARIFFS,
+                        interfaceRole = InterfaceRole.SENDER,
+                        method = HttpMethod.GET,
+                        headers =
+                                OcnHeaders(
+                                        authorization,
+                                        signature,
+                                        requestID,
+                                        correlationID,
+                                        sender,
+                                        receiver
+                                ),
+                        urlPath = uid
+                )
 
         return requestHandlerBuilder
-            .build<Array<Tariff>>(requestVariables)
-            .forwardDefault(proxied = true) // retrieves proxied Link response header
-            .getResponseWithPaginationHeaders()
+                .build<Array<Tariff>>(requestVariables)
+                .forwardDefault(proxied = true) // retrieves proxied Link response header
+                .getResponseWithPaginationHeaders()
     }
 
     /** RECEIVER INTERFACE */
     @GetMapping("/ocpi/receiver/2.2.1/tariffs/{countryCode}/{partyID}/{tariffID}")
     fun getClientOwnedTariff(
-        @RequestHeader("authorization") authorization: String,
-        @RequestHeader("OCN-Signature") signature: String? = null,
-        @RequestHeader("X-Request-ID") requestID: String,
-        @RequestHeader("X-Correlation-ID") correlationID: String,
-        @RequestHeader("OCPI-from-country-code") fromCountryCode: String,
-        @RequestHeader("OCPI-from-party-id") fromPartyID: String,
-        @RequestHeader("OCPI-to-country-code") toCountryCode: String,
-        @RequestHeader("OCPI-to-party-id") toPartyID: String,
-        @PathVariable countryCode: String,
-        @PathVariable partyID: String,
-        @PathVariable tariffID: String
+            @RequestHeader("authorization") authorization: String,
+            @RequestHeader("OCN-Signature") signature: String? = null,
+            @RequestHeader("X-Request-ID") requestID: String,
+            @RequestHeader("X-Correlation-ID") correlationID: String,
+            @RequestHeader("OCPI-from-country-code") fromCountryCode: String,
+            @RequestHeader("OCPI-from-party-id") fromPartyID: String,
+            @RequestHeader("OCPI-to-country-code") toCountryCode: String,
+            @RequestHeader("OCPI-to-party-id") toPartyID: String,
+            @PathVariable countryCode: String,
+            @PathVariable partyID: String,
+            @PathVariable tariffID: String
     ): ResponseEntity<OcpiResponse<Tariff>> {
 
         val sender = BasicRole(fromPartyID, fromCountryCode)
         val receiver = BasicRole(toPartyID, toCountryCode)
 
         val requestVariables =
-            OcpiRequestVariables(
-                module = ModuleID.TARIFFS,
-                interfaceRole = InterfaceRole.RECEIVER,
-                method = HttpMethod.GET,
-                headers =
-                    OcnHeaders(
-                        authorization,
-                        signature,
-                        requestID,
-                        correlationID,
-                        sender,
-                        receiver
-                    ),
-                urlPath = "/$countryCode/$partyID/$tariffID"
-            )
+                OcpiRequestVariables(
+                        module = ModuleID.TARIFFS,
+                        interfaceRole = InterfaceRole.RECEIVER,
+                        method = HttpMethod.GET,
+                        headers =
+                                OcnHeaders(
+                                        authorization,
+                                        signature,
+                                        requestID,
+                                        correlationID,
+                                        sender,
+                                        receiver
+                                ),
+                        urlPath = "/$countryCode/$partyID/$tariffID"
+                )
 
-        return requestHandlerBuilder
-            .build<Tariff>(requestVariables)
-            .forwardDefault()
-            .getResponse()
+        return requestHandlerBuilder.build<Tariff>(requestVariables).forwardDefault().getResponse()
     }
 
     @PutMapping("/ocpi/receiver/2.2.1/tariffs/{countryCode}/{partyID}/{tariffID}")
     fun putClientOwnedTariff(
-        @RequestHeader("authorization") authorization: String,
-        @RequestHeader("OCN-Signature") signature: String? = null,
-        @RequestHeader("X-Request-ID") requestID: String,
-        @RequestHeader("X-Correlation-ID") correlationID: String,
-        @RequestHeader("OCPI-from-country-code") fromCountryCode: String,
-        @RequestHeader("OCPI-from-party-id") fromPartyID: String,
-        @RequestHeader("OCPI-to-country-code") toCountryCode: String,
-        @RequestHeader("OCPI-to-party-id") toPartyID: String,
-        @PathVariable countryCode: String,
-        @PathVariable partyID: String,
-        @PathVariable tariffID: String,
-        @RequestBody body: Tariff
+            @RequestHeader("authorization") authorization: String,
+            @RequestHeader("OCN-Signature") signature: String? = null,
+            @RequestHeader("X-Request-ID") requestID: String,
+            @RequestHeader("X-Correlation-ID") correlationID: String,
+            @RequestHeader("OCPI-from-country-code") fromCountryCode: String,
+            @RequestHeader("OCPI-from-party-id") fromPartyID: String,
+            @RequestHeader("OCPI-to-country-code") toCountryCode: String,
+            @RequestHeader("OCPI-to-party-id") toPartyID: String,
+            @PathVariable countryCode: String,
+            @PathVariable partyID: String,
+            @PathVariable tariffID: String,
+            @RequestBody body: Tariff
     ): ResponseEntity<OcpiResponse<Unit>> {
 
         val sender = BasicRole(fromPartyID, fromCountryCode)
         val receiver = BasicRole(toPartyID, toCountryCode)
 
         val requestVariables =
-            OcpiRequestVariables(
-                module = ModuleID.TARIFFS,
-                interfaceRole = InterfaceRole.RECEIVER,
-                method = HttpMethod.PUT,
-                headers =
-                    OcnHeaders(
-                        authorization,
-                        signature,
-                        requestID,
-                        correlationID,
-                        sender,
-                        receiver
-                    ),
-                urlPath = "/$countryCode/$partyID/$tariffID",
-                body = body
-            )
+                OcpiRequestVariables(
+                        module = ModuleID.TARIFFS,
+                        interfaceRole = InterfaceRole.RECEIVER,
+                        method = HttpMethod.PUT,
+                        headers =
+                                OcnHeaders(
+                                        authorization,
+                                        signature,
+                                        requestID,
+                                        correlationID,
+                                        sender,
+                                        receiver
+                                ),
+                        urlPath = "/$countryCode/$partyID/$tariffID",
+                        body = body
+                )
 
         // Forward the request to the original destination
         val response =
-            requestHandlerBuilder
-                .build<Unit>(requestVariables)
-                .forwardDefault()
-                .getResponse()
+                requestHandlerBuilder.build<Unit>(requestVariables).forwardDefault().getResponse()
+
+        // If the message is addressed to this node, broadcast the change
+        if (toCountryCode.equals(nodeProperties.countryCode, true) &&
+                        toPartyID.equals(nodeProperties.partyId, true)
+        ) {
+            val parties =
+                    moduleNotificationService.getPartiesToNotifyOfModuleChange(
+                            moduleId = ModuleID.TARIFFS,
+                            partyId = fromPartyID,
+                            countryCode = fromCountryCode
+                    )
+            if (parties.isNotEmpty()) {
+                val senderRole = BasicRole(fromPartyID, fromCountryCode)
+                moduleNotificationService.notifyPartiesOfModuleChangeAsync(
+                        moduleId = ModuleID.TARIFFS,
+                        parties = parties,
+                        changedData = body,
+                        urlPath = "$countryCode/$partyID/$tariffID",
+                        sender = senderRole
+                )
+            }
+        }
 
         return response
     }
 
     @DeleteMapping("/ocpi/receiver/2.2.1/tariffs/{countryCode}/{partyID}/{tariffID}")
     fun deleteClientOwnedTariff(
-        @RequestHeader("authorization") authorization: String,
-        @RequestHeader("OCN-Signature") signature: String? = null,
-        @RequestHeader("X-Request-ID") requestID: String,
-        @RequestHeader("X-Correlation-ID") correlationID: String,
-        @RequestHeader("OCPI-from-country-code") fromCountryCode: String,
-        @RequestHeader("OCPI-from-party-id") fromPartyID: String,
-        @RequestHeader("OCPI-to-country-code") toCountryCode: String,
-        @RequestHeader("OCPI-to-party-id") toPartyID: String,
-        @PathVariable countryCode: String,
-        @PathVariable partyID: String,
-        @PathVariable tariffID: String
+            @RequestHeader("authorization") authorization: String,
+            @RequestHeader("OCN-Signature") signature: String? = null,
+            @RequestHeader("X-Request-ID") requestID: String,
+            @RequestHeader("X-Correlation-ID") correlationID: String,
+            @RequestHeader("OCPI-from-country-code") fromCountryCode: String,
+            @RequestHeader("OCPI-from-party-id") fromPartyID: String,
+            @RequestHeader("OCPI-to-country-code") toCountryCode: String,
+            @RequestHeader("OCPI-to-party-id") toPartyID: String,
+            @PathVariable countryCode: String,
+            @PathVariable partyID: String,
+            @PathVariable tariffID: String
     ): ResponseEntity<OcpiResponse<Unit>> {
 
         val sender = BasicRole(fromPartyID, fromCountryCode)
         val receiver = BasicRole(toPartyID, toCountryCode)
 
         val requestVariables =
-            OcpiRequestVariables(
-                module = ModuleID.TARIFFS,
-                interfaceRole = InterfaceRole.RECEIVER,
-                method = HttpMethod.DELETE,
-                headers =
-                    OcnHeaders(
-                        authorization,
-                        signature,
-                        requestID,
-                        correlationID,
-                        sender,
-                        receiver
-                    ),
-                urlPath = "/$countryCode/$partyID/$tariffID"
-            )
+                OcpiRequestVariables(
+                        module = ModuleID.TARIFFS,
+                        interfaceRole = InterfaceRole.RECEIVER,
+                        method = HttpMethod.DELETE,
+                        headers =
+                                OcnHeaders(
+                                        authorization,
+                                        signature,
+                                        requestID,
+                                        correlationID,
+                                        sender,
+                                        receiver
+                                ),
+                        urlPath = "/$countryCode/$partyID/$tariffID"
+                )
 
-        return requestHandlerBuilder
-            .build<Unit>(requestVariables)
-            .forwardDefault()
-            .getResponse()
+        return requestHandlerBuilder.build<Unit>(requestVariables).forwardDefault().getResponse()
     }
 }
