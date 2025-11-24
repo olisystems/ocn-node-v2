@@ -28,6 +28,7 @@ import snc.openchargingnetwork.node.models.OcpiHttpResponse
 import snc.openchargingnetwork.node.models.Receiver
 import snc.openchargingnetwork.node.models.exceptions.OcpiHubUnknownReceiverException
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
+import snc.openchargingnetwork.node.models.ocpi.ModuleID
 import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
 import snc.openchargingnetwork.node.services.*
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
@@ -46,6 +47,7 @@ class OcpiRequestHandlerBuilder(
     private val hubClientInfoService: HubClientInfoService,
     private val asyncTaskService: AsyncTaskService,
     private val responseHandlerBuilder: OcpiResponseHandlerBuilder,
+    private val integrationsRoutingService: IntegrationsRoutingService,
     private val properties: NodeProperties,
     private val haasProperties: HaasProperties,
     private val coroutineScope: CoroutineScope
@@ -57,7 +59,7 @@ class OcpiRequestHandlerBuilder(
     fun <T : Any> build(requestVariables: OcpiRequestVariables): OcpiRequestHandler<T> {
         return OcpiRequestHandler(
             requestVariables, routingService, registryService, httpClientComponent, hubClientInfoService,
-            walletService, asyncTaskService, responseHandlerBuilder, properties, haasProperties, coroutineScope
+            walletService, asyncTaskService, responseHandlerBuilder, integrationsRoutingService,properties, haasProperties, coroutineScope
         )
     }
 
@@ -68,7 +70,7 @@ class OcpiRequestHandlerBuilder(
         val requestVariables = httpClientComponent.convertToRequestVariables(requestVariablesString)
         return OcpiRequestHandler(
             requestVariables, routingService, registryService, httpClientComponent, hubClientInfoService,
-            walletService, asyncTaskService, responseHandlerBuilder, properties, haasProperties, coroutineScope
+            walletService, asyncTaskService, responseHandlerBuilder, integrationsRoutingService,properties, haasProperties, coroutineScope
         )
     }
 
@@ -103,6 +105,7 @@ class OcpiRequestHandler<T : Any>(
     private val walletService: WalletService,
     private val asyncTaskService: AsyncTaskService,
     private val responseHandlerBuilder: OcpiResponseHandlerBuilder,
+    private val integrationsRoutingService: IntegrationsRoutingService,
     properties: NodeProperties,
     haasProperties: HaasProperties,
     private val coroutineScope: CoroutineScope
@@ -123,7 +126,6 @@ class OcpiRequestHandler<T : Any>(
         }
 
         val response: OcpiHttpResponse<T> = when (routingService.getReceiverType(request.headers.receiver)) {
-
             Receiver.LOCAL -> {
                 assertWhitelisted()
                 assertValidSignature()
@@ -164,6 +166,30 @@ class OcpiRequestHandler<T : Any>(
                 }
             } catch (e: Exception) {
                 logger.error("Error forwarding request to Haas: ${e.message}")
+            }
+        }
+
+        return this
+    }
+
+    fun forwardIntegrationsAsync(module: ModuleID): OcpiRequestHandler<T> {
+        val currentContext = this;
+        coroutineScope.launch {
+            val receivingParties = integrationsRoutingService.getIntegrationReceivingParties(module, request.headers.sender);
+            for (recevingParty in receivingParties) {
+                val response: OcpiHttpResponse<T> = when (routingService.getReceiverType(recevingParty)) {
+                    Receiver.LOCAL -> {
+                        val (url, headers) = routingService.prepareLocalPlatformRequest(request, false)
+
+                        asyncTaskService.forwardOcpiRequestToLinkedServices(currentContext, true)
+                        httpClientComponent.makeOcpiRequest(url, headers, request)
+                    }
+                    Receiver.REMOTE -> {
+                        val (url, headers, body) = routingService.prepareRemotePlatformRequest(request, false)
+                        asyncTaskService.forwardOcpiRequestToLinkedServices(currentContext, true)
+                        httpClientComponent.postOcnMessage(url, headers, body)
+                    }
+                }
             }
         }
 
