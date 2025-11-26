@@ -20,13 +20,19 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import snc.openchargingnetwork.node.components.OcpiRequestHandlerBuilder
+import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.ocpi.*
+import snc.openchargingnetwork.node.services.ModuleNotificationService
 import snc.openchargingnetwork.node.tools.filterNull
 
 @RestController
 @RequestMapping("\${ocn.node.apiPrefix}")
-class TariffsController(private val requestHandlerBuilder: OcpiRequestHandlerBuilder) {
+class TariffsController(
+    private val requestHandlerBuilder: OcpiRequestHandlerBuilder,
+    private val moduleNotificationService: ModuleNotificationService,
+    private val nodeProperties: NodeProperties
+) {
 
     /** SENDER INTERFACE */
     @GetMapping("/ocpi/sender/2.2.1/tariffs")
@@ -155,10 +161,7 @@ class TariffsController(private val requestHandlerBuilder: OcpiRequestHandlerBui
                 urlPath = "/$countryCode/$partyID/$tariffID"
             )
 
-        return requestHandlerBuilder
-            .build<Tariff>(requestVariables)
-            .forwardDefault()
-            .getResponse()
+        return requestHandlerBuilder.build<Tariff>(requestVariables).forwardDefault().getResponse()
     }
 
     @PutMapping("/ocpi/receiver/2.2.1/tariffs/{countryCode}/{partyID}/{tariffID}")
@@ -180,6 +183,36 @@ class TariffsController(private val requestHandlerBuilder: OcpiRequestHandlerBui
         val sender = BasicRole(fromPartyID, fromCountryCode)
         val receiver = BasicRole(toPartyID, toCountryCode)
 
+        // If the message is addressed to this node, broadcast the change
+        if (toCountryCode.equals(nodeProperties.countryCode, true) &&
+            toPartyID.equals(nodeProperties.partyId, true)
+        ) {
+            val parties =
+                moduleNotificationService.getPartiesToNotifyOfModuleChange(
+                    moduleId = ModuleID.TARIFFS,
+                    partyId = fromPartyID,
+                    countryCode = fromCountryCode
+                )
+            if (parties.isNotEmpty()) {
+                val senderRole = BasicRole(fromPartyID, fromCountryCode)
+                moduleNotificationService.notifyPartiesOfModuleChangeAsync(
+                    moduleId = ModuleID.TARIFFS,
+                    parties = parties,
+                    changedData = body,
+                    urlPath = "$countryCode/$partyID/$tariffID",
+                    sender = senderRole
+                )
+            }
+
+            return ResponseEntity
+                .status(200)
+                .body(
+                    OcpiResponse(
+                        OcpiStatus.SUCCESS.code
+                    )
+                )
+        }
+
         val requestVariables =
             OcpiRequestVariables(
                 module = ModuleID.TARIFFS,
@@ -199,13 +232,10 @@ class TariffsController(private val requestHandlerBuilder: OcpiRequestHandlerBui
             )
 
         // Forward the request to the original destination
-        val response =
-            requestHandlerBuilder
-                .build<Unit>(requestVariables)
-                .forwardDefault()
-                .getResponse()
-
-        return response
+        return requestHandlerBuilder
+            .build<Unit>(requestVariables)
+            .forwardDefault()
+            .getResponse()
     }
 
     @DeleteMapping("/ocpi/receiver/2.2.1/tariffs/{countryCode}/{partyID}/{tariffID}")
@@ -243,9 +273,6 @@ class TariffsController(private val requestHandlerBuilder: OcpiRequestHandlerBui
                 urlPath = "/$countryCode/$partyID/$tariffID"
             )
 
-        return requestHandlerBuilder
-            .build<Unit>(requestVariables)
-            .forwardDefault()
-            .getResponse()
+        return requestHandlerBuilder.build<Unit>(requestVariables).forwardDefault().getResponse()
     }
 }
