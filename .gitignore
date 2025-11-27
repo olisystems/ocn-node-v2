@@ -203,3 +203,7 @@ application-localMinikube.properties
 # Kotlin compiler files
 .kotlin/
 *.kotlin_module
+
+# start and stop scripts
+start.sh
+stop.sh
