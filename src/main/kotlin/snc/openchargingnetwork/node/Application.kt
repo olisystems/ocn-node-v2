@@ -22,10 +22,15 @@ import org.springframework.boot.runApplication
 import org.springframework.scheduling.annotation.EnableAsync
 import org.springframework.scheduling.annotation.EnableScheduling
 import snc.openchargingnetwork.node.config.DataSourceProperties
+import snc.openchargingnetwork.node.config.FeatureFlagsProperties
 import snc.openchargingnetwork.node.config.NodeProperties
 
 @SpringBootApplication
-@EnableConfigurationProperties(NodeProperties::class, DataSourceProperties::class)
+@EnableConfigurationProperties(
+    NodeProperties::class,
+    DataSourceProperties::class,
+    FeatureFlagsProperties::class
+)
 @EnableScheduling
 @EnableAsync
 class Application
