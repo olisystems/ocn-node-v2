@@ -14,12 +14,6 @@ import snc.openchargingnetwork.node.services.BanulaValidationService
 @RestController
 class BanulaValidationController(private val validationService: BanulaValidationService) {
 
-    @PostMapping("/tariff", consumes = ["application/json"])
-    fun validateTariff(@RequestBody body: String): ResponseEntity<ValidationResult> {
-        val result = validationService.validateTariff(body)
-        return if (result.valid) ResponseEntity.ok(result) else ResponseEntity.badRequest().body(result)
-    }
-
     @PostMapping("/tariff/cpo", consumes = ["application/json"])
     fun validateCpoTariff(@RequestBody body: String): ResponseEntity<ValidationResult> {
         val result = validationService.validateCpoTariff(body)
@@ -41,6 +35,12 @@ class BanulaValidationController(private val validationService: BanulaValidation
     @PostMapping("/token", consumes = ["application/json"])
     fun validateToken(@RequestBody body: String): ResponseEntity<ValidationResult> {
         val result = validationService.validateToken(body)
+        return if (result.valid) ResponseEntity.ok(result) else ResponseEntity.badRequest().body(result)
+    }
+
+    @PostMapping("/session", consumes = ["application/json"])
+    fun validateSession(@RequestBody body: String): ResponseEntity<ValidationResult> {
+        val result = validationService.validateSession(body)
         return if (result.valid) ResponseEntity.ok(result) else ResponseEntity.badRequest().body(result)
     }
 

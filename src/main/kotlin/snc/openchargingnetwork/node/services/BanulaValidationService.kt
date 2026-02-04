@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service
 import snc.openchargingnetwork.node.models.ValidationResult
 import snc.openchargingnetwork.node.models.ocpi.CDR
 import snc.openchargingnetwork.node.models.ocpi.Location
+import snc.openchargingnetwork.node.models.ocpi.Session
 import snc.openchargingnetwork.node.models.ocpi.Tariff
 import snc.openchargingnetwork.node.models.ocpi.TariffDimensionType
 import snc.openchargingnetwork.node.models.ocpi.Token
@@ -21,8 +22,6 @@ class BanulaValidationService {
         }
     private val evseIdRegex =
         Regex("^[A-Za-z]{2}\\*?[A-Za-z0-9]{3}\\*?E[A-Za-z0-9][A-Za-z0-9\\*]{0,30}$", RegexOption.IGNORE_CASE)
-
-    fun validateTariff(json: String): ValidationResult = validate<Tariff>(json)
 
     fun validateCpoTariff(json: String): ValidationResult {
         if (json.isBlank()) {
@@ -242,6 +241,42 @@ class BanulaValidationService {
         }
     }
 
+    fun validateSession(json: String): ValidationResult {
+        if (json.isBlank()) {
+            return ValidationResult(
+                valid = false,
+                errors = listOf("Request body must be a non-empty JSON object"),
+                suggestions = listOf("Provide a JSON payload that matches the OCPI Session schema")
+            )
+        }
+
+        return try {
+            val session = objectMapper.readValue<Session>(json)
+            val errors = mutableListOf<String>()
+            val suggestions = mutableListOf<String>()
+
+            if (session.authorizationReference.isNullOrBlank()) {
+                errors.add("Session must include authorization_reference")
+                suggestions.add("Provide authorization_reference for the session")
+            }
+
+            if (session.totalCost == null) {
+                errors.add("Session must include total_cost")
+                suggestions.add("Provide total_cost for the session")
+            }
+
+            suggestions.add("Charging periods should use 5-minute intervals between entries")
+
+            ValidationResult(errors.isEmpty(), errors, suggestions)
+        } catch (ex: Exception) {
+            ValidationResult(
+                valid = false,
+                errors = listOf(ex.message ?: "Invalid JSON payload"),
+                suggestions = listOf("Ensure the payload matches the OCPI Session schema")
+            )
+        }
+    }
+
     fun validateCdr(json: String): ValidationResult {
         if (json.isBlank()) {
             return ValidationResult(
@@ -271,16 +306,4 @@ class BanulaValidationService {
         }
     }
 
-    private inline fun <reified T> validate(json: String): ValidationResult {
-        if (json.isBlank()) {
-            return ValidationResult(false, listOf("Request body must be a non-empty JSON object"))
-        }
-
-        return try {
-            objectMapper.readValue<T>(json)
-            ValidationResult(true)
-        } catch (ex: Exception) {
-            ValidationResult(false, listOf(ex.message ?: "Invalid JSON payload"))
-        }
-    }
 }
