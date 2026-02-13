@@ -23,6 +23,7 @@ import io.ktor.util.toMap
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpMethod
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.RequestPredicates
@@ -50,6 +51,8 @@ import snc.openchargingnetwork.node.tools.urlJoin
 
 @Component
 class HttpClientComponent(private val properties: NodeProperties) {
+
+        private val logger = LoggerFactory.getLogger(HttpClientComponent::class.java)
 
         class HttpMethodSerializer : JsonSerializer<org.springframework.http.HttpMethod>() {
                 override fun serialize(
@@ -187,7 +190,11 @@ class HttpClientComponent(private val properties: NodeProperties) {
                 )
 
                 val response = sendHttpRequest(url, method, body, stringHeaders, stringQueryParams)
+
                 try {
+                        logger.info(
+                                "HTTP Response - Status: ${response.statusCode.value}, Body: ${response.body.take(500)}"
+                        )
                         return OcpiHttpResponse(
                                 statusCode = response.statusCode.value,
                                 headers =
@@ -197,6 +204,11 @@ class HttpClientComponent(private val properties: NodeProperties) {
                                 body = mapper.readValue(response.body),
                         )
                 } catch (e: JsonParseException) {
+                        val toCountry = stringHeaders["OCPI-to-country-code"] ?: "UNKNOWN"
+                        val toParty = stringHeaders["OCPI-to-party-id"] ?: "UNKNOWN"
+                        logger.error(
+                                "Response received from $toCountry $toParty is not a OCPI Response compliant | Response: ${response.body}"
+                        )
                         throw OcpiServerGenericException(
                                 "Could not parse JSON response of forwarded OCPI request: ${e.message}"
                         )

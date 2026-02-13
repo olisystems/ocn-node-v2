@@ -24,7 +24,7 @@ class NodeProperties {
 
     // development mode
     var dev: Boolean = false
-    //
+
     // Node's OCPI identity
     var countryCode: String? = null
     var partyId: String? = null
