@@ -207,3 +207,6 @@ application-localMinikube.properties
 # start and stop scripts
 start.sh
 stop.sh
+
+# other local files
+local
