@@ -37,6 +37,7 @@ import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.OcnMessageHeaders
 import snc.openchargingnetwork.node.models.OcpiHttpResponse
 import snc.openchargingnetwork.node.models.SyncedHttpResponse
+import snc.openchargingnetwork.node.models.exceptions.OcpiHubGenericException
 import snc.openchargingnetwork.node.models.exceptions.OcpiServerGenericException
 import snc.openchargingnetwork.node.models.exceptions.OcpiServerUnusableApiException
 import snc.openchargingnetwork.node.models.ocpi.ClientInfo
@@ -209,7 +210,7 @@ class HttpClientComponent(private val properties: NodeProperties) {
                         logger.error(
                                 "Response received from $toCountry $toParty is not a OCPI Response compliant | Response: ${response.body}"
                         )
-                        throw OcpiServerGenericException(
+                        throw OcpiHubGenericException(
                                 "Could not parse JSON response of forwarded OCPI request: ${e.message}"
                         )
                 }
