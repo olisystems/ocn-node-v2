@@ -7,10 +7,15 @@ import org.springframework.web.bind.annotation.*
 import snc.openchargingnetwork.node.components.OcpiRequestHandlerBuilder
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.ocpi.*
+import snc.openchargingnetwork.node.plugins.core.CustomModuleRequest
+import snc.openchargingnetwork.node.plugins.core.CustomModuleRegistry
 
 @RequestMapping("\${ocn.node.apiPrefix}/ocpi/custom/")
 @RestController
-class CustomModulesController(private val requestHandlerBuilder: OcpiRequestHandlerBuilder) {
+class CustomModulesController(
+    private val requestHandlerBuilder: OcpiRequestHandlerBuilder,
+    private val customModuleRegistry: CustomModuleRegistry
+) {
 
     @RequestMapping("{interfaceRole}/{module}", "/{interfaceRole}/{module}/**")
     fun customModuleMapping(
@@ -28,6 +33,41 @@ class CustomModulesController(private val requestHandlerBuilder: OcpiRequestHand
         @RequestBody body: String?,
         request: HttpRequest
     ): ResponseEntity<OcpiResponse<Any>> {
+
+        val pluginHandler = customModuleRegistry.getHandler(module)
+        if (pluginHandler != null) {
+            val urlPath = try {
+                request.uri.toString().replace("/ocpi/custom/${interfaceRole}/${module}", "")
+                    .takeIf { it.isNotEmpty() }
+            } catch (e: IllegalStateException) {
+                null
+            }
+            val pluginRequest = CustomModuleRequest(
+                interfaceRole = interfaceRole,
+                customModuleId = module,
+                urlPath = urlPath,
+                method = HttpMethod.valueOf(request.method.toString()),
+                queryParams = queryParams,
+                body = body,
+                fromPartyId = fromPartyID,
+                fromCountryCode = fromCountryCode,
+                toPartyId = toPartyID,
+                toCountryCode = toCountryCode,
+                headers = mapOf(
+                    "authorization" to authorization,
+                    "OCN-Signature" to (signature ?: ""),
+                    "X-Request-ID" to requestID,
+                    "X-Correlation-ID" to correlationID
+                )
+            )
+            val response = pluginHandler.handle(pluginRequest)
+            val ocpiResponse = OcpiResponse<Any>(
+                statusCode = response.statusCode,
+                statusMessage = response.statusMessage,
+                data = response.data
+            )
+            return ResponseEntity.status(response.statusCode).body(ocpiResponse)
+        }
 
         val sender = BasicRole(fromPartyID, fromCountryCode)
         val receiver = BasicRole(toPartyID, toCountryCode)

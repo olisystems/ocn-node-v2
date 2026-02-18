@@ -26,6 +26,7 @@ java {
 }
 
 
+
 repositories {
 	mavenCentral()
 }
@@ -118,7 +119,10 @@ tasks.register("bootRunLocalMiniKube") {
 val test: Test by tasks
 test.apply {
 	description = "Runs OCN Node unit and integration tests (note: integration tests depend on ganache-cli running)."
-	dependsOn("unitTest", "integrationTest")
+	dependsOn("unitTest")
+	if ((project.findProperty("includeIntegrationTests")?.toString()?.toBoolean() == true) || System.getenv("CI") == "true") {
+		dependsOn("integrationTest")
+	}
 	outputs.dir(project.extra["snippetsDir"]!!)
 }
 
@@ -134,6 +138,7 @@ tasks.register<Test>("integrationTest") {
 	description = "Runs OCN Node integration tests (note: depends on a ganache-cli process running)."
 	useJUnitPlatform()
 	include("**/integration/**")
+	shouldRunAfter("unitTest")
 }
 
 tasks.register<Tar>("archive") {

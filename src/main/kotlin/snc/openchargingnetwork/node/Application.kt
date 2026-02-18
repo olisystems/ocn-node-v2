@@ -26,12 +26,14 @@ import org.springframework.scheduling.annotation.EnableScheduling
 import snc.openchargingnetwork.node.config.DataSourceProperties
 import snc.openchargingnetwork.node.config.FeatureFlagsProperties
 import snc.openchargingnetwork.node.config.NodeProperties
+import snc.openchargingnetwork.node.config.PluginProperties
 
 @SpringBootApplication
 @EnableConfigurationProperties(
     NodeProperties::class,
     DataSourceProperties::class,
-    FeatureFlagsProperties::class
+    FeatureFlagsProperties::class,
+    PluginProperties::class
 )
 @EnableJpaRepositories("snc.openchargingnetwork.node.repositories")
 @EntityScan("snc.openchargingnetwork.node.models.entities")
