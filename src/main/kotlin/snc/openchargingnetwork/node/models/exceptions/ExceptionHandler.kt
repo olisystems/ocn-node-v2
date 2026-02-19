@@ -190,6 +190,14 @@ class ExceptionHandler(private val properties: NodeProperties) {
                         message = e.message
                 )
 
+        @ExceptionHandler(OcpiHubGenericException::class)
+        fun handleOcpiHubGenericException(e: OcpiHubGenericException) =
+                ocpiErrorToResponseEntity(
+                        httpStatus = e.httpStatus,
+                        ocpiStatus = e.ocpiStatus,
+                        message = e.message
+                )
+
         /** OCN Exceptions */
         @ExceptionHandler(InvalidOcnSignatureException::class)
         fun handleInvalidOcnSignatureException(

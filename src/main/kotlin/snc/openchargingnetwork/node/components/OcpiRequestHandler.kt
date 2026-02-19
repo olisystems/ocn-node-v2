@@ -20,6 +20,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import snc.openchargingnetwork.node.config.HaasProperties
 import snc.openchargingnetwork.node.config.NodeProperties
@@ -29,6 +30,7 @@ import snc.openchargingnetwork.node.models.exceptions.OcpiHubUnknownReceiverExce
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
 import snc.openchargingnetwork.node.models.ocpi.ModuleID
 import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
+import snc.openchargingnetwork.node.models.ocpi.OcpiStatus
 import snc.openchargingnetwork.node.services.*
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
 import snc.openchargingnetwork.node.tools.urlJoin
@@ -189,11 +191,11 @@ class OcpiRequestHandler<T : Any>(
                     val haasUrl =
                             if (uri.isNullOrEmpty()) {
                                 haasProperties.url +
-                                        "/ocpi/" +
+                                        "/ocpi/2.2.1/" +
                                         request.module.toString().lowercase()
                             } else {
                                 haasProperties.url +
-                                        "/ocpi/" +
+                                        "/ocpi/2.2.1/" +
                                         request.module.toString().lowercase() +
                                         "/" +
                                         uri
@@ -423,13 +425,17 @@ class OcpiRequestHandler<T : Any>(
     private fun validateOcnMessage(signature: String): OcpiRequestHandler<T> {
         if (!registryService.isRoleKnown(request.headers.sender, belongsToMe = false)) {
             throw OcpiHubUnknownReceiverException(
-                    "Sending party not registered on Open Charging Network"
+                    "Sending party not registered on Open Charging Network",
+                    HttpStatus.OK,
+                    OcpiStatus.HUB_UNKNOWN_RECEIVER
             )
         }
 
         if (!routingService.isRoleKnown(request.headers.receiver)) {
             throw OcpiHubUnknownReceiverException(
-                    "Recipient unknown to OCN Node entered in Registry"
+                    "Recipient unknown to OCN Node entered in Registry",
+                    HttpStatus.OK,
+                    OcpiStatus.HUB_UNKNOWN_RECEIVER
             )
         }
 

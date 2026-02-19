@@ -88,6 +88,12 @@ class OcpiHubConnectionProblemException(
     val ocpiStatus: OcpiStatus = OcpiStatus.HUB_CONNECTION_PROBLEM
 ) : Exception(message)
 
+class OcpiHubGenericException(
+    message: String,
+    val httpStatus: HttpStatus = HttpStatus.OK,
+    val ocpiStatus: OcpiStatus = OcpiStatus.HUB_GENERIC_ERROR
+) : Exception(message)
+
 // OCN errors (between nodes)
 
 class InvalidOcnSignatureException(message: String) : Exception(message)
