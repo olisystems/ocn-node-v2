@@ -56,7 +56,9 @@ class OcnNodeTestHelper {
                     "ocn.hass.enabled" to "false",
                     "ocn.haas.url" to "http://localhost:9092/haas",
                     "logging.level.web" to "DEBUG",
-                    "logging.level.snc.openchargingnetwork" to "DEBUG"
+                    "logging.level.snc.openchargingnetwork" to "DEBUG",
+                    "ocn.node.stillAliveEnabled" to "false",
+                    "ocn.node.hubClientInfoSyncEnabled" to "false"
             )
 
     // Merge with provided config
@@ -65,9 +67,10 @@ class OcnNodeTestHelper {
     environment.propertySources.addFirst(MapPropertySource("integration-test-config", mergedConfig))
 
     val application =
-            SpringApplicationBuilder(Application::class.java)
+            SpringApplicationBuilder(Application::class.java, MockRegistryConfig::class.java)
                     .web(WebApplicationType.SERVLET)
                     .environment(environment)
+                    .properties("spring.main.allow-bean-definition-overriding=true")
                     .build()
 
     val context = application.run()

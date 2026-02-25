@@ -97,16 +97,14 @@ class OcnNodeCommunicationTest : BaseIntegrationTest() {
     println("✅ Party registration completed successfully!")
 
     // 2. Test basic node communication by checking registry endpoints
-    // Test that nodes can access registry information
     val node1Registry =
-            restTemplate.getForEntity("$node1Url/ocn-v2/ocn/registry/nodes", String::class.java)
+            restTemplate.getForEntity("$node1Url/ocn-v2/ocn/registry/all-parties", String::class.java)
     val node2Registry =
-            restTemplate.getForEntity("$node2Url/ocn-v2/ocn/registry/nodes", String::class.java)
+            restTemplate.getForEntity("$node2Url/ocn-v2/ocn/registry/all-parties", String::class.java)
 
     println("Node1 registry status: ${node1Registry.statusCode}")
     println("Node2 registry status: ${node2Registry.statusCode}")
 
-    // Both nodes should be able to access registry information
     assertThat(node1Registry.statusCode.value()).isEqualTo(200)
     assertThat(node2Registry.statusCode.value()).isEqualTo(200)
 
