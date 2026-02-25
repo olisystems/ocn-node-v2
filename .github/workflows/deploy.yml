@@ -132,7 +132,7 @@ jobs:
       - name: Login to OTC SWR
         uses: docker/login-action@v3
         with:
-          registry: swr.eu-de.otc.t-systems.com/${{ inputs.CLUSTER }}
+          registry: ${{ secrets.DOCKER_REGISTRY }}/${{ inputs.CLUSTER }}
           username: ${{ secrets.OTC_USERNAME }}
           password: ${{ secrets.OTC_PASSWORD }}
 
@@ -143,7 +143,7 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64
           push: true
-          tags: swr.eu-de.otc.t-systems.com/${{ inputs.CLUSTER }}/${{ env.PROJECT_NAME }}:${{ env.DOCKER_TAG }}
+          tags: ${{ secrets.DOCKER_REGISTRY }}/${{ inputs.CLUSTER }}/${{ env.PROJECT_NAME }}:${{ env.DOCKER_TAG }}
           provenance: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -156,7 +156,7 @@ jobs:
       - name: Checkout Helm Charts Repo
         uses: actions/checkout@v4
         with:
-          repository: olisystems/${{ env.HELM_REPOSITORY }}
+          repository: ${{ secrets.GH_ORG }}/${{ env.HELM_REPOSITORY }}
           token: ${{ secrets.PAT_SECRET }}
           path: ${{ env.HELM_REPOSITORY }}
 
@@ -228,16 +228,7 @@ jobs:
           echo "DOCKER_TAG=${DOCKER_TAG}" >> $GITHUB_ENV
 
       - name: Set up Kubeconfig
-        run: |
-          case "${{ inputs.NAMESPACE }}" in
-            *-prod)
-              KUBECONFIG_SECRET="${{ secrets.KUBECONFIG_PROD }}"
-              ;;
-            *)
-              KUBECONFIG_SECRET="${{ secrets.KUBECONFIG_DEV_INT }}"
-              ;;
-          esac
-          echo "$KUBECONFIG_SECRET" > kubeconfig.yaml
+        run: echo "${{ secrets.KUBECONFIG }}" > kubeconfig.yaml
 
       - name: Set Helm repository name
         run: |
@@ -247,7 +238,7 @@ jobs:
       - name: Checkout Helm Charts Repo
         uses: actions/checkout@v4
         with:
-          repository: olisystems/${{ env.HELM_REPOSITORY }}
+          repository: ${{ secrets.GH_ORG }}/${{ env.HELM_REPOSITORY }}
           token: ${{ secrets.PAT_SECRET }}
           path: ${{ env.HELM_REPOSITORY }}
 
@@ -289,7 +280,7 @@ jobs:
             --namespace ${{ inputs.NAMESPACE }} \
             --create-namespace \
             --values ./envirnoments/${{ inputs.NAMESPACE }}/values.yaml \
-            --set ${{ env.DEPLOY_IMAGE_KEY }}.image=swr.eu-de.otc.t-systems.com/${{ inputs.CLUSTER }}/${{ env.PROJECT_NAME }}:${{ env.DOCKER_TAG }}
+            --set ${{ env.DEPLOY_IMAGE_KEY }}.image=${{ secrets.DOCKER_REGISTRY }}/${{ inputs.CLUSTER }}/${{ env.PROJECT_NAME }}:${{ env.DOCKER_TAG }}
 
       - name: Kill VPN connection
         if: always()
