@@ -178,7 +178,7 @@ open class HttpClientComponent(private val properties: NodeProperties) {
                 queryParams: Map<String, Any?>? = null,
                 body: String? = null
         ): OcpiHttpResponse<T> {
-                val stringHeaders = headers.mapValues { (_, value) -> value.toString() }
+                val stringHeaders = headers.mapNotNull { (key, value) -> value?.let { key to it } }.toMap()
                 val stringQueryParams =
                         queryParams?.mapValues { (_, value) -> value.toString() } ?: mapOf()
 

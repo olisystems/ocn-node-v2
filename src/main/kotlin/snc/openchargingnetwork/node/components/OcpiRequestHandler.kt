@@ -158,9 +158,16 @@ class OcpiRequestHandler<T : Any>(
                         assertValidSignature()
                         val (url, headers) =
                                 routingService.prepareLocalPlatformRequest(request, proxied)
+                        val statusName = this.verificationStatus?.name
+                        val localHeaders =
+                                headers.copy(
+                                        verificationStatus =
+                                                if (statusName == null) headers.verificationStatus
+                                                else statusName
+                                )
 
                         asyncTaskService.forwardOcpiRequestToLinkedServices(this, fromLocalPlatform)
-                        httpClientComponent.makeOcpiRequest(url, headers, request)
+                        httpClientComponent.makeOcpiRequest(url, localHeaders, request)
                     }
                     Receiver.REMOTE -> {
                         assertValidSignature(false)
@@ -180,6 +187,10 @@ class OcpiRequestHandler<T : Any>(
             )
         }
 
+        val resolvedStatusName = this.verificationStatus?.name
+        if (resolvedStatusName != null && response.body?.verificationStatus == null) {
+            response.body?.verificationStatus = resolvedStatusName
+        }
         return responseHandlerBuilder.build(request, response, knownSender = fromLocalPlatform)
     }
 
@@ -233,12 +244,20 @@ class OcpiRequestHandler<T : Any>(
                             Receiver.LOCAL -> {
                                 val (url, headers) =
                                         routingService.prepareLocalPlatformRequest(request, false)
+                                val statusName = currentContext.verificationStatus?.name
+                                val localHeaders =
+                                        headers.copy(
+                                                verificationStatus =
+                                                        if (statusName == null)
+                                                                headers.verificationStatus
+                                                        else statusName
+                                        )
 
                                 asyncTaskService.forwardOcpiRequestToLinkedServices(
                                         currentContext,
                                         true
                                 )
-                                httpClientComponent.makeOcpiRequest(url, headers, request)
+                                httpClientComponent.makeOcpiRequest(url, localHeaders, request)
                             }
                             Receiver.REMOTE -> {
                                 val (url, headers, body) =
@@ -301,9 +320,16 @@ class OcpiRequestHandler<T : Any>(
                                 rewriteAndSign(modifiedRequest.toSignedValues(), rewriteFields)
                         // send the request with the modified body
                         val (url, headers) = routingService.prepareLocalPlatformRequest(request)
+                        val statusName = this.verificationStatus?.name
+                        val localHeaders =
+                                headers.copy(
+                                        verificationStatus =
+                                                if (statusName == null) headers.verificationStatus
+                                                else statusName
+                                )
 
                         asyncTaskService.forwardOcpiRequestToLinkedServices(this)
-                        httpClientComponent.makeOcpiRequest(url, headers, modifiedRequest)
+                        httpClientComponent.makeOcpiRequest(url, localHeaders, modifiedRequest)
                     }
                     Receiver.REMOTE -> {
                         assertValidSignature(false)
@@ -335,6 +361,10 @@ class OcpiRequestHandler<T : Any>(
                     }
                 }
 
+        val resolvedStatusName = this.verificationStatus?.name
+        if (resolvedStatusName != null && response.body?.verificationStatus == null) {
+            response.body?.verificationStatus = resolvedStatusName
+        }
         return responseHandlerBuilder.build(request, response)
     }
 
@@ -368,7 +398,14 @@ class OcpiRequestHandler<T : Any>(
                     Receiver.LOCAL -> {
                         val (url, headers) =
                                 routingService.prepareLocalPlatformRequest(modifiedRequest)
-                        httpClientComponent.makeOcpiRequest(url, headers, modifiedRequest)
+                        val statusName = this.verificationStatus?.name
+                        val localHeaders =
+                                headers.copy(
+                                        verificationStatus =
+                                                if (statusName == null) headers.verificationStatus
+                                                else statusName
+                                )
+                        httpClientComponent.makeOcpiRequest(url, localHeaders, modifiedRequest)
                     }
                     Receiver.REMOTE -> {
                         val (url, headers, body) =
