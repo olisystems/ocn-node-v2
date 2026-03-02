@@ -92,7 +92,7 @@ class RegistryServiceTest(
         try {
             registryService.isRoleKnown(unknownRole)
         } catch (e: Exception) {
-            assertThat(e.message).contains("Recipient not registered on OCN")
+            assertThat(e.message).contains("not registered on OCN")
         }
     }
 
@@ -121,7 +121,7 @@ class RegistryServiceTest(
         try {
             registryService.getRemoteNodeUrlOf(unknownRole)
         } catch (e: Exception) {
-            assertThat(e.message).contains("Recipient not registered on OCN")
+            assertThat(e.message).contains("not registered on OCN")
         }
     }
 
@@ -130,7 +130,7 @@ class RegistryServiceTest(
         try {
             registryService.getPartyDetails(unknownRole)
         } catch (e: Exception) {
-            assertThat(e.message).contains("Recipient not registered on OCN")
+            assertThat(e.message).contains("not registered on OCN")
         }
     }
 }

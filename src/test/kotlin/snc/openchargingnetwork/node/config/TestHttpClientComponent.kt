@@ -4,10 +4,12 @@ import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
 import snc.openchargingnetwork.node.components.HttpClientComponent
+import snc.openchargingnetwork.node.models.ControllerResponse
+import snc.openchargingnetwork.node.models.GqlCertificateData
+import snc.openchargingnetwork.node.models.GqlPartiesAndOpsData
+import snc.openchargingnetwork.node.models.SyncedHttpResponse
 import snc.openchargingnetwork.node.models.ocpi.Version
 import snc.openchargingnetwork.node.models.ocpi.VersionDetail
-import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
-import snc.openchargingnetwork.node.models.SyncedHttpResponse
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Headers
 import io.ktor.http.ContentType
@@ -62,6 +64,28 @@ class TestHttpClientComponent {
                                 )
                         }
 
+                        override fun getIndexedOcnRegistry(
+                                url: String,
+                                authorization: String,
+                                query: String
+                        ): ControllerResponse<GqlPartiesAndOpsData> {
+                                return ControllerResponse(
+                                        success = true,
+                                        data = GqlPartiesAndOpsData(
+                                                parties = emptyList(),
+                                                operators = emptyList()
+                                        )
+                                )
+                        }
+
+                        override fun getIndexedOcnRegistryCertificates(
+                                url: String,
+                                authorization: String,
+                                query: String
+                        ): ControllerResponse<GqlCertificateData> {
+                                return ControllerResponse(success = false, error = "Not available in test")
+                        }
+
                         override fun sendHttpRequest(
                                 endpoint: String,
                                 method: org.springframework.http.HttpMethod,
@@ -69,7 +93,6 @@ class TestHttpClientComponent {
                                 headers: Map<String, String>,
                                 queryParams: Map<String, String>
                         ): SyncedHttpResponse {
-                                // Return mock HTTP response
                                 return SyncedHttpResponse(
                                         statusCode = HttpStatusCode.OK,
                                         headers = Headers.build {

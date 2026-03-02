@@ -107,4 +107,9 @@ data class GqlCertificateDataResponse(
 data class GqlError(val message: String? = null)
 
 @Serializable
-data class GqlResponse<T>(val data: T? = null, val errors: List<GqlError>? = null)
+data class GqlResponse<T>(
+    val data: T? = null,
+    val errors: List<GqlError>? = null,
+    @SerialName("status_code") val statusCode: Int? = null,
+    @SerialName("status_message") val statusMessage: String? = null
+)

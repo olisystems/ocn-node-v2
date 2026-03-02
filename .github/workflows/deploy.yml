@@ -1,0 +1,358 @@
+name: Kotlin CI/CD
+
+on:
+  workflow_dispatch:
+    inputs:
+      CLUSTER:
+        type: choice
+        description: 'Deployment OTC Image Registry'
+        required: false
+        default: 'oli_banula'
+        options:
+          - oli_banula
+      NAMESPACE:
+        type: choice
+        description: 'Deployment K8s Cluster Namespace'
+        required: true
+        options:
+          - oli-banula
+          - banula-int
+          - banula-prod
+      SONARQUBE:
+        type: choice
+        description: 'Run SonarQube Analysis?'
+        required: false
+        default: 'false'
+        options:
+          - 'true'
+          - 'false'
+      SKIP_TESTS:
+        type: choice
+        description: 'Skip tests?'
+        required: false
+        default: 'false'
+        options:
+          - 'false'
+          - 'true'
+      TRIGGER_INTEGRATION_TESTS:
+        type: choice
+        description: 'Trigger integration tests?'
+        required: false
+        default: 'No'
+        options:
+          - 'No'
+          - 'Yes'
+
+env:
+  PROJECT_NAME: ocn-node-v2
+  CHART_NAME: banula
+  HELM_RELEASE_NAME: oli-banula
+  DEPLOY_IMAGE_KEY: ocnnodev2
+  JAVA_VERSION: '21'
+  GRADLE_VERSION: '8.13'
+
+jobs:
+
+  ci-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'corretto'
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: 'gradle'
+
+      - name: Grant Gradle wrapper execute permission
+        run: chmod +x ./gradlew
+
+      - name: Set Gradle version
+        run: ./gradlew wrapper --gradle-version ${{ env.GRADLE_VERSION }} --distribution-type bin
+
+      - name: Build and test
+        if: ${{ github.event.inputs.SKIP_TESTS != 'true' }}
+        run: |
+          ./gradlew -Dorg.gradle.jvmargs="-Xms2g -Xmx4g -XX:MaxMetaspaceSize=768m -XX:+UseG1GC" \
+            -Dkotlin.daemon.jvmargs="-Xms512m -Xmx2g -XX:MaxMetaspaceSize=1g" \
+            build --info
+
+      - name: Build without tests
+        if: ${{ github.event.inputs.SKIP_TESTS == 'true' }}
+        run: |
+          ./gradlew -Dorg.gradle.jvmargs="-Xms2g -Xmx4g -XX:MaxMetaspaceSize=768m -XX:+UseG1GC" \
+            -Dkotlin.daemon.jvmargs="-Xms512m -Xmx2g -XX:MaxMetaspaceSize=1g" \
+            build -x test -x integrationTest -x asciidoctor
+
+      - name: Upload build artifacts
+        if: ${{ github.event.inputs.CLUSTER != '' && github.event.inputs.NAMESPACE != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: build/
+          retention-days: 1
+
+  cd-build:
+    runs-on: ubuntu-latest
+    needs: [ci-build]
+    if: >-
+      ${{ github.event.inputs.CLUSTER != ''
+        && github.event.inputs.NAMESPACE != ''
+      }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Guard prod deploys against non-tag refs
+        if: ${{ endsWith(github.event.inputs.NAMESPACE, '-prod') && !startsWith(github.ref, 'refs/tags/') }}
+        run: |
+          echo "Only release tags can be deployed to prod. Ref: ${GITHUB_REF}"
+          exit 1
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-output
+          path: build/
+
+      - name: Define Docker image tag
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            DOCKER_TAG="${GITHUB_REF#refs/tags/}"
+          else
+            DOCKER_TAG=$(echo "${GITHUB_REF#refs/heads/}" | tr '/' '-')-${GITHUB_RUN_NUMBER}
+          fi
+          echo "DOCKER_TAG=${DOCKER_TAG}" >> $GITHUB_ENV
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to OTC SWR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.DOCKER_REGISTRY }}/${{ inputs.CLUSTER }}
+          username: ${{ secrets.OTC_USERNAME }}
+          password: ${{ secrets.OTC_PASSWORD }}
+
+      - name: Build and push Docker image to OTC SWR
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ secrets.DOCKER_REGISTRY }}/${{ inputs.CLUSTER }}/${{ env.PROJECT_NAME }}:${{ env.DOCKER_TAG }}
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Set Helm repository name
+        run: |
+          HELM_REPOSITORY=$(echo "${{ inputs.CLUSTER }}_helm_charts" | tr - _)
+          echo "HELM_REPOSITORY=${HELM_REPOSITORY}" >> $GITHUB_ENV
+
+      - name: Checkout Helm Charts Repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ secrets.GH_ORG }}/${{ env.HELM_REPOSITORY }}
+          token: ${{ secrets.PAT_SECRET }}
+          path: ${{ env.HELM_REPOSITORY }}
+
+      - name: Update Helm Chart Image Tag
+        run: |
+          cd ${{ github.workspace }}/${{ env.HELM_REPOSITORY }}
+
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "Release tag detected — updating ALL environment values files"
+            sed -i "s/${{ env.PROJECT_NAME }}:.*/${{ env.PROJECT_NAME }}:${{ env.DOCKER_TAG }}/g" envirnoments/*/values.yaml
+          else
+            VALUES_FILE="envirnoments/${{ inputs.NAMESPACE }}/values.yaml"
+            echo "Updating Helm chart image tag in: $VALUES_FILE"
+
+            if [ ! -f "$VALUES_FILE" ]; then
+              echo "Error: File $VALUES_FILE does not exist"
+              exit 1
+            fi
+
+            echo "File content before update:"
+            grep -n "${{ env.PROJECT_NAME }}:" "$VALUES_FILE" || echo "No matching image reference found"
+
+            sed -i "s/${{ env.PROJECT_NAME }}:.*/${{ env.PROJECT_NAME }}:${{ env.DOCKER_TAG }}/g" "$VALUES_FILE"
+
+            echo "File content after update:"
+            grep -n "${{ env.PROJECT_NAME }}:" "$VALUES_FILE" || echo "No matching image reference found"
+          fi
+
+          echo "Git status after update:"
+          git status --porcelain || echo "No changes detected"
+
+      - name: Commit and Push Helm Chart Update
+        run: |
+          cd ${{ github.workspace }}/${{ env.HELM_REPOSITORY }}
+
+          git config user.email "terraform@my-oli.com"
+          git config user.name "oliterraform"
+
+          CHANGES=$(git status --porcelain)
+          if [ -n "$CHANGES" ]; then
+            echo "Changes detected:"
+            echo "$CHANGES"
+            git add .
+            git commit -m "Triggered By Build: ${{ env.PROJECT_NAME }} - ${{ github.workflow }} - ${{ github.run_number }} - Commit: ${{ github.sha }}"
+            git push origin main
+          else
+            echo "No changes to commit"
+            git status
+          fi
+
+  deploy:
+    name: Deploy to K8s Cluster
+    needs: [cd-build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Helm and OpenVPN
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash &
+          sudo apt-get update && sudo apt-get install -y openvpn &
+          wait
+
+      - name: Define Docker image tag
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            DOCKER_TAG="${GITHUB_REF#refs/tags/}"
+          else
+            DOCKER_TAG=$(echo "${GITHUB_REF#refs/heads/}" | tr '/' '-')-${GITHUB_RUN_NUMBER}
+          fi
+          echo "DOCKER_TAG=${DOCKER_TAG}" >> $GITHUB_ENV
+
+      - name: Set up Kubeconfig
+        run: echo "${{ secrets.KUBECONFIG }}" > kubeconfig.yaml
+
+      - name: Set Helm repository name
+        run: |
+          HELM_REPOSITORY=$(echo "${{ inputs.CLUSTER }}_helm_charts" | tr - _)
+          echo "HELM_REPOSITORY=${HELM_REPOSITORY}" >> $GITHUB_ENV
+
+      - name: Checkout Helm Charts Repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ secrets.GH_ORG }}/${{ env.HELM_REPOSITORY }}
+          token: ${{ secrets.PAT_SECRET }}
+          path: ${{ env.HELM_REPOSITORY }}
+
+      - name: Connect to VPN and deploy using Helm
+        run: |
+          if [ -z "${{ env.DOCKER_TAG }}" ]; then
+            echo "DOCKER_TAG is missing"
+            exit 1
+          fi
+
+          export KUBECONFIG=$PWD/kubeconfig.yaml
+          cd ${{ github.workspace }}/${{ env.HELM_REPOSITORY }}
+
+          RELEASE_NAME=$(echo "${{ inputs.CLUSTER }}" | tr '_' '-')
+
+          echo "${{ secrets.VPN_CONFIG }}" > vpn.conf
+          echo "${{ secrets.VPN_PASS }}" > .vpn_pass
+          VPN_LOG_PATH="${{ github.workspace }}/${{ env.HELM_REPOSITORY }}/ovpn.log"
+          echo "VPN_LOG=${VPN_LOG_PATH}" >> $GITHUB_ENV
+          sudo openvpn --config vpn.conf --askpass .vpn_pass --log "${VPN_LOG_PATH}" --daemon
+
+          echo "Waiting for VPN connection..."
+          for attempt in $(seq 1 30); do
+            if sudo grep -q "Initialization Sequence Completed" "${VPN_LOG_PATH}" 2>/dev/null; then
+              echo "VPN connection established"
+              break
+            fi
+            sleep 2
+          done
+
+          if ! sudo grep -q "Initialization Sequence Completed" "${VPN_LOG_PATH}" 2>/dev/null; then
+            echo "VPN failed to establish within timeout"
+            sudo tail -n 100 "${VPN_LOG_PATH}" || true
+            exit 1
+          fi
+
+          helm upgrade "${RELEASE_NAME}" ./charts/${{ env.CHART_NAME }} \
+            --install \
+            --namespace ${{ inputs.NAMESPACE }} \
+            --create-namespace \
+            --values ./envirnoments/${{ inputs.NAMESPACE }}/values.yaml \
+            --set ${{ env.DEPLOY_IMAGE_KEY }}.image=${{ secrets.DOCKER_REGISTRY }}/${{ inputs.CLUSTER }}/${{ env.PROJECT_NAME }}:${{ env.DOCKER_TAG }}
+
+      - name: Kill VPN connection
+        if: always()
+        run: |
+          if [ -n "${VPN_LOG}" ] && [ -f "${VPN_LOG}" ]; then
+            sudo chmod 777 "${VPN_LOG}"
+          else
+            echo "VPN log not found at ${VPN_LOG:-<unset>}"
+          fi
+          sudo killall openvpn || true
+
+  integration-tests:
+    name: Integration Tests
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.TRIGGER_INTEGRATION_TESTS == 'Yes' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run integration tests
+        run: |
+          if [ -d "IntegrationTest" ]; then
+            cd IntegrationTest
+            npm install
+            npm test
+          else
+            echo "No IntegrationTest directory found, skipping"
+          fi
+
+  sonar-analysis:
+    name: SonarQube Analysis
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.SONARQUBE == 'true' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      - name: Cache SonarQube packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Grant Gradle wrapper execute permission
+        run: chmod +x ./gradlew
+
+      - name: Run SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@v2
+        with:
+          args: >
+            -Dsonar.projectKey=${{ github.repository }}
+            -Dsonar.projectName=${{ env.PROJECT_NAME }}
+            -Dsonar.sources=.
+            -Dsonar.host.url=${{ secrets.SONARQUBE_HOST }}
+            -Dsonar.login=${{ secrets.SONARQUBE_TOKEN }}
+
+      - name: SonarQube Quality Gate
+        uses: sonarsource/sonarqube-quality-gate-action@v1
+        with:
+          sonar_host_url: ${{ secrets.SONARQUBE_HOST }}
+          sonar_token: ${{ secrets.SONARQUBE_TOKEN }}

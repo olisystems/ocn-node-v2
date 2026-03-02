@@ -7,8 +7,9 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.transaction.annotation.Transactional
 import snc.openchargingnetwork.node.config.NodeProperties
+import snc.openchargingnetwork.node.config.TestOcnRegistryComponent
 
-@SpringBootTest
+@SpringBootTest(classes = [TestOcnRegistryComponent::class])
 @ActiveProfiles("test")
 @Transactional
 class AsyncTaskServiceTest(
