@@ -207,8 +207,11 @@ class HttpClientComponent(private val properties: NodeProperties) {
                 } catch (e: JsonParseException) {
                         val toCountry = stringHeaders["OCPI-to-country-code"] ?: "UNKNOWN"
                         val toParty = stringHeaders["OCPI-to-party-id"] ?: "UNKNOWN"
+                        val contentType = response.headers[HttpHeaders.ContentType] ?: "UNKNOWN"
+                        val bodyLength = response.body.length
                         logger.error(
-                                "Response received from $toCountry $toParty is not a OCPI Response compliant | Response: ${response.body}"
+                                "Response received from $toCountry $toParty is not an OCPI-compliant response | " +
+                                        "Status: ${response.statusCode.value}, Content-Type: $contentType, Body length: $bodyLength"
                         )
                         throw OcpiHubGenericException(
                                 "Could not parse JSON response of forwarded OCPI request: ${e.message}"

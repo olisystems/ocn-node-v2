@@ -144,7 +144,7 @@ class OcpiRequestHandler<T : Any>(
         }
 
         logger.info(
-                "Counter Party ${request.headers.receiver.country} ${request.headers.receiver.id} properly identified"
+                "Counterparty ${request.headers.receiver.country} ${request.headers.receiver.id} properly identified"
         )
 
         logger.info(
