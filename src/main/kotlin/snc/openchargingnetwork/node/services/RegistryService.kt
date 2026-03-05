@@ -112,8 +112,7 @@ class RegistryService(
      */
     fun getPartyDetails(role: BasicRole): RegistryPartyDetailsBasic {
         val registry = ocnRegistryComponent.getRegistry()
-        val op = filterOperatorByParty(registry, role)
-        val party = op.parties.first { it.partyId == role.id && it.countryCode == role.country }
+        val party = registry.parties.first { it.partyId == role.id && it.countryCode == role.country }
         return RegistryPartyDetailsBasic(address = party.partyAddress, operator = party.operator.id)
     }
 

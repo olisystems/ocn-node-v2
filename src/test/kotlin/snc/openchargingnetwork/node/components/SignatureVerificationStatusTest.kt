@@ -105,7 +105,7 @@ class SignatureVerificationStatusTest {
     }
 
     @Test
-    fun `validateOcnSignature sets UNVERIFIED when signature is invalid and signing is disabled`() {
+    fun `validateOcnSignature sets VERIFICATION_FAILED when signature is invalid and signing is disabled`() {
         val signedValues = request.toSignedValues()
 
         handler.validateOcnSignature(
@@ -115,11 +115,11 @@ class SignatureVerificationStatusTest {
             receiver = null
         )
 
-        assertThat(handler.verificationStatus).isEqualTo(SignatureVerificationStatus.UNVERIFIED)
+        assertThat(handler.verificationStatus).isEqualTo(SignatureVerificationStatus.VERIFICATION_FAILED)
     }
 
     @Test
-    fun `validateOcnSignature sets UNVERIFIED when registry lookup fails and signing is disabled`() {
+    fun `validateOcnSignature sets VERIFICATION_FAILED when registry lookup fails and signing is disabled`() {
         whenever(registryService.getPartyDetails(any())).thenThrow(RuntimeException("Party not found"))
 
         val signedValues = request.toSignedValues()
@@ -131,7 +131,7 @@ class SignatureVerificationStatusTest {
             receiver = null
         )
 
-        assertThat(handler.verificationStatus).isEqualTo(SignatureVerificationStatus.UNVERIFIED)
+        assertThat(handler.verificationStatus).isEqualTo(SignatureVerificationStatus.VERIFICATION_FAILED)
     }
 
     @Test
@@ -156,7 +156,7 @@ class SignatureVerificationStatusTest {
 
             assertThat(handler.verificationStatus).isIn(
                 SignatureVerificationStatus.VERIFIED,
-                SignatureVerificationStatus.UNVERIFIED,
+                SignatureVerificationStatus.VERIFICATION_FAILED,
                 SignatureVerificationStatus.NOT_PRESENTED
             )
         }
@@ -189,14 +189,14 @@ class SignatureVerificationStatusTest {
     fun `OcpiResponse serializes ocn_verification_status correctly`() {
         val response = OcpiResponse<Unit>(
             statusCode = 1000,
-            verificationStatus = "UNVERIFIED"
+            verificationStatus = "VERIFICATION_FAILED"
         )
 
         val httpClient = HttpClientComponent()
         val json = httpClient.mapper.writeValueAsString(response)
 
         assertThat(json).contains("ocn_verification_status")
-        assertThat(json).contains("UNVERIFIED")
+        assertThat(json).contains("VERIFICATION_FAILED")
     }
 
     @Test
