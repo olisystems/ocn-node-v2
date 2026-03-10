@@ -51,7 +51,7 @@ import snc.openchargingnetwork.node.tools.generateUUIDv4Token
 import snc.openchargingnetwork.node.tools.urlJoin
 
 @Component
-class HttpClientComponent(private val properties: NodeProperties) {
+open class HttpClientComponent(private val properties: NodeProperties) {
 
         private val logger = LoggerFactory.getLogger(HttpClientComponent::class.java)
 
@@ -97,7 +97,7 @@ class HttpClientComponent(private val properties: NodeProperties) {
         }
 
         /** General purpose Http Request wrapper around async call from Ktor Client */
-        fun sendHttpRequest(
+        open fun sendHttpRequest(
                 endpoint: String,
                 method: HttpMethod,
                 body: Any? = null,
@@ -279,7 +279,7 @@ class HttpClientComponent(private val properties: NodeProperties) {
          * missing or invalid version data, or if there is an error during request execution or
          * response parsing.
          */
-        fun getVersions(url: String, authorization: String): List<Version> {
+        open fun getVersions(url: String, authorization: String): List<Version> {
                 try {
                         val response =
                                 sendHttpRequest(
@@ -321,7 +321,7 @@ class HttpClientComponent(private val properties: NodeProperties) {
                 }
         }
 
-        fun checkVersionsHealth(url: String): List<Version> {
+        open fun checkVersionsHealth(url: String): List<Version> {
                 try {
                         val response =
                                 sendHttpRequest(
@@ -375,7 +375,7 @@ class HttpClientComponent(private val properties: NodeProperties) {
          *        missing or invalid version detail data, or if there is an error during response parsing or request execution.
          * ```
          */
-        fun getVersionDetail(url: String, authorization: String): VersionDetail {
+        open fun getVersionDetail(url: String, authorization: String): VersionDetail {
                 try {
                         val response =
                                 sendHttpRequest(

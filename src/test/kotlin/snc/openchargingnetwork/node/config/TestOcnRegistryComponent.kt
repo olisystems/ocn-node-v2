@@ -20,7 +20,8 @@ class TestOcnRegistryComponent {
     return object :
             OcnRegistryComponent(
                     httpClientComponent = createMockHttpClientComponent(),
-                    registryIndexerProperties = createMockRegistryIndexerProperties()
+                    registryIndexerProperties = createMockRegistryIndexerProperties(),
+                    nodeProperties = createMockNodeProperties()
             ) {
       override fun getRegistry(forceReload: Boolean): OcnRegistry {
         return createMockRegistry()
@@ -28,9 +29,18 @@ class TestOcnRegistryComponent {
     }
   }
 
+  private fun createMockNodeProperties(): NodeProperties {
+    return NodeProperties().apply {
+      logCurlCommands = false
+    }
+  }
+
   private fun createMockHttpClientComponent():
           snc.openchargingnetwork.node.components.HttpClientComponent {
-    return object : snc.openchargingnetwork.node.components.HttpClientComponent() {
+    val mockProperties = NodeProperties().apply {
+      logCurlCommands = false
+    }
+    return object : snc.openchargingnetwork.node.components.HttpClientComponent(mockProperties) {
       // Mock implementation - not used since we override getRegistry
     }
   }

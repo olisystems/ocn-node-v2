@@ -7,6 +7,7 @@ import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
 import snc.openchargingnetwork.node.components.HttpClientComponent
+import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.SyncedHttpResponse
 import snc.openchargingnetwork.node.models.ocpi.Version
 import snc.openchargingnetwork.node.models.ocpi.VersionDetail
@@ -17,7 +18,10 @@ class TestHttpClientComponent {
     @Bean
     @Primary
     fun mockHttpClientComponent(): HttpClientComponent {
-        return object : HttpClientComponent() {
+        val mockProperties = NodeProperties().apply {
+            logCurlCommands = false
+        }
+        return object : HttpClientComponent(mockProperties) {
             override fun getVersions(url: String, authorization: String): List<Version> {
                 // Return mock versions data
                 return listOf(
