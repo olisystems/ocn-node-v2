@@ -12,14 +12,14 @@ package snc.openchargingnetwork.node.components
 
     @ApplicationScope
     @Component
-    class OcnRegistryComponent(
+    open class OcnRegistryComponent(
         private val httpClientComponent: HttpClientComponent,
         private val registryIndexerProperties: RegistryIndexerProperties,
         private val nodeProperties: NodeProperties
     ) {
         private var registry = OcnRegistry()
 
-        fun getRegistry(forceReload: Boolean = false): OcnRegistry {
+        open fun getRegistry(forceReload: Boolean = false): OcnRegistry {
             if (!forceReload && registry.parties.isNotEmpty() && registry.operators.isNotEmpty()) {
                 return registry
             }
