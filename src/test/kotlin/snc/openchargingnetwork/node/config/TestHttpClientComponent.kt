@@ -9,6 +9,9 @@ import org.springframework.context.annotation.Primary
 import snc.openchargingnetwork.node.components.HttpClientComponent
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.SyncedHttpResponse
+import snc.openchargingnetwork.node.models.ControllerResponse
+import snc.openchargingnetwork.node.models.GqlCertificateData
+import snc.openchargingnetwork.node.models.GqlPartiesAndOpsData
 import snc.openchargingnetwork.node.models.ocpi.Version
 import snc.openchargingnetwork.node.models.ocpi.VersionDetail
 
@@ -58,6 +61,28 @@ class TestHttpClientComponent {
                 // Return mock health check data
                 return listOf(Version(version = "2.2", url = "$url/2.2.1"))
             }
+
+                        override fun getIndexedOcnRegistry(
+                                url: String,
+                                authorization: String,
+                                query: String
+                        ): ControllerResponse<GqlPartiesAndOpsData> {
+                                return ControllerResponse(
+                                        success = true,
+                                        data = GqlPartiesAndOpsData(
+                                                parties = emptyList(),
+                                                operators = emptyList()
+                                        )
+                                )
+                        }
+
+                        override fun getIndexedOcnRegistryCertificates(
+                                url: String,
+                                authorization: String,
+                                query: String
+                        ): ControllerResponse<GqlCertificateData> {
+                                return ControllerResponse(success = false, error = "Not available in test")
+                        }
 
             override fun sendHttpRequest(
                     endpoint: String,

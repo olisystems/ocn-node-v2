@@ -4,6 +4,7 @@ import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
 import snc.openchargingnetwork.node.components.OcnRegistryComponent
+import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.CvStatus
 import snc.openchargingnetwork.node.models.OcnRegistry
 import snc.openchargingnetwork.node.models.Operator
@@ -29,16 +30,12 @@ class TestOcnRegistryComponent {
     }
   }
 
-  private fun createMockNodeProperties(): NodeProperties {
-    return NodeProperties().apply {
-      logCurlCommands = false
-    }
-  }
-
   private fun createMockHttpClientComponent():
           snc.openchargingnetwork.node.components.HttpClientComponent {
     val mockProperties = NodeProperties().apply {
       logCurlCommands = false
+      privateKey = "1111111111111111111111111111111111111111111111111111111111111111"
+      url = "http://localhost:8080"
     }
     return object : snc.openchargingnetwork.node.components.HttpClientComponent(mockProperties) {
       // Mock implementation - not used since we override getRegistry
@@ -49,6 +46,14 @@ class TestOcnRegistryComponent {
     return RegistryIndexerProperties().apply {
       url = "https://mock-registry.com"
       token = "mock-token"
+    }
+  }
+
+  private fun createMockNodeProperties(): NodeProperties {
+    return NodeProperties().apply {
+      logCurlCommands = false
+      privateKey = "1111111111111111111111111111111111111111111111111111111111111111"
+      url = "http://localhost:8080"
     }
   }
 

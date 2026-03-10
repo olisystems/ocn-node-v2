@@ -24,8 +24,9 @@ import snc.openchargingnetwork.node.repositories.EndpointRepository
 import snc.openchargingnetwork.node.repositories.NetworkClientInfoRepository
 import snc.openchargingnetwork.node.repositories.PlatformRepository
 import snc.openchargingnetwork.node.repositories.RoleRepository
+import snc.openchargingnetwork.node.config.TestOcnRegistryComponent
 
-@SpringBootTest
+@SpringBootTest(classes = [TestOcnRegistryComponent::class])
 @ActiveProfiles("test")
 @Transactional
 class HubClientInfoServiceTest(
