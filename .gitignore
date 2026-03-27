@@ -164,7 +164,7 @@ gradle-app.setting
 
 ### macOS ###
 # General
-.DS_Store
+**/.DS_Store
 .AppleDouble
 .LSOverride
 
@@ -198,7 +198,7 @@ Temporary Items
 # End of https://www.toptal.com/developers/gitignore/api/macos
 
 # local properties
-application-localMinikube.properties
+application-local-custom.properties
 
 # Kotlin compiler files
 .kotlin/
