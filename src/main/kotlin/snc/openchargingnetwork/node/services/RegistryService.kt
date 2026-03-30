@@ -10,6 +10,7 @@ import snc.openchargingnetwork.node.components.OcpiRequestHandler
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.RegistryNode
 import snc.openchargingnetwork.node.models.RegistryPartyDetailsBasic
+import snc.openchargingnetwork.node.models.exceptions.OcpiHubUnknownReceiverException
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
 import snc.openchargingnetwork.node.tools.checksum
 import snc.openchargingnetwork.node.tools.filterOperatorByParty
@@ -112,7 +113,8 @@ class RegistryService(
      */
     fun getPartyDetails(role: BasicRole): RegistryPartyDetailsBasic {
         val registry = ocnRegistryComponent.getRegistry()
-        val party = registry.parties.first { it.partyId == role.id && it.countryCode == role.country }
+        val party = registry.parties.firstOrNull { it.partyId == role.id && it.countryCode == role.country }
+            ?: throw OcpiHubUnknownReceiverException("Role ${role.country}-${role.id} not registered on OCN Registry")
         return RegistryPartyDetailsBasic(address = party.partyAddress, operator = party.operator.id)
     }
 

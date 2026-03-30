@@ -192,7 +192,7 @@ class SignatureVerificationStatusTest {
             verificationStatus = "VERIFICATION_FAILED"
         )
 
-        val httpClient = HttpClientComponent()
+        val httpClient = HttpClientComponent(properties)
         val json = httpClient.mapper.writeValueAsString(response)
 
         assertThat(json).contains("ocn_verification_status")
@@ -203,7 +203,7 @@ class SignatureVerificationStatusTest {
     fun `OcpiResponse omits ocn_verification_status when null`() {
         val response = OcpiResponse<Unit>(statusCode = 1000)
 
-        val httpClient = HttpClientComponent()
+        val httpClient = HttpClientComponent(properties)
         val json = httpClient.mapper.writeValueAsString(response)
 
         assertThat(json).doesNotContain("ocn_verification_status")
