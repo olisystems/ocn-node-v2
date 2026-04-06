@@ -57,6 +57,10 @@ dependencies {
 	kapt("org.springframework.boot:spring-boot-configuration-processor")
 	implementation("io.ktor:ktor-client-core:3.1.3")
 	implementation("io.ktor:ktor-client-cio:3.1.3")
+
+	// Swagger/OpenAPI
+	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.7.0")
+	implementation("io.swagger.core.v3:swagger-annotations:2.2.20")
 }
 
 allOpen {
