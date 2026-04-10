@@ -29,35 +29,36 @@ import snc.openchargingnetwork.node.components.OcnRegistryComponent
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.config.RegistryIndexerProperties
 import snc.openchargingnetwork.node.models.ControllerResponse
-import snc.openchargingnetwork.node.models.GqlCertificateDataResponse
 import snc.openchargingnetwork.node.models.GqlCertificateData
+import snc.openchargingnetwork.node.models.GqlCertificateDataResponse
 import snc.openchargingnetwork.node.models.GqlPartiesAndOpsData
 import snc.openchargingnetwork.node.models.Operator
 import snc.openchargingnetwork.node.models.Party
 
-
 @RestController
 @RequestMapping("\${ocn.node.apiPrefix}/ocn/registry")
 class RegistryController(
-    private val properties: NodeProperties,
-    private val registryIndexerProperties: RegistryIndexerProperties,
-    private val httpClientComponent: HttpClientComponent,
-    private val ocnRegistryComponent: OcnRegistryComponent,
+        private val properties: NodeProperties,
+        private val registryIndexerProperties: RegistryIndexerProperties,
+        private val httpClientComponent: HttpClientComponent,
+        private val ocnRegistryComponent: OcnRegistryComponent,
 ) {
 
     @GetMapping("/node-info")
-    fun getMyNodeInfo() = mapOf(
-        "url" to properties.url + "/" + properties.apiPrefix,
-        "address" to Credentials.create(properties.privateKey).address
-    )
+    fun getMyNodeInfo() =
+            mapOf(
+                    "url" to properties.url + "/" + properties.apiPrefix,
+                    "address" to Credentials.create(properties.privateKey).address
+            )
 
     @GetMapping("/nodes")
     fun getRegisteredNodes(): List<Party>? {
-        val response: ControllerResponse<GqlPartiesAndOpsData> = httpClientComponent.getIndexedOcnRegistry(
-            registryIndexerProperties.url,
-            registryIndexerProperties.token,
-            registryIndexerProperties.aggregatedQuery
-        )
+        val response: ControllerResponse<GqlPartiesAndOpsData> =
+                httpClientComponent.getIndexedOcnRegistry(
+                        registryIndexerProperties.url,
+                        registryIndexerProperties.token,
+                        registryIndexerProperties.aggregatedQuery
+                )
         if (response.success) {
             return response.data!!.parties!!
         } else {
@@ -67,11 +68,12 @@ class RegistryController(
 
     @GetMapping("/operators")
     fun getRegisteredOperators(): List<Operator>? {
-        val response: ControllerResponse<GqlPartiesAndOpsData> = httpClientComponent.getIndexedOcnRegistry(
-            registryIndexerProperties.url,
-            registryIndexerProperties.token,
-            registryIndexerProperties.aggregatedQuery
-        )
+        val response: ControllerResponse<GqlPartiesAndOpsData> =
+                httpClientComponent.getIndexedOcnRegistry(
+                        registryIndexerProperties.url,
+                        registryIndexerProperties.token,
+                        registryIndexerProperties.aggregatedQuery
+                )
         if (response.success) {
             return response.data!!.operators!!
         } else {
@@ -84,22 +86,25 @@ class RegistryController(
         return ocnRegistryComponent.findMyPartiesList()
     }
 
+    @GetMapping("/my-parties/emsp")
+    fun getMyEmspParties(): List<Party> {
+        return ocnRegistryComponent.findMyEmspPartiesList()
+    }
+
     @GetMapping("/all-parties")
     fun getAllParties(): List<Party> {
         return ocnRegistryComponent.findAllPartiesList()
     }
 
     @GetMapping("/node/{countryCode}/{partyID}")
-    fun getNodeOf(
-        @PathVariable countryCode: String,
-        @PathVariable partyID: String
-    ): Party? {
+    fun getNodeOf(@PathVariable countryCode: String, @PathVariable partyID: String): Party? {
         val partyID = "${countryCode}/${partyID}"
-        val response: ControllerResponse<GqlPartiesAndOpsData> = httpClientComponent.getIndexedOcnRegistry(
-            registryIndexerProperties.url,
-            registryIndexerProperties.token,
-            registryIndexerProperties.singlePartyQuery.format(partyID)
-        )
+        val response: ControllerResponse<GqlPartiesAndOpsData> =
+                httpClientComponent.getIndexedOcnRegistry(
+                        registryIndexerProperties.url,
+                        registryIndexerProperties.token,
+                        registryIndexerProperties.singlePartyQuery.format(partyID)
+                )
         if (response.success) {
             return response.data!!.party!!
         } else {
@@ -109,9 +114,9 @@ class RegistryController(
 
     @GetMapping("/node/{countryCode}/{partyID}/certificates")
     fun getNodeCertificatesOf(
-        @RequestHeader("Authorization") authorization: String,
-        @PathVariable countryCode: String,
-        @PathVariable partyID: String
+            @RequestHeader("Authorization") authorization: String,
+            @PathVariable countryCode: String,
+            @PathVariable partyID: String
     ): GqlCertificateDataResponse? {
         // Check if request is authorized
         if (authorization == "Token ${properties.apikey}") {
@@ -119,17 +124,26 @@ class RegistryController(
         }
 
         val partyID = "${countryCode} ${partyID}"
-        val response: ControllerResponse<GqlCertificateData> = httpClientComponent.getIndexedOcnRegistryCertificates(
-            registryIndexerProperties.url,
-            registryIndexerProperties.token,
-            registryIndexerProperties.singleVerificationQuery.format(partyID,partyID,partyID)
-        )
+        val response: ControllerResponse<GqlCertificateData> =
+                httpClientComponent.getIndexedOcnRegistryCertificates(
+                        registryIndexerProperties.url,
+                        registryIndexerProperties.token,
+                        registryIndexerProperties.singleVerificationQuery.format(
+                                partyID,
+                                partyID,
+                                partyID
+                        )
+                )
         if (response.success) {
-            val prettyResponse = GqlCertificateDataResponse(response.data!!.emp, response.data.cpo, response.data.other,)
+            val prettyResponse =
+                    GqlCertificateDataResponse(
+                            response.data!!.emp,
+                            response.data.cpo,
+                            response.data.other,
+                    )
             return prettyResponse
         } else {
             throw ResponseStatusException(HttpStatus.METHOD_FAILURE, response.error)
         }
     }
-
 }
