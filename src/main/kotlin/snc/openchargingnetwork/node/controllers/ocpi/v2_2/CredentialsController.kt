@@ -16,6 +16,7 @@
 
 package snc.openchargingnetwork.node.controllers.ocpi.v2_2
 
+import org.slf4j.LoggerFactory
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
 import snc.openchargingnetwork.node.components.HttpClientComponent
@@ -42,6 +43,10 @@ class CredentialsController(
     private val registryService: RegistryService,
     private val httpClientComponent: HttpClientComponent
 ) {
+
+    companion object {
+        private val logger = LoggerFactory.getLogger(CredentialsController::class.java)
+    }
 
     private fun myCredentials(token: String): Credentials {
         return Credentials(
@@ -77,6 +82,8 @@ class CredentialsController(
         @RequestHeader("Authorization") authorization: String,
         @RequestBody body: Credentials
     ): OcpiResponse<Credentials> {
+
+        logger.info("Received POST credentials request with body: $body")
 
         // TODO: create credentials service
         // TODO: detect changes to public URL to automatically update credentials on connected platforms
@@ -152,7 +159,10 @@ class CredentialsController(
 
         // Send all connected parties to the newly connected party if it supports HubClientInfo
         if(roles.size > 0) {
-            platform.sendAllPartiesToNewlyConnectedParty( roles[0].countryCode, roles[0].partyID,);
+            platform.sendAllPartiesToNewlyConnectedParty(
+                roles[0].countryCode,
+                roles[0].partyID,
+            )
         }
 
         // return OCN's platform connection information and role credentials
@@ -168,6 +178,8 @@ class CredentialsController(
         @RequestHeader("Authorization") authorization: String,
         @RequestBody body: Credentials
     ): OcpiResponse<Credentials> {
+
+        logger.info("Received PUT credentials request with body: $body")
 
         // find platform (required to have already been fully registered)
         val platform = platformRepo.findByAuth_TokenC(authorization.extractToken())
@@ -228,7 +240,10 @@ class CredentialsController(
 
         // Send all connected parties to the newly connected party if it supports HubClientInfo
         if(roles.size > 0) {
-            platform.sendAllPartiesToNewlyConnectedParty( roles[0].countryCode, roles[0].partyID,);
+            platform.sendAllPartiesToNewlyConnectedParty(
+                roles[0].countryCode,
+                roles[0].partyID,
+            )
         }
 
         // return OCN Node's platform connection information and role credentials (same for all nodes)
