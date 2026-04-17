@@ -48,7 +48,10 @@ class RegistryController(
     fun getMyNodeInfo() =
             mapOf(
                     "url" to properties.url + "/" + properties.apiPrefix,
-                    "address" to Credentials.create(properties.privateKey).address
+                    "address" to (
+                            properties.publicAddress.takeIf { it.isNotBlank() }
+                                    ?: Credentials.create(properties.privateKey).address
+                            )
             )
 
     @GetMapping("/nodes")
