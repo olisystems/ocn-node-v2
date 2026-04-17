@@ -41,11 +41,14 @@ open class OcnRegistryComponent(
     }
 
     private fun myPublicAddress(): String {
-        return nodeProperties.publicAddress
-                ?: throw ResponseStatusException(
-                        HttpStatus.INTERNAL_SERVER_ERROR,
-                        "Missing ocn.node.publicAddress"
-                )
+        val publicAddress = nodeProperties.publicAddress
+        if (publicAddress.isNullOrBlank()) {
+            throw ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Missing ocn.node.publicAddress"
+            )
+        }
+        return publicAddress
     }
 
     fun findMyPartiesList(): List<Party> {
