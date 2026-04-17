@@ -34,6 +34,7 @@ import snc.openchargingnetwork.node.models.GqlCertificateDataResponse
 import snc.openchargingnetwork.node.models.GqlPartiesAndOpsData
 import snc.openchargingnetwork.node.models.Operator
 import snc.openchargingnetwork.node.models.Party
+import snc.openchargingnetwork.node.tools.toBs64String
 
 @RestController
 @RequestMapping("\${ocn.node.apiPrefix}/ocn/registry")
@@ -49,8 +50,12 @@ class RegistryController(
             mapOf(
                     "url" to properties.url + "/" + properties.apiPrefix,
                     "address" to (
-                            properties.publicAddress.takeIf { it.isNotBlank() }
-                                    ?: Credentials.create(properties.privateKey).address
+                            properties.publicAddress.takeIf { it?.isNotBlank() == true }
+                                    ?: Credentials.create(properties.privateKey
+                                            ?: throw ResponseStatusException(
+                                                    HttpStatus.INTERNAL_SERVER_ERROR,
+                                                    "Missing ocn.node.privateKey and ocn.node.publicAddress"
+                                            )).address
                             )
             )
 
@@ -122,7 +127,8 @@ class RegistryController(
             @PathVariable partyID: String
     ): GqlCertificateDataResponse? {
         // Check if request is authorized
-        if (authorization == "Token ${properties.apikey}") {
+        if (authorization != "Token ${properties.apikey}" &&
+                authorization != "Token ${properties.apikey.toBs64String()}") {
             throw ResponseStatusException(HttpStatus.UNAUTHORIZED)
         }
 
