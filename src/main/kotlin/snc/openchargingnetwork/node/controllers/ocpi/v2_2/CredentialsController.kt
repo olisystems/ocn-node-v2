@@ -83,7 +83,7 @@ class CredentialsController(
         @RequestBody body: Credentials
     ): OcpiResponse<Credentials> {
 
-        logger.info("Received POST credentials request with body: $body")
+        logger.debug("Received POST credentials request for url={} with rolesCount={}", body.url, body.roles.size)
 
         // TODO: create credentials service
         // TODO: detect changes to public URL to automatically update credentials on connected platforms
