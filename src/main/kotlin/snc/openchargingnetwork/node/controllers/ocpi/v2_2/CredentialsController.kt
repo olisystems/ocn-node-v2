@@ -179,7 +179,7 @@ class CredentialsController(
         @RequestBody body: Credentials
     ): OcpiResponse<Credentials> {
 
-        logger.info("Received PUT credentials request with body: $body")
+        logger.debug("Received PUT credentials request for url={} with {} roles", body.url, body.roles.size)
 
         // find platform (required to have already been fully registered)
         val platform = platformRepo.findByAuth_TokenC(authorization.extractToken())
