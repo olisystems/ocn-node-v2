@@ -38,6 +38,10 @@ class NodeProperties {
     // Ethereum account to sign messages and txs
     var privateKey: String? = null
 
+    // Public address of the Ethereum account and the Node itself (should not be calculated from
+    // private key because only cluster should have the official Node PrivateKey)
+    var publicAddress: String? = null
+
     // Enable signature checking from communicating parties and nodes
     var signatures: Boolean = true
 
