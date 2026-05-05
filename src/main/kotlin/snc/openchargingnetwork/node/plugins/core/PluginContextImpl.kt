@@ -23,7 +23,8 @@ import org.springframework.stereotype.Component
 class PluginContextImpl(
     private val applicationContext: ApplicationContext,
     private val endpointRegistry: PluginEndpointRegistry,
-    private val customModuleRegistry: CustomModuleRegistry
+    private val customModuleRegistry: CustomModuleRegistry,
+    private val ocpiObjectEventRegistry: OcpiObjectEventRegistry
 ) : PluginContext {
 
     override fun applicationContext(): ApplicationContext = applicationContext
@@ -31,4 +32,6 @@ class PluginContextImpl(
     override fun endpointRegistry(): PluginEndpointRegistry = endpointRegistry
 
     override fun customModuleRegistry(): CustomModuleRegistry = customModuleRegistry
+
+    override fun ocpiObjectEventRegistry(): OcpiObjectEventRegistry = ocpiObjectEventRegistry
 }

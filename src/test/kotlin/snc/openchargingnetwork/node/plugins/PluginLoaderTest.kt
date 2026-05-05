@@ -23,6 +23,7 @@ import org.junit.jupiter.api.io.TempDir
 import org.springframework.context.support.GenericApplicationContext
 import snc.openchargingnetwork.node.config.PluginProperties
 import snc.openchargingnetwork.node.plugins.core.CustomModuleRegistryImpl
+import snc.openchargingnetwork.node.plugins.core.OcpiObjectEventRegistryImpl
 import snc.openchargingnetwork.node.plugins.core.PluginContext
 import snc.openchargingnetwork.node.plugins.core.PluginContextImpl
 import snc.openchargingnetwork.node.plugins.core.PluginEndpointRegistryImpl
@@ -93,6 +94,7 @@ class PluginLoaderTest {
         ctx.refresh()
         val endpointRegistry = PluginEndpointRegistryImpl()
         val customModuleRegistry = CustomModuleRegistryImpl()
-        return PluginContextImpl(ctx, endpointRegistry, customModuleRegistry)
+        val objectEventRegistry = OcpiObjectEventRegistryImpl()
+        return PluginContextImpl(ctx, endpointRegistry, customModuleRegistry, objectEventRegistry)
     }
 }

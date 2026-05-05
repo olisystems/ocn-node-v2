@@ -55,7 +55,20 @@ Use `context.customModuleRegistry().register(pluginId, customModuleId, handler)`
 
 Incoming requests to `{apiPrefix}/ocpi/custom/{sender|receiver}/{customModuleId}[/...]` are routed to the registered handler when present; otherwise the node forwards as before.
 
-### 4. SPI registration
+### 4. Listen to standard OCPI object events
+
+Use `context.ocpiObjectEventRegistry().register(pluginId, handler)` to observe standard OCPI objects moving through the node.
+
+Handlers receive an `OcpiObjectEvent` containing the OCPI module, interface role, HTTP method, URL path, routing headers, event phase, payload object, and forwarded response status.
+
+Events are published for:
+
+- `REQUEST_BODY`: request payloads after the standard forwarding path runs.
+- `RESPONSE_DATA`: OCPI response `data` payloads after response validation.
+
+Array and iterable payloads are published as individual events with `payloadIndex` set. Handler failures are logged and do not fail the OCPI request.
+
+### 5. SPI registration
 
 Add a file in your JAR:
 
@@ -67,7 +80,7 @@ Add a file in your JAR:
 com.example.myplugin.MyNodePlugin
 ```
 
-### 5. Build a thin JAR
+### 6. Build a thin JAR
 
 The plugin JAR must **not** bundle the node or Spring. It should contain only:
 

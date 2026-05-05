@@ -18,6 +18,8 @@ package snc.openchargingnetwork.node.plugins.core
 
 import org.springframework.context.ApplicationContext
 import org.springframework.http.HttpMethod
+import snc.openchargingnetwork.node.models.ocpi.InterfaceRole
+import snc.openchargingnetwork.node.models.ocpi.ModuleID
 
 /**
  * Trusted plugin API: exposes Spring context and extension registries so plugins
@@ -33,6 +35,9 @@ interface PluginContext {
 
     /** Registry for custom OCPI module handlers (custom module ID -> handler). */
     fun customModuleRegistry(): CustomModuleRegistry
+
+    /** Registry for standard OCPI object events moving through the node. */
+    fun ocpiObjectEventRegistry(): OcpiObjectEventRegistry
 }
 
 /**
@@ -142,4 +147,52 @@ data class CustomModuleResponse(
     val statusMessage: String? = null,
     val data: Any? = null,
     val body: String? = null
+)
+
+interface OcpiObjectEventRegistry {
+
+    fun register(pluginId: String, handler: OcpiObjectEventHandler)
+
+    fun unregister(pluginId: String)
+
+    fun publish(event: OcpiObjectEvent)
+
+    fun listHandlers(): List<RegisteredOcpiObjectEventHandler>
+}
+
+data class RegisteredOcpiObjectEventHandler(
+    val pluginId: String,
+    val handler: OcpiObjectEventHandler
+)
+
+/**
+ * Handler for standard OCPI objects observed while they pass through the node.
+ */
+fun interface OcpiObjectEventHandler {
+
+    fun handle(event: OcpiObjectEvent)
+}
+
+enum class OcpiObjectEventPhase {
+    REQUEST_BODY,
+    RESPONSE_DATA
+}
+
+data class OcpiObjectEvent(
+    val phase: OcpiObjectEventPhase,
+    val module: ModuleID,
+    val interfaceRole: InterfaceRole,
+    val method: HttpMethod,
+    val urlPath: String?,
+    val customModuleId: String?,
+    val queryParams: Map<String, Any?>,
+    val payload: Any,
+    val payloadIndex: Int?,
+    val fromPartyId: String,
+    val fromCountryCode: String,
+    val toPartyId: String,
+    val toCountryCode: String,
+    val headers: Map<String, String>,
+    val responseStatusCode: Int?,
+    val ocpiStatusCode: Int?
 )

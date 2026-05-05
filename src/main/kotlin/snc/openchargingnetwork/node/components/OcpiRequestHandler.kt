@@ -29,6 +29,9 @@ import snc.openchargingnetwork.node.models.Receiver
 import snc.openchargingnetwork.node.models.exceptions.OcpiHubUnknownReceiverException
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
 import snc.openchargingnetwork.node.models.ocpi.ModuleID
+import snc.openchargingnetwork.node.plugins.core.OcpiObjectEvent
+import snc.openchargingnetwork.node.plugins.core.OcpiObjectEventPhase
+import snc.openchargingnetwork.node.plugins.core.OcpiObjectEventRegistry
 import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
 import snc.openchargingnetwork.node.models.ocpi.OcpiStatus
 import snc.openchargingnetwork.node.services.*
@@ -48,6 +51,7 @@ class OcpiRequestHandlerBuilder(
         private val integrationsRoutingService: IntegrationsRoutingService,
         private val properties: NodeProperties,
         private val haasProperties: HaasProperties,
+        private val objectEventRegistry: OcpiObjectEventRegistry,
         private val coroutineScope: CoroutineScope
 ) {
 
@@ -65,6 +69,7 @@ class OcpiRequestHandlerBuilder(
                 integrationsRoutingService,
                 properties,
                 haasProperties,
+                objectEventRegistry,
                 coroutineScope
         )
     }
@@ -87,6 +92,7 @@ class OcpiRequestHandlerBuilder(
                 integrationsRoutingService,
                 properties,
                 haasProperties,
+                objectEventRegistry,
                 coroutineScope
         )
     }
@@ -123,6 +129,7 @@ class OcpiRequestHandler<T : Any>(
         private val integrationsRoutingService: IntegrationsRoutingService,
         properties: NodeProperties,
         haasProperties: HaasProperties,
+        private val objectEventRegistry: OcpiObjectEventRegistry,
         private val coroutineScope: CoroutineScope
 ) : OcpiMessageHandler(request, properties, haasProperties, routingService, registryService) {
 
@@ -187,6 +194,7 @@ class OcpiRequestHandler<T : Any>(
             )
         }
 
+        publishRequestBodyEvent(response)
         return responseHandlerBuilder.build(
                 request,
                 response,
@@ -362,6 +370,7 @@ class OcpiRequestHandler<T : Any>(
                     }
                 }
 
+        publishRequestBodyEvent(response)
         return responseHandlerBuilder.build(
                 request,
                 response,
@@ -417,6 +426,52 @@ class OcpiRequestHandler<T : Any>(
 
         return responseHandlerBuilder.build(modifiedRequest, response)
     }
+
+    private fun publishRequestBodyEvent(response: OcpiHttpResponse<T>) {
+        val body = request.body ?: return
+        publishObjectEvents(body, response, OcpiObjectEventPhase.REQUEST_BODY)
+    }
+
+    private fun publishObjectEvents(
+            payload: Any,
+            response: OcpiHttpResponse<T>,
+            phase: OcpiObjectEventPhase
+    ) {
+        objectEventPayloads(payload).forEach { (index, item) ->
+            objectEventRegistry.publish(
+                    OcpiObjectEvent(
+                            phase = phase,
+                            module = request.module,
+                            interfaceRole = request.interfaceRole,
+                            method = request.method,
+                            urlPath = request.urlPath,
+                            customModuleId = request.customModuleId,
+                            queryParams = request.queryParams ?: emptyMap(),
+                            payload = item,
+                            payloadIndex = index,
+                            fromPartyId = request.headers.sender.id,
+                            fromCountryCode = request.headers.sender.country,
+                            toPartyId = request.headers.receiver.id,
+                            toCountryCode = request.headers.receiver.country,
+                            headers =
+                                    request.headers
+                                            .toMap()
+                                            .filterValues { it != null }
+                                            .mapValues { it.value!! },
+                            responseStatusCode = response.statusCode,
+                            ocpiStatusCode = response.body?.statusCode
+                    )
+            )
+        }
+    }
+
+    private fun objectEventPayloads(payload: Any): List<Pair<Int?, Any>> =
+            when (payload) {
+                is Array<*> -> payload.mapIndexedNotNull { index, item -> item?.let { index to it } }
+                is Iterable<*> ->
+                        payload.mapIndexedNotNull { index, item -> item?.let { index to it } }
+                else -> listOf(null to payload)
+            }
 
     /** Assert the sender is allowed to send OCPI requests to this OCN Node. */
     private fun assertSenderValid() {
