@@ -104,7 +104,11 @@ class RoleEntity(
         var partyID: String,
         var countryCode: String,
         @Id @GeneratedValue var id: Long? = null
-)
+) {
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "platformid", insertable = false, updatable = false)
+        var platform: PlatformEntity? = null
+}
 
 /**
  * Store endpoints associated with an OCPI platform retreived during the Versions/Credentials
@@ -118,7 +122,11 @@ class EndpointEntity(
         @Enumerated(EnumType.STRING) var role: InterfaceRole,
         var url: String,
         @Id @GeneratedValue var id: Long? = null
-)
+) {
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "platformid", insertable = false, updatable = false)
+        var platform: PlatformEntity? = null
+}
 
 /** Store a resource (URL) which will be proxied by the controller of the request */
 @Entity
@@ -153,7 +161,11 @@ class OcnRulesListEntity(
         val counterparty: BasicRole,
         @ElementCollection(fetch = FetchType.EAGER) val modules: List<String> = listOf(),
         @Id @GeneratedValue val id: Long? = null
-)
+) {
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "platformid", insertable = false, updatable = false)
+        var platform: PlatformEntity? = null
+}
 
 /**
  * Store the client info object of a party/role from the network (other nodes; planned party from
