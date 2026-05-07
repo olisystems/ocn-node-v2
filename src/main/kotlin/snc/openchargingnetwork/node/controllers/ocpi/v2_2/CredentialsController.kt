@@ -264,10 +264,10 @@ class CredentialsController(
         platform.unregister(roles)
         platformRepo.save(platform)
 
-        platformRepo.deleteById(platform.id!!)
         roleRepo.deleteByPlatformID(platform.id)
         endpointRepo.deleteByPlatformID(platform.id)
         ocnRulesListRepo.deleteByPlatformID(platform.id)
+        platformRepo.deleteById(platform.id!!)
 
         return OcpiResponse(statusCode = 1000, data = null)
     }
