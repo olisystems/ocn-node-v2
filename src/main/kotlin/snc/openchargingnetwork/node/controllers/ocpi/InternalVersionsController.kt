@@ -43,10 +43,8 @@ class InternalVersionsController(
     ): OcpiResponse<List<Version>> {
 
         val token = authorization.extractToken()
-        val endpoint2_2 = urlJoin(properties.url, properties.apiPrefix, "/ocpi/2.2.1")
         val endpoint2_2_1 = urlJoin(properties.url, properties.apiPrefix, "/ocpi/2.2.1")
         val versions = listOf(
-            Version("2.2", endpoint2_2),
             Version("2.2.1", endpoint2_2_1)
         )
         val response = OcpiResponse(OcpiStatus.SUCCESS.code, data = versions)
