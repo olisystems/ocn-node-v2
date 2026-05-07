@@ -36,6 +36,34 @@ import snc.openchargingnetwork.node.tools.generateUUIDv4Token
 import snc.openchargingnetwork.node.tools.toBs64String
 import snc.openchargingnetwork.node.tools.urlJoin
 
+data class PlatformAuthDto(
+    val tokenA: String?,
+    val tokenB: String?,
+    val tokenC: String?,
+    val selfCredentialsToken: String?,
+    val handshakeSelfInitiated: Boolean
+)
+
+data class PlatformRoleDto(
+    val id: Long?,
+    val platformID: Long,
+    val role: String,
+    val partyID: String,
+    val countryCode: String
+)
+
+data class PlatformDto(
+    val id: Long?,
+    val status: String,
+    val lastUpdated: String,
+    val versionsUrl: String?,
+    val auth: PlatformAuthDto
+)
+
+data class PlatformWithRolesResponse(
+    val platform: PlatformDto,
+    val roles: List<PlatformRoleDto>
+)
 
 @RestController
 @RequestMapping("\${ocn.node.apiPrefix}/admin")
@@ -206,6 +234,42 @@ class AdminController(
         }
 
         return ResponseEntity.ok().body(responseMessage)
+    }
+
+    @GetMapping("/platforms")
+    fun getAllPlatforms(
+        @RequestHeader("Authorization") authorization: String
+    ): ResponseEntity<Any> {
+        if (!isAuthorized(authorization)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid admin / api key")
+        }
+        val platforms = platformRepo.findAll().map { platform ->
+            PlatformWithRolesResponse(
+                platform = PlatformDto(
+                    id = platform.id,
+                    status = platform.status.name,
+                    lastUpdated = platform.lastUpdated,
+                    versionsUrl = platform.versionsUrl,
+                    auth = PlatformAuthDto(
+                        tokenA = platform.auth.tokenA,
+                        tokenB = platform.auth.tokenB,
+                        tokenC = platform.auth.tokenC,
+                        selfCredentialsToken = platform.auth.selfCredentialsToken,
+                        handshakeSelfInitiated = platform.auth.handshakeSelfInitiated
+                    )
+                ),
+                roles = roleRepo.findAllByPlatformID(platform.id).map { role ->
+                    PlatformRoleDto(
+                        id = role.id,
+                        platformID = role.platformID,
+                        role = role.role.name,
+                        partyID = role.partyID,
+                        countryCode = role.countryCode
+                    )
+                }
+            )
+        }
+        return ResponseEntity.ok().body(platforms)
     }
 
     @PostMapping("/refresh-blockchain")
