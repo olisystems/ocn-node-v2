@@ -120,7 +120,13 @@ class CredentialsController(
         val tokenC = generateUUIDv4Token()
 
         // set platform connection details
-        platform.auth = Auth(tokenA = null, tokenB = body.token.toBs64String(), tokenC = tokenC.toBs64String())
+        platform.auth = Auth(
+            tokenA = platform.auth.tokenA,
+            selfCredentialsToken = platform.auth.selfCredentialsToken,
+            handshakeSelfInitiated = platform.auth.handshakeSelfInitiated,
+            tokenB = body.token.toBs64String(),
+            tokenC = tokenC.toBs64String()
+        )
         platform.versionsUrl = body.url
         platform.status = ConnectionStatus.CONNECTED
         platform.lastUpdated = getTimestamp()
@@ -199,7 +205,13 @@ class CredentialsController(
         val tokenC = generateUUIDv4Token()
 
         // set platform connection information
-        platform.auth = Auth(tokenA = null, tokenB = body.token.toBs64String(), tokenC = tokenC.toBs64String())
+        platform.auth = Auth(
+            tokenA = platform.auth.tokenA,
+            selfCredentialsToken = platform.auth.selfCredentialsToken,
+            handshakeSelfInitiated = platform.auth.handshakeSelfInitiated,
+            tokenB = body.token.toBs64String(),
+            tokenC = tokenC.toBs64String()
+        )
         platform.versionsUrl = body.url
         platform.status = ConnectionStatus.CONNECTED
         platform.lastUpdated = getTimestamp()
