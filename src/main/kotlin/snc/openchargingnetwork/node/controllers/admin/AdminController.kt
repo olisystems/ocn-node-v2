@@ -14,7 +14,7 @@
     limitations under the License.
 */
 
-package snc.openchargingnetwork.node.controllers
+package snc.openchargingnetwork.node.controllers.admin
 
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.http.HttpStatus
