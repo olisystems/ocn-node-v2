@@ -82,7 +82,9 @@ class PlatformEntity(
 class Auth(
         var tokenA: String? = generateUUIDv4Token(),
         var tokenB: String? = null,
-        var tokenC: String? = null
+        var tokenC: String? = null,
+        var selfCredentialsToken: String? = null,
+        @Column(columnDefinition = "boolean default false") var handshakeSelfInitiated: Boolean = false
 )
 
 @Embeddable

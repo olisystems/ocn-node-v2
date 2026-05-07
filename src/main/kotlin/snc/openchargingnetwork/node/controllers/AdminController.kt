@@ -95,7 +95,13 @@ class AdminController(
         // generate and store new platform with authorization token
         //TODO: schedule deletion after 30 days if status still PLANNED (?)
         val tokenA = generateUUIDv4Token()
-        val platform = PlatformEntity(auth = Auth(tokenA = tokenA.toBs64String()))
+        val platform = PlatformEntity(
+            auth = Auth(
+                tokenA = tokenA.toBs64String(),
+                selfCredentialsToken = tokenA.toBs64String(),
+                handshakeSelfInitiated = false
+            )
+        )
         platformRepo.save(platform)
 
         val responseBody = RegistrationInfo(tokenA, urlJoin(properties.url, properties.apiPrefix, "/ocpi/versions"))
