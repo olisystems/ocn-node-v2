@@ -15,6 +15,7 @@ import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.RegistryPartyDetailsBasic
 import snc.openchargingnetwork.node.models.entities.OcnRules as EntityOcnRules
+import snc.openchargingnetwork.node.models.exceptions.OcpiClientInvalidParametersException
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
 import snc.openchargingnetwork.node.models.ocpi.InterfaceRole
 import snc.openchargingnetwork.node.models.ocpi.ModuleID
@@ -175,7 +176,7 @@ class SignatureVerificationStatusTest {
 
         val signedValues = request.toSignedValues()
 
-        assertThrows<Exception> {
+        val exception = assertThrows<OcpiClientInvalidParametersException> {
             handler.validateOcnSignature(
                 signature = "invalid-signature",
                 signedValues = signedValues,
@@ -183,6 +184,7 @@ class SignatureVerificationStatusTest {
                 receiver = receiver
             )
         }
+        assertThat(exception.message).contains("Invalid signature")
     }
 
     @Test

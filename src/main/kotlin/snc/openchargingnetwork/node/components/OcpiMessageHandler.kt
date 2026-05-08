@@ -132,10 +132,15 @@ open class OcpiMessageHandler(
         }
 
         if (enforcing) {
-            val result = signature?.let {
-                notary = Notary.deserialize(it)
-                notary?.verify(signedValues)
-            }
+            val result =
+                try {
+                    signature?.let {
+                        notary = Notary.deserialize(it)
+                        notary?.verify(signedValues)
+                    }
+                } catch (e: Exception) {
+                    throw OcpiClientInvalidParametersException("Invalid signature: ${e.message}")
+                }
             when {
                 result == null -> throw OcpiClientInvalidParametersException("Missing OCN Signature")
                 !result.isValid -> throw OcpiClientInvalidParametersException("Invalid signature: ${result.error}")
