@@ -28,10 +28,13 @@ import snc.openchargingnetwork.node.models.entities.EndpointEntity
 import snc.openchargingnetwork.node.models.entities.PlatformEntity
 import snc.openchargingnetwork.node.models.entities.RoleEntity
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
+import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
+import snc.openchargingnetwork.node.models.ocpi.OcpiStatus
 import snc.openchargingnetwork.node.models.ocpi.RegistrationInfo
 import snc.openchargingnetwork.node.repositories.EndpointRepository
 import snc.openchargingnetwork.node.repositories.PlatformRepository
 import snc.openchargingnetwork.node.repositories.RoleRepository
+import snc.openchargingnetwork.node.tools.fromBs64String
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
 import snc.openchargingnetwork.node.tools.toBs64String
 import snc.openchargingnetwork.node.tools.urlJoin
@@ -63,6 +66,13 @@ data class PlatformDto(
 data class PlatformWithRolesResponse(
     val platform: PlatformDto,
     val roles: List<PlatformRoleDto>
+)
+
+data class CreatePlatformRequest(
+    val roles: List<BasicRole>,
+    val tokenA: String? = null,
+    val handshakeSelfInitiated: Boolean = false,
+    val platformVersionsUrl: String? = null
 )
 
 @RestController
@@ -101,39 +111,101 @@ class AdminController(
         return ResponseEntity.ok().body(platform.status.toString())
     }
 
-    @PostMapping("/generate-registration-token")
+    @PostMapping("/create-platform")
     @Transactional
-    fun generateRegistrationToken(
+    fun createPlatform(
         @RequestHeader("Authorization") authorization: String,
-        @RequestBody body: Array<BasicRole>
+        @RequestBody body: CreatePlatformRequest
     ): ResponseEntity<Any> {
 
         // check admin is authorized
         if (!isAuthorized(authorization)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid admin / api key")
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(OcpiResponse<Unit>(
+                    statusCode = OcpiStatus.CLIENT_INVALID_PARAMETERS.code,
+                    statusMessage = "Invalid admin / api key"
+                ))
         }
 
         // check each role does not already exist
-        for (role in body) {
+        for (role in body.roles) {
             if (roleRepo.existsByCountryCodeAndPartyIDAllIgnoreCase(role.country, role.id)) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Role ${role.country}-${role.id} already exists")
+                return ResponseEntity.badRequest()
+                    .body(OcpiResponse<Unit>(
+                        statusCode = OcpiStatus.CLIENT_INVALID_PARAMETERS.code,
+                        statusMessage = "Role ${role.country}-${role.id} already exists"
+                    ))
             }
         }
 
-        // generate and store new platform with authorization token
-        //TODO: schedule deletion after 30 days if status still PLANNED (?)
-        val tokenA = generateUUIDv4Token()
-        val platform = PlatformEntity(
-            auth = Auth(
-                tokenA = tokenA.toBs64String(),
-                selfCredentialsToken = tokenA.toBs64String(),
-                handshakeSelfInitiated = false
+        // verify roles exist in blockchain registry
+        val myParties = ocnRegistryComponent.findMyPartiesList()
+        for (role in body.roles) {
+            val partyExists = myParties.any { party ->
+                party.countryCode.equals(role.country, ignoreCase = true) &&
+                party.partyId.equals(role.id, ignoreCase = true)
+            }
+            if (!partyExists) {
+                return ResponseEntity.badRequest()
+                    .body(OcpiResponse<Unit>(
+                        statusCode = OcpiStatus.CLIENT_INVALID_PARAMETERS.code,
+                        statusMessage = "Role ${role.country}-${role.id} is not registered in OCN blockchain registry"
+                    ))
+            }
+        }
+
+        // validate required fields when handshake is self-initiated
+        if (body.handshakeSelfInitiated) {
+            if (body.tokenA.isNullOrEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(OcpiResponse<Unit>(
+                        statusCode = OcpiStatus.CLIENT_INVALID_PARAMETERS.code,
+                        statusMessage = "tokenA is required when handshakeSelfInitiated is true"
+                    ))
+            }
+            if (body.platformVersionsUrl.isNullOrEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(OcpiResponse<Unit>(
+                        statusCode = OcpiStatus.CLIENT_INVALID_PARAMETERS.code,
+                        statusMessage = "platformVersionsUrl is required when handshakeSelfInitiated is true"
+                    ))
+            }
+        }
+
+        val platform = if (body.handshakeSelfInitiated) {
+            // self-initiated handshake: use provided tokenA, generate selfCredentialsToken, store versionsUrl
+            PlatformEntity(
+                auth = Auth(
+                    tokenA = body.tokenA!!.toBs64String(),
+                    selfCredentialsToken = generateUUIDv4Token().toBs64String(),
+                    handshakeSelfInitiated = true
+                ),
+                versionsUrl = body.platformVersionsUrl
             )
-        )
+        } else {
+            // generate and store new platform with authorization token
+            val tokenA = generateUUIDv4Token()
+            PlatformEntity(
+                auth = Auth(
+                    tokenA = tokenA.toBs64String(),
+                    selfCredentialsToken = tokenA.toBs64String(),
+                    handshakeSelfInitiated = false
+                )
+            )
+        }
         platformRepo.save(platform)
 
-        val responseBody = RegistrationInfo(tokenA, urlJoin(properties.url, properties.apiPrefix, "/ocpi/versions"))
-        return ResponseEntity.ok().body(responseBody)
+        return if (body.handshakeSelfInitiated) {
+            // self-initiated handshake: return 201 with no body
+            ResponseEntity.status(HttpStatus.CREATED).build()
+        } else {
+            // normal flow: return 201 with RegistrationInfo
+            val responseBody = RegistrationInfo(
+                platform.auth.tokenA!!.fromBs64String(),
+                urlJoin(properties.url, properties.apiPrefix, "/ocpi/versions")
+            )
+            ResponseEntity.status(HttpStatus.CREATED).body(responseBody)
+        }
     }
 
     @GetMapping("/platform/{countryCode}/{partyID}")
