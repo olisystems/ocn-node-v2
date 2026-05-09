@@ -294,11 +294,11 @@ class AdminController(
                 responseMessage = "Endpoints deleted successfully"
             }
 
-            // 2) delete role (depends on platform)
-            roleRepo.delete(role)
-            responseMessage = if (responseMessage.isBlank()) "Role deleted successfully" else "$responseMessage | Role deleted successfully"
+            // 2) delete ALL roles for this platform (not just the matched one)
+            roleRepo.deleteByPlatformID(role.platformID)
+            responseMessage = if (responseMessage.isBlank()) "Roles deleted successfully" else "$responseMessage | Roles deleted successfully"
 
-            // 3) delete platform (after dependents removed)
+            // 3) delete platform (after all dependents removed)
             if (platform != null) {
                 platformRepo.delete(platform)
                 responseMessage += " | Platform deleted successfully"

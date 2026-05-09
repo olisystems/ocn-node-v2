@@ -52,7 +52,7 @@ class InternalVersionsController(
         return when {
             repository.existsByAuth_TokenA(token) -> response
             repository.existsByAuth_TokenC(token) -> response
-            else -> throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_A")
+            else -> throw OcpiClientInvalidParametersException("Invalid authorization token")
         }
     }
 
@@ -71,7 +71,7 @@ class InternalVersionsController(
         return when {
             repository.existsByAuth_TokenA(token) -> response
             repository.existsByAuth_TokenC(token) -> response
-            else -> throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_A")
+            else -> throw OcpiClientInvalidParametersException("Invalid authorization token")
         }
     }
 
@@ -90,7 +90,7 @@ class InternalVersionsController(
         return when {
             repository.existsByAuth_TokenA(token) -> response
             repository.existsByAuth_TokenC(token) -> response
-            else -> throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_A")
+            else -> throw OcpiClientInvalidParametersException("Invalid authorization token")
         }
     }
 
