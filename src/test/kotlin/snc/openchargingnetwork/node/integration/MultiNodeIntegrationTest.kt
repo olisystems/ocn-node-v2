@@ -10,7 +10,6 @@ import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.ResponseEntity
-import snc.openchargingnetwork.node.models.ocpi.BasicRole
 
 /**
  * Example integration test demonstrating how to test interactions between multiple OCN nodes.
@@ -73,20 +72,20 @@ class MultiNodeIntegrationTest : BaseIntegrationTest() {
     val headers = HttpHeaders()
     headers.set("Authorization", "Token $b64ode1ApiKey")
     headers.set("Content-Type", "application/json")
-    val basicRoles = listOf(BasicRole("OLI", "DE"))
-    val body = objectMapper.writeValueAsString(basicRoles)
+    val createPlatformRequest = mapOf("roles" to listOf(mapOf("id" to "OLI", "country" to "DE")))
+    val body = objectMapper.writeValueAsString(createPlatformRequest)
     val entity = HttpEntity<String>(body, headers)
 
     // Make authenticated request to node1
     val response: ResponseEntity<String> =
             restTemplate.exchange(
-                    "$node1Url/ocn-v2/admin/generate-registration-token",
+                    "$node1Url/ocn-v2/admin/create-platform",
                     HttpMethod.POST,
                     entity,
                     String::class.java
             )
 
-    assertThat(response.statusCode.value()).isEqualTo(200)
+    assertThat(response.statusCode.value()).isEqualTo(201)
   }
 
   @Test
