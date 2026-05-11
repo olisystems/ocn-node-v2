@@ -16,6 +16,7 @@
 
 package snc.openchargingnetwork.node.components
 
+import org.slf4j.LoggerFactory
 import org.web3j.crypto.Keys
 import shareandcharge.openchargingnetwork.notary.Notary
 import shareandcharge.openchargingnetwork.notary.ValuesToSign
@@ -24,6 +25,7 @@ import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.exceptions.OcpiClientInvalidParametersException
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
 import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
+import snc.openchargingnetwork.node.models.ocpi.SignatureVerificationStatus
 import snc.openchargingnetwork.node.services.RegistryService
 import snc.openchargingnetwork.node.services.RoutingService
 
@@ -35,11 +37,21 @@ open class OcpiMessageHandler(
     val registryService: RegistryService
 ) {
 
+    companion object {
+        private val logger = LoggerFactory.getLogger(OcpiMessageHandler::class.java)
+    }
+
     /**
      * Notary object instantiated after validating a request.
      * Only if message signing property (signatures) set to true OR request contains "OCN-Signature" header.
      */
     var notary: Notary? = null
+
+    /**
+     * Result of signature verification (request-level). Set by validateOcnSignature() and surfaced
+     * in the response body as ocn_verification_status when signing is not enforced.
+     */
+    var verificationStatus: SignatureVerificationStatus? = null
 
     /**
      * Check message signing is enabled. Can be enabled in the following ways:
@@ -63,7 +75,10 @@ open class OcpiMessageHandler(
     }
 
     /**
-     * Use the OCN Notary to validate a request's "OCN-Signature" header. Only validated if signing is active.
+     * Use the OCN Notary to validate a request's "OCN-Signature" header.
+     * When signing is active: throws on invalid/missing signature and sets verificationStatus = VERIFIED on success.
+     * When signing is disabled: always evaluates signature without throwing; sets verificationStatus to
+     * VERIFIED, VERIFICATION_FAILED, or NOT_PRESENTED and logs a warning if invalid.
      *
      * @param signature the OCN signature contained in the request header or response body
      * @param signedValues the values signed by the sender
@@ -76,24 +91,70 @@ open class OcpiMessageHandler(
         signer: BasicRole,
         receiver: BasicRole? = null
     ) {
-        if (isSigningActive(receiver)) {
-            val result = signature?.let {
-                notary = Notary.deserialize(it)
-                notary?.verify(signedValues)
+        val enforcing = isSigningActive(receiver)
+
+        fun setStatusFromVerification(): Boolean {
+            if (signature == null) {
+                verificationStatus = SignatureVerificationStatus.NOT_PRESENTED
+                return false
             }
+            return try {
+                notary = Notary.deserialize(signature)
+                val result = notary?.verify(signedValues) ?: run {
+                    verificationStatus = SignatureVerificationStatus.VERIFICATION_FAILED
+                    return false
+                }
+                if (!result.isValid) {
+                    logger.warn("Signature verification failed for {}: {}", signer, result.error)
+                    verificationStatus = SignatureVerificationStatus.VERIFICATION_FAILED
+                    return false
+                }
+                val party = registryService.getPartyDetails(signer)
+                val actualSignatory = Keys.toChecksumAddress(notary?.signatory)
+                val signedByParty = actualSignatory == Keys.toChecksumAddress(party.address)
+                val signedByOperator = actualSignatory == Keys.toChecksumAddress(party.operator)
+                if (signedByParty || signedByOperator) {
+                    verificationStatus = SignatureVerificationStatus.VERIFIED
+                    true
+                } else {
+                    logger.warn(
+                        "Signature signatory {} does not match party {} or operator {}",
+                        actualSignatory, party.address, party.operator
+                    )
+                    verificationStatus = SignatureVerificationStatus.VERIFICATION_FAILED
+                    false
+                }
+            } catch (e: Exception) {
+                logger.warn("Signature verification encountered an error for {}: {}", signer, e.message)
+                verificationStatus = SignatureVerificationStatus.VERIFICATION_FAILED
+                false
+            }
+        }
+
+        if (enforcing) {
+            val result =
+                try {
+                    signature?.let {
+                        notary = Notary.deserialize(it)
+                        notary?.verify(signedValues)
+                    }
+                } catch (e: Exception) {
+                    throw OcpiClientInvalidParametersException("Invalid signature: ${e.message}")
+                }
             when {
                 result == null -> throw OcpiClientInvalidParametersException("Missing OCN Signature")
                 !result.isValid -> throw OcpiClientInvalidParametersException("Invalid signature: ${result.error}")
             }
-
             val party = registryService.getPartyDetails(signer)
             val actualSignatory = Keys.toChecksumAddress(notary?.signatory)
             val signedByParty = actualSignatory == Keys.toChecksumAddress(party.address)
             val signedByOperator = actualSignatory == Keys.toChecksumAddress(party.operator)
-
             if (!signedByParty && !signedByOperator) {
                 throw OcpiClientInvalidParametersException("Actual signatory ${notary?.signatory} differs from expected signatory ${party.address} (party) or ${party.operator} (operator)")
             }
+            verificationStatus = SignatureVerificationStatus.VERIFIED
+        } else {
+            setStatusFromVerification()
         }
     }
 

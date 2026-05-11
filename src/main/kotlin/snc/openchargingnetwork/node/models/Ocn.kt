@@ -24,6 +24,7 @@ import snc.openchargingnetwork.node.models.ocpi.BasicRole
 import snc.openchargingnetwork.node.models.ocpi.InterfaceRole
 import snc.openchargingnetwork.node.models.ocpi.ModuleID
 import snc.openchargingnetwork.node.models.ocpi.Role
+import snc.openchargingnetwork.node.models.ocpi.SignatureVerificationStatus
 import java.math.BigInteger
 
 data class OcnMessageHeaders(
@@ -48,13 +49,16 @@ data class OcnHeaders(
     @JsonProperty("X-Request-ID") val requestID: String,
     @JsonProperty("X-Correlation-ID") val correlationID: String,
     val sender: BasicRole,
-    val receiver: BasicRole
+    val receiver: BasicRole,
+    @JsonProperty("OCN-Verification-Status")
+    var verificationStatus: String? = SignatureVerificationStatus.NOT_PRESENTED.name
 ) {
 
     fun toMap(routingHeaders: Boolean = true): MutableMap<String, String?> {
         val map = mutableMapOf<String, String?>()
         map["Authorization"] = authorization
         map["OCN-Signature"] = signature
+        map["OCN-Verification-Status"] = verificationStatus ?: SignatureVerificationStatus.NOT_PRESENTED.name
         map["X-Request-ID"] = requestID
         map["X-Correlation-ID"] = correlationID
         if (routingHeaders) {
