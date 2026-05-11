@@ -12,6 +12,7 @@ import shareandcharge.openchargingnetwork.notary.Notary
 import snc.openchargingnetwork.node.components.HttpClientComponent
 import snc.openchargingnetwork.node.config.HaasProperties
 import snc.openchargingnetwork.node.config.NodeProperties
+import snc.openchargingnetwork.node.models.OcpiHttpResponse
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.RegistryPartyDetailsBasic
 import snc.openchargingnetwork.node.models.entities.OcnRules as EntityOcnRules
@@ -22,6 +23,7 @@ import snc.openchargingnetwork.node.models.ocpi.ModuleID
 import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
 import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
 import snc.openchargingnetwork.node.models.ocpi.SignatureVerificationStatus
+import snc.openchargingnetwork.node.services.HubClientInfoService
 import snc.openchargingnetwork.node.services.RegistryService
 import snc.openchargingnetwork.node.services.RoutingService
 import org.web3j.crypto.Credentials
@@ -209,5 +211,43 @@ class SignatureVerificationStatusTest {
         val json = httpClient.mapper.writeValueAsString(response)
 
         assertThat(json).doesNotContain("ocn_verification_status")
+    }
+
+    @Test
+    fun `response handler adds request verification status after response signature validation`() {
+        properties.signatures = true
+        val receiverPrivateKey = "2222222222222222222222222222222222222222222222222222222222222222"
+        val receiverAddress = Credentials.create(receiverPrivateKey).address
+        request = request.copy(
+            headers = request.headers.copy(
+                signature = Notary().sign(request.toSignedValues(), properties.privateKey!!).serialize()
+            )
+        )
+        whenever(routingService.getPlatformRules(sender)).thenReturn(
+            EntityOcnRules(signatures = true, blacklist = false, whitelist = false)
+        )
+        whenever(routingService.isRoleKnown(receiver)).thenReturn(false)
+        whenever(registryService.getPartyDetails(receiver)).thenReturn(
+            RegistryPartyDetailsBasic(address = receiverAddress, operator = receiverAddress)
+        )
+
+        val responseBody = OcpiResponse<Unit>(statusCode = 1000)
+        val response = OcpiHttpResponse<Unit>(statusCode = 200, headers = emptyMap(), body = responseBody)
+        responseBody.signature = Notary().sign(response.toSignedValues(), receiverPrivateKey).serialize()
+
+        val responseHandler = OcpiResponseHandlerBuilder(
+            routingService,
+            registryService,
+            mock<HubClientInfoService>(),
+            properties,
+            haasProperties
+        ).build(
+            request,
+            response,
+            requestVerificationStatus = SignatureVerificationStatus.VERIFICATION_FAILED
+        )
+
+        assertThat(responseHandler.getResponse().body?.verificationStatus)
+            .isEqualTo(SignatureVerificationStatus.VERIFICATION_FAILED.name)
     }
 }

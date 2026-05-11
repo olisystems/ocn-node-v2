@@ -28,6 +28,7 @@ import snc.openchargingnetwork.node.models.exceptions.OcpiClientInvalidParameter
 import snc.openchargingnetwork.node.models.exceptions.OcpiServerGenericException
 import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
 import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
+import snc.openchargingnetwork.node.models.ocpi.SignatureVerificationStatus
 import snc.openchargingnetwork.node.services.HubClientInfoService
 import snc.openchargingnetwork.node.services.RegistryService
 import snc.openchargingnetwork.node.services.RoutingService
@@ -53,14 +54,16 @@ class OcpiResponseHandlerBuilder(
      * @param request the OCPI HTTP request as OcpiRequestVariables.
      * @param response the OCPI HTTP response as HttpResponse<T>
      * @param knownSender is the sender of the request known to this node?
+     * @param requestVerificationStatus signature verification result for the original request.
      */
     fun <T : Any> build(
         request: OcpiRequestVariables,
         response: OcpiHttpResponse<T>,
-        knownSender: Boolean = true
+        knownSender: Boolean = true,
+        requestVerificationStatus: SignatureVerificationStatus? = null
     ): OcpiResponseHandler<T> {
         return OcpiResponseHandler(
-            request, response, knownSender, routingService, registryService,
+            request, response, knownSender, requestVerificationStatus, routingService, registryService,
             properties, haasProperties, hubClientInfoService
         )
     }
@@ -76,6 +79,7 @@ class OcpiResponseHandler<T : Any>(
     request: OcpiRequestVariables,
     private val response: OcpiHttpResponse<T>,
     private val knownSender: Boolean,
+    private val requestVerificationStatus: SignatureVerificationStatus?,
     routingService: RoutingService,
     registryService: RegistryService,
     properties: NodeProperties,
@@ -90,6 +94,7 @@ class OcpiResponseHandler<T : Any>(
 
     init {
         validateResponseSignature()
+        applyRequestVerificationStatus()
         if (isOcpiSuccess() && routingService.isRoleKnown(request.headers.receiver)) { // only renew connection of known recipients
             hubClientInfoService.renewClientConnection(request.headers.receiver)
         }
@@ -206,6 +211,13 @@ class OcpiResponseHandler<T : Any>(
      */
     private fun isOcpiSuccess(): Boolean {
         return response.statusCode == 200 && response.body?.statusCode == 1000
+    }
+
+    private fun applyRequestVerificationStatus() {
+        val statusName = requestVerificationStatus?.name ?: return
+        if (response.body?.verificationStatus == null) {
+            response.body?.verificationStatus = statusName
+        }
     }
 
     /**

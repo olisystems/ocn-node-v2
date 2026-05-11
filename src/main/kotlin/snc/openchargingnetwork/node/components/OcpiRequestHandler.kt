@@ -187,11 +187,12 @@ class OcpiRequestHandler<T : Any>(
             )
         }
 
-        val resolvedStatusName = this.verificationStatus?.name
-        if (resolvedStatusName != null && response.body?.verificationStatus == null) {
-            response.body?.verificationStatus = resolvedStatusName
-        }
-        return responseHandlerBuilder.build(request, response, knownSender = fromLocalPlatform)
+        return responseHandlerBuilder.build(
+                request,
+                response,
+                knownSender = fromLocalPlatform,
+                requestVerificationStatus = verificationStatus
+        )
     }
 
     fun forwardHaasAsync(): OcpiRequestHandler<T> {
@@ -361,11 +362,11 @@ class OcpiRequestHandler<T : Any>(
                     }
                 }
 
-        val resolvedStatusName = this.verificationStatus?.name
-        if (resolvedStatusName != null && response.body?.verificationStatus == null) {
-            response.body?.verificationStatus = resolvedStatusName
-        }
-        return responseHandlerBuilder.build(request, response)
+        return responseHandlerBuilder.build(
+                request,
+                response,
+                requestVerificationStatus = verificationStatus
+        )
     }
 
     /**
