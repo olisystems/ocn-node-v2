@@ -281,17 +281,22 @@ open class HttpClientComponent(private val properties: NodeProperties) {
          */
         open fun getVersions(url: String, authorization: String): List<Version> {
                 try {
-                        val response =
-                                sendHttpRequest(
-                                        endpoint = url,
-                                        method = HttpMethod.GET,
-                                        headers =
-                                                mapOf(
-                                                        "Authorization" to "Token $authorization",
-                                                        "X-Correlation-ID" to generateUUIDv4Token(),
-                                                        "X-Request-ID" to generateUUIDv4Token()
-                                                )
+                        val headers =
+                                mapOf(
+                                        "Authorization" to "Token $authorization",
+                                        "X-Correlation-ID" to generateUUIDv4Token(),
+                                        "X-Request-ID" to generateUUIDv4Token()
                                 )
+
+                        CurlLogger.logCurlCommand(
+                                HttpMethod.GET,
+                                url,
+                                headers,
+                                null,
+                                properties.logCurlCommands
+                        )
+
+                        val response = sendHttpRequest(endpoint = url, method = HttpMethod.GET, headers = headers)
 
                         val body: OcpiResponse<List<Version>> = mapper.readValue(response.body)
 
@@ -377,17 +382,22 @@ open class HttpClientComponent(private val properties: NodeProperties) {
          */
         open fun getVersionDetail(url: String, authorization: String): VersionDetail {
                 try {
-                        val response =
-                                sendHttpRequest(
-                                        endpoint = url,
-                                        method = HttpMethod.GET,
-                                        headers =
-                                                mapOf(
-                                                        "Authorization" to "Token $authorization",
-                                                        "X-Correlation-ID" to generateUUIDv4Token(),
-                                                        "X-Request-ID" to generateUUIDv4Token()
-                                                )
+                        val headers =
+                                mapOf(
+                                        "Authorization" to "Token $authorization",
+                                        "X-Correlation-ID" to generateUUIDv4Token(),
+                                        "X-Request-ID" to generateUUIDv4Token()
                                 )
+
+                        CurlLogger.logCurlCommand(
+                                HttpMethod.GET,
+                                url,
+                                headers,
+                                null,
+                                properties.logCurlCommands
+                        )
+
+                        val response = sendHttpRequest(endpoint = url, method = HttpMethod.GET, headers = headers)
 
                         val body: OcpiResponse<VersionDetail> = mapper.readValue(response.body)
 
