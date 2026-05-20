@@ -69,7 +69,6 @@ data class PlatformWithRolesResponse(
 )
 
 data class CreatePlatformRequest(
-    val roles: List<BasicRole>,
     val tokenA: String? = null,
     val handshakeSelfInitiated: Boolean = false,
     val platformVersionsUrl: String? = null
@@ -111,7 +110,7 @@ class AdminController(
         return ResponseEntity.ok().body(platform.status.toString())
     }
 
-    @PostMapping("/create-platform")
+    @PostMapping("/platform")
     @Transactional
     fun createPlatform(
         @RequestHeader("Authorization") authorization: String,
@@ -127,32 +126,6 @@ class AdminController(
                 ))
         }
 
-        // check each role does not already exist
-        for (role in body.roles) {
-            if (roleRepo.existsByCountryCodeAndPartyIDAllIgnoreCase(role.country, role.id)) {
-                return ResponseEntity.badRequest()
-                    .body(OcpiResponse<Unit>(
-                        statusCode = OcpiStatus.CLIENT_INVALID_PARAMETERS.code,
-                        statusMessage = "Role ${role.country}-${role.id} already exists"
-                    ))
-            }
-        }
-
-        // verify roles exist in blockchain registry
-        val myParties = ocnRegistryComponent.findMyPartiesList()
-        for (role in body.roles) {
-            val partyExists = myParties.any { party ->
-                party.countryCode.equals(role.country, ignoreCase = true) &&
-                party.partyId.equals(role.id, ignoreCase = true)
-            }
-            if (!partyExists) {
-                return ResponseEntity.badRequest()
-                    .body(OcpiResponse<Unit>(
-                        statusCode = OcpiStatus.CLIENT_INVALID_PARAMETERS.code,
-                        statusMessage = "Role ${role.country}-${role.id} is not registered in OCN blockchain registry"
-                    ))
-            }
-        }
 
         // validate required fields when handshake is self-initiated
         if (body.handshakeSelfInitiated) {
@@ -207,8 +180,9 @@ class AdminController(
             ResponseEntity.status(HttpStatus.CREATED).body(responseBody)
         }
     }
+    
 
-    @GetMapping("/platform/{countryCode}/{partyID}")
+    @GetMapping("/platform-by-party/{countryCode}/{partyID}")
     fun getPlatform(
         @RequestHeader("Authorization") authorization: String,
         @PathVariable countryCode: String,
@@ -306,6 +280,59 @@ class AdminController(
         }
 
         return ResponseEntity.ok().body(responseMessage)
+    }
+
+    @GetMapping("/platform/{platformId}")
+    fun getPlatform(
+        @RequestHeader("Authorization") authorization: String,
+        @PathVariable platformId: String
+    ): ResponseEntity<Any> {
+        
+        // check admin is authorized
+        if (!isAuthorized(authorization)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid admin / api key")
+        }
+
+        val platform = platformRepo.findByIdOrNull(platformId.toLong())
+        return if (platform != null) {
+            ResponseEntity.ok().body(platform)
+        } else {
+            ResponseEntity.status(HttpStatus.NOT_FOUND).body("Platform not found")
+        }
+    }
+
+    @DeleteMapping("/platform/{platformId}")
+    @Transactional
+    fun deletePlatform(
+        @RequestHeader("Authorization") authorization: String,
+        @PathVariable platformId: String
+    ): ResponseEntity<String> {
+
+        // check admin is authorized
+        if (!isAuthorized(authorization)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid admin / api key")
+        }
+
+        val platform = platformRepo.findByIdOrNull(platformId.toLong())
+        return if (platform != null) {
+            var responseMessage = ""
+            
+            // 1) delete endpoints (depend on platform)
+            endpointRepo.deleteByPlatformID(platform.id)
+            responseMessage = "Endpoints deleted successfully"
+
+            // 2) delete ALL roles for this platform
+            roleRepo.deleteByPlatformID(platform.id)
+            responseMessage = if (responseMessage.isBlank()) "Roles deleted successfully" else "$responseMessage | Roles deleted successfully"
+
+            // 3) delete platform (after all dependents removed)
+            platformRepo.delete(platform)
+            responseMessage += " | Platform deleted successfully"
+
+            ResponseEntity.ok().body(responseMessage)
+        } else {
+            ResponseEntity.status(HttpStatus.NOT_FOUND).body("Platform not found")
+        }
     }
 
     @GetMapping("/platforms")
