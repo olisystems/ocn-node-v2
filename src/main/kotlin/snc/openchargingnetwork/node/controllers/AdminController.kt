@@ -25,11 +25,14 @@ import snc.openchargingnetwork.node.components.OcnRegistryComponent
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.entities.Auth
 import snc.openchargingnetwork.node.models.entities.EndpointEntity
+import snc.openchargingnetwork.node.models.entities.Ocpi211AdapterConfigEntity
 import snc.openchargingnetwork.node.models.entities.PlatformEntity
 import snc.openchargingnetwork.node.models.entities.RoleEntity
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
 import snc.openchargingnetwork.node.models.ocpi.RegistrationInfo
+import snc.openchargingnetwork.node.models.ocpi.RegistrationRoleRequest
 import snc.openchargingnetwork.node.repositories.EndpointRepository
+import snc.openchargingnetwork.node.repositories.Ocpi211AdapterConfigRepository
 import snc.openchargingnetwork.node.repositories.PlatformRepository
 import snc.openchargingnetwork.node.repositories.RoleRepository
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
@@ -43,6 +46,7 @@ class AdminController(
     private val platformRepo: PlatformRepository,
     private val roleRepo: RoleRepository,
     private val endpointRepo: EndpointRepository,
+    private val adapterConfigRepo: Ocpi211AdapterConfigRepository,
     private val properties: NodeProperties,
     private val ocnRegistryComponent: OcnRegistryComponent
 ) {
@@ -77,7 +81,7 @@ class AdminController(
     @Transactional
     fun generateRegistrationToken(
         @RequestHeader("Authorization") authorization: String,
-        @RequestBody body: Array<BasicRole>
+        @RequestBody body: Array<RegistrationRoleRequest>
     ): ResponseEntity<Any> {
 
         // check admin is authorized
@@ -92,11 +96,31 @@ class AdminController(
             }
         }
 
+        val adapterRole = body.firstOrNull()
+        if (adapterRole?.credentialsRole != null && adapterRole.interfaceRole == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body("interface_role is required when credentials_role is set for OCPI 2.1.1 adapter onboarding")
+        }
+        if (adapterRole?.interfaceRole != null && adapterRole.credentialsRole == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body("credentials_role is required when interface_role is set for OCPI 2.1.1 adapter onboarding")
+        }
+
         // generate and store new platform with authorization token
         //TODO: schedule deletion after 30 days if status still PLANNED (?)
         val tokenA = generateUUIDv4Token()
         val platform = PlatformEntity(auth = Auth(tokenA = tokenA.toBs64String()))
         platformRepo.save(platform)
+
+        if (adapterRole?.credentialsRole != null && adapterRole.interfaceRole != null) {
+            adapterConfigRepo.save(
+                Ocpi211AdapterConfigEntity(
+                    platformId = platform.id!!,
+                    credentialsRole = adapterRole.credentialsRole!!.name,
+                    interfaceRole = adapterRole.interfaceRole!!.name
+                )
+            )
+        }
 
         val responseBody = RegistrationInfo(tokenA, urlJoin(properties.url, properties.apiPrefix, "/ocpi/versions"))
         return ResponseEntity.ok().body(responseBody)

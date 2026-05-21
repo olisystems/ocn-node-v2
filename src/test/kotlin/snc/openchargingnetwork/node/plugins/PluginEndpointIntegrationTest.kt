@@ -42,13 +42,13 @@ class PluginEndpointIntegrationTest {
     private lateinit var endpointRegistry: PluginEndpointRegistryImpl
 
     @Test
-    fun `plugins endpoint returns 404 when no handler registered`() {
-        mockMvc.perform(get("/ocn-v2/plugins/hello"))
+    fun `plugin endpoint returns 404 when no handler registered`() {
+        mockMvc.perform(get("/ocn-v2/plugin/hello"))
             .andExpect(status().isNotFound)
     }
 
     @Test
-    fun `plugins endpoint returns handler response when registered`() {
+    fun `plugin endpoint returns handler response when registered`() {
         val path = "/test-integration-${System.currentTimeMillis()}"
         endpointRegistry.register(
             "test",
@@ -57,7 +57,7 @@ class PluginEndpointIntegrationTest {
             PluginEndpointHandler { PluginEndpointResponse(200, """{"message":"Hello from plugin"}""", "application/json") }
         )
         try {
-            val result = mockMvc.perform(get("/ocn-v2/plugins${path}"))
+            val result = mockMvc.perform(get("/ocn-v2/plugin${path}"))
                 .andExpect(status().isOk)
                 .andReturn()
 

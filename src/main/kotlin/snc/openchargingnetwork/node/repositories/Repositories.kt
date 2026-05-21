@@ -82,3 +82,8 @@ interface NetworkClientInfoRepository : CrudRepository<NetworkClientInfoEntity, 
     fun findFirstByPartyAndRoleOrderByIdAsc(party: BasicRole, role: Role): NetworkClientInfoEntity?
     fun deleteByPartyAndRole(party: BasicRole, role: Role)
 }
+
+interface Ocpi211AdapterConfigRepository : CrudRepository<Ocpi211AdapterConfigEntity, Long> {
+    fun findByPlatformId(platformId: Long): Ocpi211AdapterConfigEntity?
+    fun existsByPlatformId(platformId: Long): Boolean
+}

@@ -29,9 +29,9 @@ import snc.openchargingnetwork.node.models.exceptions.OcpiServerGenericException
 import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
 import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
 import snc.openchargingnetwork.node.models.ocpi.SignatureVerificationStatus
+import org.springframework.context.ApplicationEventPublisher
 import snc.openchargingnetwork.node.plugins.core.OcpiObjectEvent
 import snc.openchargingnetwork.node.plugins.core.OcpiObjectEventPhase
-import snc.openchargingnetwork.node.plugins.core.OcpiObjectEventRegistry
 import snc.openchargingnetwork.node.services.HubClientInfoService
 import snc.openchargingnetwork.node.services.RegistryService
 import snc.openchargingnetwork.node.services.RoutingService
@@ -49,7 +49,7 @@ class OcpiResponseHandlerBuilder(
     private val hubClientInfoService: HubClientInfoService,
     private val properties: NodeProperties,
     private val haasProperties: HaasProperties,
-    private val objectEventRegistry: OcpiObjectEventRegistry,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
 
     /**
@@ -68,7 +68,7 @@ class OcpiResponseHandlerBuilder(
     ): OcpiResponseHandler<T> {
         return OcpiResponseHandler(
             request, response, knownSender, requestVerificationStatus, routingService, registryService,
-            properties, haasProperties, hubClientInfoService, objectEventRegistry
+            properties, haasProperties, hubClientInfoService, eventPublisher
         )
     }
 
@@ -89,7 +89,7 @@ class OcpiResponseHandler<T : Any>(
     properties: NodeProperties,
     haasProperties: HaasProperties,
     hubClientInfoService: HubClientInfoService,
-    private val objectEventRegistry: OcpiObjectEventRegistry
+    private val eventPublisher: ApplicationEventPublisher
 ) :
     OcpiMessageHandler(request, properties, haasProperties, routingService, registryService) {
 
@@ -229,7 +229,7 @@ class OcpiResponseHandler<T : Any>(
     private fun publishResponseDataEvent() {
         val data = response.body?.data ?: return
         objectEventPayloads(data).forEach { (index, item) ->
-            objectEventRegistry.publish(
+            eventPublisher.publishEvent(
                 OcpiObjectEvent(
                     phase = OcpiObjectEventPhase.RESPONSE_DATA,
                     module = request.module,

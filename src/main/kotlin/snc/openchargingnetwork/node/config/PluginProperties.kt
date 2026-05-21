@@ -21,12 +21,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 @ConfigurationProperties("ocn.plugins")
 class PluginProperties {
 
-    /** Directory containing plugin JARs (absolute or relative to process CWD). Default: ./plugins */
-    var dir: String = "plugins"
-
-    /** If true, node fails to start when any plugin fails to load. If false, failed plugins are skipped. */
-    var failOnLoadError: Boolean = true
-
-    /** Timeout in milliseconds for each plugin's init() call. */
-    var initTimeoutMs: Long = 30_000L
+    /**
+     * Directory of plugin JARs, passed to Spring Boot as `loader.path` at JVM startup.
+     * Default: ./plugins (relative to process working directory).
+     */
+    var loaderPath: String = "plugins"
 }

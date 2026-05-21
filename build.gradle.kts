@@ -14,7 +14,7 @@ plugins {
 }
 
 group = "snc.openchargingnetwork"
-version = "ocn-v3"
+version = "ocn-v2"
 
 
 extra["snippetsDir"] = file("build/generated-snippets")
@@ -68,6 +68,21 @@ allOpen {
 	annotation("jakarta.persistence.Entity")
 	annotation("jakarta.persistence.MappedSuperclass")
 	annotation("jakarta.persistence.Embeddable")
+}
+
+tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
+	manifest {
+		attributes(
+			mapOf(
+				"Main-Class" to "org.springframework.boot.loader.launch.PropertiesLauncher",
+				"Start-Class" to "snc.openchargingnetwork.node.ApplicationKt",
+			)
+		)
+	}
+}
+
+tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
+	jvmArgs("-Dloader.path=${layout.projectDirectory.dir("plugins").asFile.absolutePath}")
 }
 
 tasks.withType<Test> {

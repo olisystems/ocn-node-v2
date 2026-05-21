@@ -14,7 +14,7 @@
     limitations under the License.
 */
 
-package snc.openchargingnetwork.node.controllers.plugins
+package snc.openchargingnetwork.node.controllers.plugin
 
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.http.HttpMethod
@@ -27,7 +27,7 @@ import snc.openchargingnetwork.node.plugins.core.PluginEndpointRegistry
 import snc.openchargingnetwork.node.plugins.core.PluginEndpointRequest
 import java.util.Collections
 
-@RequestMapping("\${ocn.node.apiPrefix}/plugins")
+@RequestMapping("\${ocn.node.apiPrefix}/plugin")
 @RestController
 class PluginEndpointsController(private val endpointRegistry: PluginEndpointRegistry) {
 
@@ -69,17 +69,22 @@ class PluginEndpointsController(private val endpointRegistry: PluginEndpointRegi
         val response = registered.handler.handle(pluginRequest)
 
         val contentType = response.contentType?.let { MediaType.parseMediaType(it) } ?: MediaType.APPLICATION_JSON
-        return ResponseEntity
+        val builder = ResponseEntity
             .status(response.statusCode)
             .contentType(contentType)
-            .body(response.body)
+        response.headers.forEach { (name, value) -> builder.header(name, value) }
+        return builder.body(response.body)
     }
 
     private fun pathAfterPrefix(request: HttpServletRequest): String {
         val uri = request.requestURI ?: ""
-        val pluginsIndex = uri.indexOf("/plugins")
-        if (pluginsIndex < 0) return "/"
-        val after = uri.substring(pluginsIndex + "/plugins".length).trimStart('/').trimEnd('/')
+        val pluginIndex = uri.indexOf("/plugin")
+        if (pluginIndex < 0) return "/"
+        val afterMarker = pluginIndex + "/plugin".length
+        if (afterMarker < uri.length && uri[afterMarker] == 's') {
+            return "/"
+        }
+        val after = uri.substring(afterMarker).trimStart('/').trimEnd('/')
         return if (after.isEmpty()) "/" else "/$after"
     }
 }

@@ -20,20 +20,20 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import snc.openchargingnetwork.node.components.OcpiPlatformAuthService
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.ocpi.InterfaceRole
 import snc.openchargingnetwork.node.models.ocpi.ModuleID
 import snc.openchargingnetwork.node.models.ocpi.OcpiStatus
-import snc.openchargingnetwork.node.models.exceptions.OcpiClientInvalidParametersException
 import snc.openchargingnetwork.node.models.ocpi.*
-import snc.openchargingnetwork.node.repositories.PlatformRepository
-import snc.openchargingnetwork.node.tools.extractToken
+import snc.openchargingnetwork.node.plugins.core.OcpiVersionContributor
 import snc.openchargingnetwork.node.tools.urlJoin
 
 @RestController
 @RequestMapping("\${ocn.node.apiPrefix}/ocpi")
 class InternalVersionsController(
-    private val repository: PlatformRepository,
+    private val platformAuthService: OcpiPlatformAuthService,
+    private val versionContributors: List<OcpiVersionContributor>,
     private val properties: NodeProperties
 ) {
 
@@ -42,20 +42,16 @@ class InternalVersionsController(
         @RequestHeader("Authorization") authorization: String
     ): OcpiResponse<List<Version>> {
 
-        val token = authorization.extractToken()
-        val endpoint2_2 = urlJoin(properties.url, properties.apiPrefix, "/ocpi/2.2.1")
+        platformAuthService.assertTokenAOrC(authorization)
+        val endpoint2_2 = urlJoin(properties.url, properties.apiPrefix, "/ocpi/2.2")
         val endpoint2_2_1 = urlJoin(properties.url, properties.apiPrefix, "/ocpi/2.2.1")
-        val versions = listOf(
-            Version("2.2", endpoint2_2),
-            Version("2.2.1", endpoint2_2_1)
-        )
-        val response = OcpiResponse(OcpiStatus.SUCCESS.code, data = versions)
-
-        return when {
-            repository.existsByAuth_TokenA(token) -> response
-            repository.existsByAuth_TokenC(token) -> response
-            else -> throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_A")
-        }
+        val versions =
+                mutableListOf(
+                        Version("2.2", endpoint2_2),
+                        Version("2.2.1", endpoint2_2_1)
+                )
+        versions.addAll(versionContributors.flatMap { it.versions() })
+        return OcpiResponse(OcpiStatus.SUCCESS.code, data = versions.distinctBy { it.version })
     }
 
     @GetMapping("/2.2")
@@ -63,18 +59,12 @@ class InternalVersionsController(
         @RequestHeader("Authorization") authorization: String
     ): OcpiResponse<VersionDetail> {
 
-        val token = authorization.extractToken()
+        platformAuthService.assertTokenAOrC(authorization)
         val endpoints = this.getAllEndpoints()
-        val response = OcpiResponse(
+        return OcpiResponse(
             OcpiStatus.SUCCESS.code,
             data = VersionDetail("2.2", endpoints)
         )
-
-        return when {
-            repository.existsByAuth_TokenA(token) -> response
-            repository.existsByAuth_TokenC(token) -> response
-            else -> throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_A")
-        }
     }
 
     @GetMapping("/2.2.1")
@@ -82,18 +72,12 @@ class InternalVersionsController(
         @RequestHeader("Authorization") authorization: String
     ): OcpiResponse<VersionDetail> {
 
-        val token = authorization.extractToken()
+        platformAuthService.assertTokenAOrC(authorization)
         val endpoints = this.getAllEndpoints()
-        val response = OcpiResponse(
+        return OcpiResponse(
             OcpiStatus.SUCCESS.code,
             data = VersionDetail("2.2.1", endpoints)
         )
-
-        return when {
-            repository.existsByAuth_TokenA(token) -> response
-            repository.existsByAuth_TokenC(token) -> response
-            else -> throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_A")
-        }
     }
 
     private fun getModuleEndpoints(module: ModuleID): List<Endpoint> {

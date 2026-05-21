@@ -23,7 +23,7 @@ import snc.openchargingnetwork.node.models.ocpi.ModuleID
 import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
 import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
 import snc.openchargingnetwork.node.models.ocpi.SignatureVerificationStatus
-import snc.openchargingnetwork.node.plugins.core.OcpiObjectEventRegistry
+import org.springframework.context.ApplicationEventPublisher
 import snc.openchargingnetwork.node.services.HubClientInfoService
 import snc.openchargingnetwork.node.services.RegistryService
 import snc.openchargingnetwork.node.services.RoutingService
@@ -242,7 +242,7 @@ class SignatureVerificationStatusTest {
             mock<HubClientInfoService>(),
             properties,
             haasProperties,
-            mock<OcpiObjectEventRegistry>()
+            mock<ApplicationEventPublisher>()
         ).build(
             request,
             response,

@@ -17,37 +17,77 @@
 package snc.openchargingnetwork.node.plugins.core
 
 import org.springframework.http.HttpMethod
+import org.springframework.http.server.PathContainer
 import org.springframework.stereotype.Component
-import java.util.concurrent.ConcurrentHashMap
+import org.springframework.web.util.pattern.PathPattern
+import org.springframework.web.util.pattern.PathPatternParser
+import java.util.concurrent.CopyOnWriteArrayList
 
 @Component
 class PluginEndpointRegistryImpl : PluginEndpointRegistry {
 
-    private val byKey = ConcurrentHashMap<String, RegisteredEndpoint>()
-    private val byPlugin = ConcurrentHashMap<String, MutableSet<String>>()
+    private val parser = PathPatternParser()
+    private val routes = CopyOnWriteArrayList<Route>()
 
     override fun register(pluginId: String, path: String, method: HttpMethod, handler: PluginEndpointHandler) {
-        val normalized = normalizePath(path)
-        val key = key(normalized, method)
-        byKey[key] = RegisteredEndpoint(pluginId, normalized, method, handler)
-        byPlugin.getOrPut(pluginId) { mutableSetOf() }.add(key)
+        val patternSource = normalizePath(path)
+        routes.add(
+            Route(
+                pluginId = pluginId,
+                pattern = parser.parse(patternSource),
+                patternSource = patternSource,
+                method = method,
+                handler = handler
+            )
+        )
     }
 
     override fun unregister(pluginId: String) {
-        byPlugin.remove(pluginId)?.forEach { byKey.remove(it) }
+        routes.removeIf { it.pluginId == pluginId }
     }
 
-    override fun resolve(path: String, method: HttpMethod): RegisteredEndpoint? =
-        byKey[key(normalizePath(path), method)]
+    override fun resolve(path: String, method: HttpMethod): RegisteredEndpoint? {
+        val normalized = normalizePath(path)
+        val pathContainer = PathContainer.parsePath(normalized)
+        val match = routes.asSequence()
+            .filter { it.method == method && it.pattern.matches(pathContainer) }
+            .maxByOrNull { it.patternSource.length }
+            ?: return null
 
-    override fun listEndpoints(): List<RegisteredEndpoint> = byKey.values.toList()
+        return RegisteredEndpoint(
+            pluginId = match.pluginId,
+            path = normalized,
+            method = method,
+            handler = match.handler
+        )
+    }
 
-    private fun key(path: String, method: HttpMethod) = "${method.toString()}:$path"
+    override fun listEndpoints(): List<RegisteredEndpoint> =
+        routes.map { route ->
+            RegisteredEndpoint(
+                pluginId = route.pluginId,
+                path = route.patternSource,
+                method = route.method,
+                handler = route.handler
+            )
+        }
 
     private fun normalizePath(path: String): String {
-        var p = path
-        if (!p.startsWith("/")) p = "/$p"
-        if (p.endsWith("/") && p.length > 1) p = p.dropLast(1)
-        return p
+        var normalized = path.trim()
+        if (!normalized.startsWith("/")) {
+            normalized = "/$normalized"
+        }
+        if (normalized.length > 1 && normalized.endsWith("/")) {
+            normalized = normalized.dropLast(1)
+        }
+        return normalized
     }
+
+    private data class Route(
+        val pluginId: String,
+        val pattern: PathPattern,
+        val patternSource: String,
+        val method: HttpMethod,
+        val handler: PluginEndpointHandler
+    )
 }

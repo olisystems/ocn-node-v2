@@ -29,9 +29,9 @@ import snc.openchargingnetwork.node.models.Receiver
 import snc.openchargingnetwork.node.models.exceptions.OcpiHubUnknownReceiverException
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
 import snc.openchargingnetwork.node.models.ocpi.ModuleID
+import org.springframework.context.ApplicationEventPublisher
 import snc.openchargingnetwork.node.plugins.core.OcpiObjectEvent
 import snc.openchargingnetwork.node.plugins.core.OcpiObjectEventPhase
-import snc.openchargingnetwork.node.plugins.core.OcpiObjectEventRegistry
 import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
 import snc.openchargingnetwork.node.models.ocpi.OcpiStatus
 import snc.openchargingnetwork.node.services.*
@@ -49,9 +49,10 @@ class OcpiRequestHandlerBuilder(
         private val asyncTaskService: AsyncTaskService,
         private val responseHandlerBuilder: OcpiResponseHandlerBuilder,
         private val integrationsRoutingService: IntegrationsRoutingService,
+        private val protocolTransformService: OcpiProtocolTransformService,
         private val properties: NodeProperties,
         private val haasProperties: HaasProperties,
-        private val objectEventRegistry: OcpiObjectEventRegistry,
+        private val eventPublisher: ApplicationEventPublisher,
         private val coroutineScope: CoroutineScope
 ) {
 
@@ -67,9 +68,10 @@ class OcpiRequestHandlerBuilder(
                 asyncTaskService,
                 responseHandlerBuilder,
                 integrationsRoutingService,
+                protocolTransformService,
                 properties,
                 haasProperties,
-                objectEventRegistry,
+                eventPublisher,
                 coroutineScope
         )
     }
@@ -90,9 +92,10 @@ class OcpiRequestHandlerBuilder(
                 asyncTaskService,
                 responseHandlerBuilder,
                 integrationsRoutingService,
+                protocolTransformService,
                 properties,
                 haasProperties,
-                objectEventRegistry,
+                eventPublisher,
                 coroutineScope
         )
     }
@@ -127,9 +130,10 @@ class OcpiRequestHandler<T : Any>(
         private val asyncTaskService: AsyncTaskService,
         private val responseHandlerBuilder: OcpiResponseHandlerBuilder,
         private val integrationsRoutingService: IntegrationsRoutingService,
+        private val protocolTransformService: OcpiProtocolTransformService,
         properties: NodeProperties,
         haasProperties: HaasProperties,
-        private val objectEventRegistry: OcpiObjectEventRegistry,
+        private val eventPublisher: ApplicationEventPublisher,
         private val coroutineScope: CoroutineScope
 ) : OcpiMessageHandler(request, properties, haasProperties, routingService, registryService) {
 
@@ -174,7 +178,10 @@ class OcpiRequestHandler<T : Any>(
                                 )
 
                         asyncTaskService.forwardOcpiRequestToLinkedServices(this, fromLocalPlatform)
-                        httpClientComponent.makeOcpiRequest(url, localHeaders, request)
+                        val outboundRequest = protocolTransformService.adaptOutboundRequest(request)
+                        val localResponse: OcpiHttpResponse<T> =
+                                httpClientComponent.makeOcpiRequest(url, localHeaders, outboundRequest)
+                        protocolTransformService.adaptInboundResponse(request, localResponse)
                     }
                     Receiver.REMOTE -> {
                         assertValidSignature(false)
@@ -438,7 +445,7 @@ class OcpiRequestHandler<T : Any>(
             phase: OcpiObjectEventPhase
     ) {
         objectEventPayloads(payload).forEach { (index, item) ->
-            objectEventRegistry.publish(
+            eventPublisher.publishEvent(
                     OcpiObjectEvent(
                             phase = phase,
                             module = request.module,

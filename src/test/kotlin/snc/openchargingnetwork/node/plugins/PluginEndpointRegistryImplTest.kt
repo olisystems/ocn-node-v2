@@ -1,19 +1,3 @@
-/*
-    Copyright 2019-2020 eMobility GmbH
-
-    Licensed under the Apache License, Version 2.0 (the "License");
-    you may not use this file except in compliance with the License.
-    You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-    Unless required by applicable law or agreed to in writing, software
-    distributed under the License is distributed on an "AS IS" BASIS,
-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    See the License for the specific language governing permissions and
-    limitations under the License.
-*/
-
 package snc.openchargingnetwork.node.plugins
 
 import org.assertj.core.api.Assertions.assertThat
@@ -56,6 +40,26 @@ class PluginEndpointRegistryImplTest {
     fun `resolve returns null for unregistered path`() {
         assertThat(registry.resolve("/missing", HttpMethod.GET)).isNull()
         assertThat(registry.resolve("/foo", HttpMethod.POST)).isNull()
+    }
+
+    @Test
+    fun `matches path pattern suffix wildcard`() {
+        registry.register("p1", "/ocpi211/2.1.1/cdrs/**", HttpMethod.POST, PluginEndpointHandler { PluginEndpointResponse(201) })
+
+        val resolved = registry.resolve("/ocpi211/2.1.1/cdrs/DE/ABC/cdr-1", HttpMethod.POST)
+        assertThat(resolved).isNotNull
+        assertThat(resolved!!.handler.handle(PluginEndpointRequest("", HttpMethod.POST, emptyMap(), emptyMap(), null)).statusCode).isEqualTo(201)
+    }
+
+    @Test
+    fun `prefers the longest matching pattern`() {
+        registry.register("p1", "/ocpi211/2.1.1/credentials", HttpMethod.GET, PluginEndpointHandler { PluginEndpointResponse(111) })
+        registry.register("p1", "/ocpi211/2.1.1/**", HttpMethod.GET, PluginEndpointHandler { PluginEndpointResponse(222) })
+
+        assertThat(registry.resolve("/ocpi211/2.1.1/credentials", HttpMethod.GET)!!.handler
+            .handle(PluginEndpointRequest("", HttpMethod.GET, emptyMap(), emptyMap(), null)).statusCode).isEqualTo(111)
+        assertThat(registry.resolve("/ocpi211/2.1.1/cdrs", HttpMethod.GET)!!.handler
+            .handle(PluginEndpointRequest("", HttpMethod.GET, emptyMap(), emptyMap(), null)).statusCode).isEqualTo(222)
     }
 
     @Test

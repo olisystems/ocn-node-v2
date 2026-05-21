@@ -1,5 +1,5 @@
 /*
-    Copyright 2019-2020 eMobility GmbH
+    Copyright 2026 OLI Systems GmbH
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -16,12 +16,10 @@
 
 package snc.openchargingnetwork.node.plugins.core
 
-/**
- * Immutable metadata for a loaded plugin.
- */
-data class PluginDescriptor(
-    val id: String,
-    val version: String,
-    val displayName: String? = null,
-    val source: String? = null
-)
+import snc.openchargingnetwork.node.models.ocpi.Version
+
+/** Plugin SPI: contribute additional OCPI versions to GET /ocpi/versions. */
+fun interface OcpiVersionContributor {
+
+    fun versions(): List<Version>
+}

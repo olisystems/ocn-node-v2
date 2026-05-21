@@ -7,15 +7,20 @@ import org.springframework.web.bind.annotation.*
 import snc.openchargingnetwork.node.components.OcpiRequestHandlerBuilder
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.ocpi.*
+import snc.openchargingnetwork.node.plugins.core.CustomModule
 import snc.openchargingnetwork.node.plugins.core.CustomModuleRequest
-import snc.openchargingnetwork.node.plugins.core.CustomModuleRegistry
 
 @RequestMapping("\${ocn.node.apiPrefix}/ocpi/custom/")
 @RestController
 class CustomModulesController(
     private val requestHandlerBuilder: OcpiRequestHandlerBuilder,
-    private val customModuleRegistry: CustomModuleRegistry
+    customModules: List<CustomModule>
 ) {
+
+    private val modulesById =
+            buildMap {
+                customModules.forEach { module -> putIfAbsent(module.moduleId().lowercase(), module) }
+            }
 
     @RequestMapping("{interfaceRole}/{module}", "/{interfaceRole}/{module}/**")
     fun customModuleMapping(
@@ -34,7 +39,7 @@ class CustomModulesController(
         request: HttpRequest
     ): ResponseEntity<OcpiResponse<Any>> {
 
-        val pluginHandler = customModuleRegistry.getHandler(module)
+        val pluginHandler = modulesById[module.lowercase()]
         if (pluginHandler != null) {
             val urlPath = try {
                 request.uri.toString().replace("/ocpi/custom/${interfaceRole}/${module}", "")

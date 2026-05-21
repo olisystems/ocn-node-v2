@@ -91,9 +91,8 @@ The project is primarily configured through environment variables. Common ones:
 
 Plugin runtime configuration:
 
-- `OCN_PLUGINS_DIR` (default: `plugins`)
-- `OCN_PLUGINS_FAIL_ON_LOAD_ERROR` (default: `true`)
-- `OCN_PLUGINS_INIT_TIMEOUT_MS` (default: `30000`)
+- `loader.path` / `-Dloader.path` (default: `plugins` in Docker and `bootRun`)
+- `OCN_PLUGINS_LOADER_PATH` (documented default directory name)
 
 ## Subgraph dependency
 

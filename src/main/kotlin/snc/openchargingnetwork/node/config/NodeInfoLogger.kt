@@ -20,12 +20,21 @@ import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import org.web3j.crypto.Credentials
+import snc.openchargingnetwork.node.plugins.core.CustomModule
+import snc.openchargingnetwork.node.plugins.core.OcpiProtocolAdapter
+import snc.openchargingnetwork.node.plugins.core.OcpiVersionContributor
+import snc.openchargingnetwork.node.plugins.core.PluginEndpointRegistry
 
 @Component
 class NodeInfoLogger(
         private val properties: NodeProperties,
         private val dataSourceProperties: DataSourceProperties,
-        private val registryIndexerProperties: RegistryIndexerProperties
+        private val registryIndexerProperties: RegistryIndexerProperties,
+        private val pluginProperties: PluginProperties,
+        private val endpointRegistry: PluginEndpointRegistry,
+        private val customModules: List<CustomModule>,
+        private val protocolAdapters: List<OcpiProtocolAdapter>,
+        private val versionContributors: List<OcpiVersionContributor>,
 ) {
 
     val hasPrivateKey = properties.privateKey != null
@@ -44,6 +53,7 @@ class NodeInfoLogger(
         val addressText = getAddressText()
         val stillAliveText = getStillAliveText()
         val hubClientInfoSyncText = getHubClientInfoSyncText()
+        val pluginsText = getPluginsText()
 
         println(
                 "\n${border.substring(0, 3)} NODE INFO ${border.substring(17)}\n" +
@@ -68,6 +78,12 @@ class NodeInfoLogger(
         )
 
         println(
+                "${border.substring(0, 3)} PLUGINS ${border.substring(15)}\n" +
+                        " LOADER PATH | ${pluginProperties.loaderPath}\n" +
+                        " $pluginsText\n"
+        )
+
+        println(
                 "${border.substring(0, 3)} DATABASE ${border.substring(16)}\n" +
                         " URL      | ${dataSourceProperties.url}\n" +
                         " USERNAME | ${dataSourceProperties.username}\n" +
@@ -82,7 +98,7 @@ class NodeInfoLogger(
                 when {
                     url >= apikey && url >= address -> url
                     apikey >= url && apikey >= address -> apikey
-                    address >= url && address >= apikey -> address
+                    address >= url && address >= address -> address
                     else -> 50
                 }
     }
@@ -111,4 +127,17 @@ class NodeInfoLogger(
             } else {
                 "false"
             }
+
+    private fun getPluginsText(): String {
+        val routes = endpointRegistry.listEndpoints().size
+        val modules = customModules.map { it.moduleId() }
+        val adapters = protocolAdapters.map { it.protocolVersion }
+        val versions = versionContributors.flatMap { it.versions() }.map { it.version }
+        return buildString {
+            append("PLUGIN ROUTES | $routes\n")
+            append(" CUSTOM MODULES | ${if (modules.isEmpty()) "none" else modules.joinToString(", ")}\n")
+            append(" PROTOCOL ADAPTERS | ${if (adapters.isEmpty()) "none" else adapters.joinToString(", ")}\n")
+            append(" EXTRA VERSIONS | ${if (versions.isEmpty()) "none" else versions.joinToString(", ")}")
+        }
+    }
 }
