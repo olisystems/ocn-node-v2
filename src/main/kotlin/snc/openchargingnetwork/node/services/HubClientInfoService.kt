@@ -188,14 +188,18 @@ class HubClientInfoService(
             changedClientInfo: ClientInfo
     ) {
         for (party in parties) {
-            val tokenB = platformRepo.findById(party.platformID).get().auth.tokenB
-            if (tokenB != null) {
+            try {
+                val platform = platformRepo.findById(party.platformID).get()
+                val authToken = platform.getReceiverAuthToken()
                 notifyPartyOfClientInfoChange(
                         party.partyID,
                         party.countryCode,
-                        tokenB,
+                        authToken,
                         changedClientInfo
                 )
+            } catch (e: Exception) {
+                // Skip parties where handshake is not complete (token is missing)
+                logger.warn("Skipping ClientInfo notification for party ${party.partyID}: ${e.message}")
             }
         }
     }

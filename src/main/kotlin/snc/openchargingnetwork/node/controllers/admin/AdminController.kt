@@ -147,10 +147,12 @@ class AdminController(
 
         val platform = if (body.handshakeSelfInitiated) {
             // self-initiated handshake: use provided tokenA, generate selfCredentialsToken, store versionsUrl
+            val selfCredentialsToken = generateUUIDv4Token().toBs64String()
             PlatformEntity(
                 auth = Auth(
                     tokenA = body.tokenA!!.toBs64String(),
-                    selfCredentialsToken = generateUUIDv4Token().toBs64String(),
+                    tokenB = selfCredentialsToken,
+                    selfCredentialsToken = selfCredentialsToken,
                     handshakeSelfInitiated = true
                 ),
                 versionsUrl = body.platformVersionsUrl

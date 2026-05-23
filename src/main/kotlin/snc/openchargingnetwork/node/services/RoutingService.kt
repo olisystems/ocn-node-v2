@@ -215,11 +215,12 @@ class RoutingService(
                     }
                 }
 
-        val tokenB = platformRepo.findById(platformID).get().auth.tokenB
+        val platform = platformRepo.findById(platformID).get()
+        val authToken = platform.getReceiverAuthToken()
 
         val headers =
                 request.headers.copy(
-                        authorization = "Token $tokenB",
+                        authorization = "Token $authToken",
                         requestID = generateUUIDv4Token(),
                 )
 

@@ -20,6 +20,7 @@ import jakarta.persistence.*
 import java.time.Instant
 import org.springframework.data.domain.AbstractAggregateRoot
 import snc.openchargingnetwork.node.models.events.*
+import snc.openchargingnetwork.node.models.exceptions.OcpiClientInvalidParametersException
 import snc.openchargingnetwork.node.models.ocpi.*
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
 import snc.openchargingnetwork.node.tools.getTimestamp
@@ -69,6 +70,22 @@ class PlatformEntity(
          */
         fun sendAllPartiesToNewlyConnectedParty(countryCode: String, partyId: String) {
                 registerEvent(PlatformSendAllPartiesDomainEvent(this, countryCode, partyId))
+        }
+
+        /**
+         * Returns the appropriate auth token to communicate with the platform based on who initiated the handshake.
+         * - When ocn-node initiated the handshake (handshakeSelfInitiated = false): returns TokenB (token created by receiver/platform)
+         * - When platform initiated the handshake (handshakeSelfInitiated = true): returns TokenC (token created by ocn-node)
+         *
+         * @return The auth token (stored in base64 format, returned as-is for use in HTTP Authorization headers)
+         * @throws OcpiClientInvalidParametersException if the expected token is null or empty
+         */
+        fun getReceiverAuthToken(): String {
+                return if (auth.handshakeSelfInitiated) {
+                    auth.tokenC?: throw OcpiClientInvalidParametersException("platform has no valid TokenC | Please complete the platform-initiated handshake first")    
+                } else {
+                    auth.tokenB?: throw OcpiClientInvalidParametersException("platform has no valid TokenB | Please complete the OCN Node-initiated handshake first")
+                }
         }
 }
 
