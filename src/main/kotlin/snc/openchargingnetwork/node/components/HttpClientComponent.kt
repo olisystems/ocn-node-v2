@@ -3,6 +3,7 @@ package snc.openchargingnetwork.node.components
 import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.core.JsonParseException
 import com.fasterxml.jackson.core.JsonProcessingException
+import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.JsonSerializer
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.databind.SerializerProvider
@@ -176,7 +177,8 @@ open class HttpClientComponent(private val properties: NodeProperties) {
                 url: String,
                 headers: Map<String, String?>,
                 queryParams: Map<String, Any?>? = null,
-                body: String? = null
+                body: String? = null,
+                typeClass: Class<T>? = null
         ): OcpiHttpResponse<T> {
                 val stringHeaders = headers.mapValues { (_, value) -> value.toString() }
                 val stringQueryParams =
@@ -196,13 +198,27 @@ open class HttpClientComponent(private val properties: NodeProperties) {
                         logger.info(
                                 "HTTP Response - Status: ${response.statusCode.value}, Body: ${response.body.take(500)}"
                         )
+                        // Construct the proper type for OcpiResponse<T>
+                        val typeFactory = mapper.typeFactory
+                        val innerType = if (typeClass != null) {
+                                typeFactory.constructType(typeClass)
+                        } else {
+                                typeFactory.constructType(object : TypeReference<T>() {})
+                        }
+                        val responseType =
+                                typeFactory.constructParametricType(
+                                        OcpiResponse::class.java,
+                                        innerType
+                                )
+                        val parsedBody: OcpiResponse<T> =
+                                mapper.readValue(response.body, responseType)
                         return OcpiHttpResponse(
                                 statusCode = response.statusCode.value,
                                 headers =
                                         response.headers.toMap().mapValues { (_, value) ->
                                                 value.toString()
                                         },
-                                body = mapper.readValue(response.body),
+                                body = parsedBody,
                         )
                 } catch (e: JsonParseException) {
                         val toCountry = stringHeaders["OCPI-to-country-code"] ?: "UNKNOWN"
@@ -296,7 +312,12 @@ open class HttpClientComponent(private val properties: NodeProperties) {
                                 properties.logCurlCommands
                         )
 
-                        val response = sendHttpRequest(endpoint = url, method = HttpMethod.GET, headers = headers)
+                        val response =
+                                sendHttpRequest(
+                                        endpoint = url,
+                                        method = HttpMethod.GET,
+                                        headers = headers
+                                )
 
                         val body: OcpiResponse<List<Version>> = mapper.readValue(response.body)
 
@@ -397,7 +418,12 @@ open class HttpClientComponent(private val properties: NodeProperties) {
                                 properties.logCurlCommands
                         )
 
-                        val response = sendHttpRequest(endpoint = url, method = HttpMethod.GET, headers = headers)
+                        val response =
+                                sendHttpRequest(
+                                        endpoint = url,
+                                        method = HttpMethod.GET,
+                                        headers = headers
+                                )
 
                         val body: OcpiResponse<VersionDetail> = mapper.readValue(response.body)
 

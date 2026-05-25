@@ -170,12 +170,13 @@ class AdminController(
                             url = credentialsEndpoint.url,
                             headers =
                                     mapOf(
-                                            "Authorization" to "Token ${tokenA.fromBs64String()}",
+                                            "Authorization" to "Token ${tokenA}",
                                             "Content-Type" to "application/json",
                                             "X-Request-ID" to generateUUIDv4Token(),
                                             "X-Correlation-ID" to generateUUIDv4Token()
                                     ),
-                            body = httpClientComponent.mapper.writeValueAsString(credentialsPayload)
+                            body = httpClientComponent.mapper.writeValueAsString(credentialsPayload),
+                            typeClass = Credentials::class.java
                     )
 
             // Check response

@@ -91,6 +91,8 @@ fabric.properties
 
 .vscode/
 .editorconfig
+
+.windsurf/
 ### Kotlin ###
 # Compiled class file
 *.class
