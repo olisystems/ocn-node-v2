@@ -80,13 +80,23 @@ class PlatformEntity(
          * @return The auth token (stored in base64 format, returned as-is for use in HTTP Authorization headers)
          * @throws OcpiClientInvalidParametersException if the expected token is null or empty
          */
-        fun getReceiverAuthToken(): String {
+        fun getAuthTokenToVerifyReceivedRequest(): String {
+                return if (auth.handshakeSelfInitiated) {
+                    auth.tokenB?: throw OcpiClientInvalidParametersException("platform has no valid TokenB | Please complete the OCN Node-initiated handshake first")
+                } else {
+                    auth.tokenC?: throw OcpiClientInvalidParametersException("platform has no valid TokenC | Please complete the platform-initiated handshake first")    
+                }
+        }
+        
+        fun getAuthTokenToIncludeInRequestHeader(): String {
                 return if (auth.handshakeSelfInitiated) {
                     auth.tokenC?: throw OcpiClientInvalidParametersException("platform has no valid TokenC | Please complete the platform-initiated handshake first")    
                 } else {
                     auth.tokenB?: throw OcpiClientInvalidParametersException("platform has no valid TokenB | Please complete the OCN Node-initiated handshake first")
                 }
         }
+       
+
 }
 
 /**

@@ -29,8 +29,10 @@ import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.entities.Auth
 import snc.openchargingnetwork.node.models.entities.EndpointEntity
 import snc.openchargingnetwork.node.models.entities.PlatformEntity
+import snc.openchargingnetwork.node.models.entities.RoleEntity
 import snc.openchargingnetwork.node.models.ocpi.ConnectionStatus
 import snc.openchargingnetwork.node.models.ocpi.Credentials
+import snc.openchargingnetwork.node.models.ocpi.CredentialsRole
 import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
 import snc.openchargingnetwork.node.models.ocpi.OcpiStatus
 import snc.openchargingnetwork.node.models.ocpi.RegistrationInfo
@@ -162,7 +164,8 @@ class AdminController(
             // Step 6: Build credentials payload with tokenB
             val credentialsPayload = credentialsService.myCredentials(tokenB.fromBs64String())
 
-            // Step 7: Call platform-whitelabel's credentials POST with tokenA in header, tokenB in
+            // Step 7: Call platform-whitelabel's credentials POST with tokenA in
+            // header, tokenB in
             // body
             val credentialsResponse =
                     httpClientComponent.makeOcpiRequest<Credentials>(
@@ -175,7 +178,10 @@ class AdminController(
                                             "X-Request-ID" to generateUUIDv4Token(),
                                             "X-Correlation-ID" to generateUUIDv4Token()
                                     ),
-                            body = httpClientComponent.mapper.writeValueAsString(credentialsPayload),
+                            body =
+                                    httpClientComponent.mapper.writeValueAsString(
+                                            credentialsPayload
+                                    ),
                             typeClass = Credentials::class.java
                     )
 
@@ -207,6 +213,33 @@ class AdminController(
             platform.status = ConnectionStatus.CONNECTED
             platform.lastUpdated = getTimestamp()
             platformRepo.save(platform)
+
+            // Step 11: Save roles from credentials response
+            val roles =
+                    receivedCredentials.roles.map { role: CredentialsRole ->
+                        RoleEntity(
+                                platformID = platform.id!!,
+                                role = role.role,
+                                businessDetails = role.businessDetails,
+                                partyID = role.partyID,
+                                countryCode = role.countryCode
+                        )
+                    }
+            roleRepo.saveAll(roles)
+
+            // Step 12: Save endpoints from version details
+            for (endpoint in versionDetail.endpoints) {
+                endpointRepo.save(
+                        EndpointEntity(
+                                platformID = platform.id!!,
+                                identifier = endpoint.identifier,
+                                role = endpoint.role,
+                                url = endpoint.url
+                        )
+                )
+            }
+
+            logger.info("Handshake completed successfully. Platform status: CONNECTED")
 
             return ResponseEntity.status(HttpStatus.OK)
                     .body("Handshake completed successfully. Platform status: CONNECTED")
@@ -286,7 +319,8 @@ class AdminController(
 
         val platform =
                 if (body.handshakeSelfInitiated) {
-                    // self-initiated handshake: use provided tokenA, generate selfCredentialsToken,
+                    // self-initiated handshake: use provided tokenA, generate
+                    // selfCredentialsToken,
                     // store versionsUrl
                     val selfCredentialsToken = generateUUIDv4Token().toBs64String()
                     PlatformEntity(
@@ -387,7 +421,8 @@ class AdminController(
                         .firstOrNull()
                         ?: return ResponseEntity.ok().body(null)
 
-        // if role exists platform is suposed to be there too, that is why the error message in this
+        // if role exists platform is suposed to be there too, that is why the error message
+        // in this
         // case
         val platform =
                 platformRepo.findByIdOrNull(role.platformID)
