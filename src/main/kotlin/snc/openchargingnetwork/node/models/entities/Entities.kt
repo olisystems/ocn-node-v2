@@ -82,10 +82,18 @@ class PlatformEntity(
          */
         fun getAuthTokenToIncludeInRequestHeader(): String {
                 return if (auth.handshakeSelfInitiated) {
-                    auth.tokenB?: throw OcpiClientInvalidParametersException("platform has no valid TokenB | Please complete the OCN Node-initiated handshake first")
-                } else {
-                    auth.tokenC?: throw OcpiClientInvalidParametersException("platform has no valid TokenC | Please complete the platform-initiated handshake first")
+                     auth.tokenC?: throw OcpiClientInvalidParametersException("platform has no valid TokenC | Please complete the platform-initiated handshake first")
+                   } else {
+                     auth.tokenB?: throw OcpiClientInvalidParametersException("platform has no valid TokenB | Please complete the OCN Node-initiated handshake first")
                 }
+        }
+
+         fun getAuthTokenToVerifyReceivedRequest(): String {
+                return if (auth.handshakeSelfInitiated) {
+                      auth.tokenB?: throw OcpiClientInvalidParametersException("platform has no valid TokenB | Please complete the OCN Node-initiated handshake first")
+                    } else {
+                     auth.tokenC?: throw OcpiClientInvalidParametersException("platform has no valid TokenC | Please complete the platform-initiated handshake first")
+                    }
         }
 
 }

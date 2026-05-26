@@ -105,7 +105,7 @@ class RoutingService(
         val platform = platformRepo.findByAuth_TokenC(token)
                 ?: platformRepo.findByAuth_TokenB(token)
                 ?: throw OcpiClientInvalidParametersException("Invalid authorization token")
-        if (platform.getAuthTokenToIncludeInRequestHeader() != token) {
+        if (platform.getAuthTokenToVerifyReceivedRequest() != token) {
             throw OcpiClientInvalidParametersException("Invalid authorization token")
         }
     }
@@ -119,7 +119,7 @@ class RoutingService(
         val senderPlatform = platformRepo.findByAuth_TokenC(token)
                 ?: platformRepo.findByAuth_TokenB(token)
                 ?: throw OcpiClientInvalidParametersException("Invalid authorization token")
-        if (senderPlatform.getAuthTokenToIncludeInRequestHeader() != token) {
+        if (senderPlatform.getAuthTokenToVerifyReceivedRequest() != token) {
             throw OcpiClientInvalidParametersException("Invalid authorization token")
         }
 
