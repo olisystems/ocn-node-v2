@@ -190,7 +190,7 @@ class HubClientInfoService(
         for (party in parties) {
             try {
                 val platform = platformRepo.findById(party.platformID).get()
-                val authToken = platform.getReceiverAuthToken()
+                val authToken = platform.getAuthTokenToIncludeInRequestHeader()
                 notifyPartyOfClientInfoChange(
                         party.partyID,
                         party.countryCode,
