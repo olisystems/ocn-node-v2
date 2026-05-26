@@ -21,7 +21,7 @@ Plugins extend the node with custom HTTP endpoints, custom OCPI modules, and OCP
    ```
    Or:
    ```bash
-   java -Dloader.path=plugins -jar build/libs/ocn-node-ocn-v2.jar
+   java -Dloader.path=plugins -jar build/libs/node-ocn-v2.jar
    ```
 4. Call the example plugin endpoint:
    ```bash
@@ -62,8 +62,6 @@ class MyController {
     fun handle() = ResponseEntity.ok("...")
 }
 ```
-
-For route tables built in code (many dynamic paths), you can still inject `PluginEndpointRegistry` and register handlers at `@PostConstruct` (see the OCPI 2.1.1 adapter plugin).
 
 ### 3. Custom OCPI modules
 
@@ -132,6 +130,21 @@ Plugin JAR references a class not on the node classpath or in the plugin JAR. Ad
 - JAR is under the directory passed to `loader.path`
 - `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` lists your `@Configuration` class
 - Check startup logs under **PLUGINS** in the node banner
+
+### Plugin HTTP routes return 404 (`/plugin/edx/...`)
+
+The route exists in the plugin JAR, but Spring never registered the `@RestController`. Common causes:
+
+1. **`loader.path` not applied** — only `PropertiesLauncher` (fat JAR + `-Dloader.path=plugins`) or `bootRun` with plugin JARs on the classpath loads plugins. Running `ApplicationKt` from the IDE without plugin JARs on the classpath gives 404.
+2. **DevTools restart** — a restarted dev process can drop `PropertiesLauncher` and ignore `loader.path`. `bootRun` disables restart and puts plugin JARs on the classpath; restart the node after changing plugins.
+3. **EDX beans missing** — `EdxIngestedCdrController` needs `CdrServiceClient` (`edx.cdr.service.baseUrl` in `local` / `local-custom`). Without it, auto-config does not register CDR/CO₂ controllers.
+
+Verify after restart:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:9999/ocn-v2/plugin/edx/cdrs
+# expect 200 (or 502 if CDR service is down), not 404
+```
 
 ### Custom module not invoked
 

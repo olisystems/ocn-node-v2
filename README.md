@@ -157,4 +157,4 @@ Run both (integration tests also run automatically in CI):
 ## Notes
 
 - This README intentionally focuses on the current fork and local developer workflow.
-- For plugin authoring, SPI setup, collisions, and troubleshooting, use `PLUGINS.md`.
+- For plugin authoring, auto-configuration setup, and troubleshooting, use `PLUGINS.md`.

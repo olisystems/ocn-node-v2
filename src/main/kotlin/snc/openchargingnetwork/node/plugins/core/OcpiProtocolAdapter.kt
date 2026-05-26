@@ -21,8 +21,8 @@ import snc.openchargingnetwork.node.models.ocpi.ModuleID
 import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
 
 /**
- * Plugin SPI: translate OCPI request/response bodies for platforms using a non-native protocol
- * version (e.g. 2.1.1).
+ * Plugin extension: translate OCPI request/response bodies for platforms using a non-native protocol
+ * version (e.g. 2.1.1). Implement as a Spring bean; the node injects all implementations.
  */
 interface OcpiProtocolAdapter {
 

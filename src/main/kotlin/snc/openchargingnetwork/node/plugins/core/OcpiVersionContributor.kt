@@ -18,7 +18,7 @@ package snc.openchargingnetwork.node.plugins.core
 
 import snc.openchargingnetwork.node.models.ocpi.Version
 
-/** Plugin SPI: contribute additional OCPI versions to GET /ocpi/versions. */
+/** Plugin extension: contribute additional OCPI versions to GET /ocpi/versions. Register as a Spring bean. */
 fun interface OcpiVersionContributor {
 
     fun versions(): List<Version>

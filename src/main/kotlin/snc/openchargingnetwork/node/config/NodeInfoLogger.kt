@@ -20,18 +20,16 @@ import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import org.web3j.crypto.Credentials
+import java.io.File
 import snc.openchargingnetwork.node.plugins.core.CustomModule
 import snc.openchargingnetwork.node.plugins.core.OcpiProtocolAdapter
 import snc.openchargingnetwork.node.plugins.core.OcpiVersionContributor
-import snc.openchargingnetwork.node.plugins.core.PluginEndpointRegistry
-
 @Component
 class NodeInfoLogger(
         private val properties: NodeProperties,
         private val dataSourceProperties: DataSourceProperties,
         private val registryIndexerProperties: RegistryIndexerProperties,
         private val pluginProperties: PluginProperties,
-        private val endpointRegistry: PluginEndpointRegistry,
         private val customModules: List<CustomModule>,
         private val protocolAdapters: List<OcpiProtocolAdapter>,
         private val versionContributors: List<OcpiVersionContributor>,
@@ -129,12 +127,18 @@ class NodeInfoLogger(
             }
 
     private fun getPluginsText(): String {
-        val routes = endpointRegistry.listEndpoints().size
         val modules = customModules.map { it.moduleId() }
         val adapters = protocolAdapters.map { it.protocolVersion }
         val versions = versionContributors.flatMap { it.versions() }.map { it.version }
+        val jars =
+            File(pluginProperties.loaderPath)
+                .listFiles()
+                ?.filter { it.isFile && it.name.endsWith(".jar") }
+                ?.map { it.name }
+                ?.sorted()
+                .orEmpty()
         return buildString {
-            append("PLUGIN ROUTES | $routes\n")
+            append("PLUGIN JARS | ${if (jars.isEmpty()) "none" else jars.joinToString(", ")}\n")
             append(" CUSTOM MODULES | ${if (modules.isEmpty()) "none" else modules.joinToString(", ")}\n")
             append(" PROTOCOL ADAPTERS | ${if (adapters.isEmpty()) "none" else adapters.joinToString(", ")}\n")
             append(" EXTRA VERSIONS | ${if (versions.isEmpty()) "none" else versions.joinToString(", ")}")
