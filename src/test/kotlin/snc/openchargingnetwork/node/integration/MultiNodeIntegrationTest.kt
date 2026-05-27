@@ -72,14 +72,14 @@ class MultiNodeIntegrationTest : BaseIntegrationTest() {
     val headers = HttpHeaders()
     headers.set("Authorization", "Token $b64ode1ApiKey")
     headers.set("Content-Type", "application/json")
-    val createPlatformRequest = mapOf("roles" to listOf(mapOf("id" to "OLI", "country" to "DE")))
+    val createPlatformRequest = mapOf("handshakeSelfInitiated" to false)
     val body = objectMapper.writeValueAsString(createPlatformRequest)
     val entity = HttpEntity<String>(body, headers)
 
     // Make authenticated request to node1
     val response: ResponseEntity<String> =
             restTemplate.exchange(
-                    "$node1Url/ocn-v2/admin/create-platform",
+                    "$node1Url/ocn-v2/admin/platform",
                     HttpMethod.POST,
                     entity,
                     String::class.java
