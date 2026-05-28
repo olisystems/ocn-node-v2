@@ -433,7 +433,7 @@ class AdminController(
         return ResponseEntity.ok().body(endpoints)
     }
 
-    @DeleteMapping("/party/{countryCode}/{partyID}")
+    @DeleteMapping("/platform-by-party/{countryCode}/{partyID}")
     @Transactional
     fun deleteParty(
             @RequestHeader("Authorization") authorization: String,
@@ -509,26 +509,55 @@ class AdminController(
 
         val platform = platformRepo.findByIdOrNull(platformId.toLong())
         return if (platform != null) {
-            var responseMessage = ""
-
-            // 1) delete endpoints (depend on platform)
-            endpointRepo.deleteByPlatformID(platform.id)
-            responseMessage = "Endpoints deleted successfully"
-
-            // 2) delete ALL roles for this platform
-            roleRepo.deleteByPlatformID(platform.id)
-            responseMessage =
-                    if (responseMessage.isBlank()) "Roles deleted successfully"
-                    else "$responseMessage | Roles deleted successfully"
-
-            // 3) delete platform (after all dependents removed)
-            platformRepo.delete(platform)
-            responseMessage += " | Platform deleted successfully"
-
-            ResponseEntity.ok().body(responseMessage)
+            ResponseEntity.ok().body(deletePlatformWithDependents(platform))
         } else {
             ResponseEntity.status(HttpStatus.NOT_FOUND).body("Platform not found")
         }
+    }
+
+    @DeleteMapping("/unused-platforms")
+    @Transactional
+    fun deleteUnusedPlatforms(
+            @RequestHeader("Authorization") authorization: String
+    ): ResponseEntity<Any> {
+
+        // check admin is authorized
+        if (!isAuthorized(authorization)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid admin / api key")
+        }
+
+        val unusedPlatforms = platformRepo.findAll().filter { platform ->
+            roleRepo.findAllByPlatformID(platform.id).none()
+        }
+
+        if (unusedPlatforms.isEmpty()) {
+            return ResponseEntity.ok().body("No unused platforms found")
+        }
+
+        val deleted = unusedPlatforms.map { platform ->
+            val summary = deletePlatformWithDependents(platform)
+            mapOf("platformId" to platform.id, "summary" to summary)
+        }
+
+        return ResponseEntity.ok().body(
+                mapOf(
+                        "deletedCount" to deleted.size,
+                        "platforms" to deleted
+                )
+        )
+    }
+
+    private fun deletePlatformWithDependents(platform: PlatformEntity): String {
+        // 1) delete endpoints (depend on platform)
+        endpointRepo.deleteByPlatformID(platform.id)
+
+        // 2) delete all roles for this platform
+        roleRepo.deleteByPlatformID(platform.id)
+
+        // 3) delete platform (after all dependents removed)
+        platformRepo.delete(platform)
+
+        return "Platform ${platform.id} deleted (endpoints + roles removed)"
     }
 
     @GetMapping("/platforms")

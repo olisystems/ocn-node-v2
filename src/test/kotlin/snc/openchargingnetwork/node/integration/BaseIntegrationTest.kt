@@ -2,6 +2,8 @@ package snc.openchargingnetwork.node.integration
 
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.parallel.Execution
+import org.junit.jupiter.api.parallel.ExecutionMode
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.TestPropertySource
@@ -16,6 +18,7 @@ import snc.openchargingnetwork.node.Application
  * - Provides access to the OCN node test helper
  * - Ensures proper cleanup after each test
  */
+@Execution(ExecutionMode.SAME_THREAD)
 @SpringBootTest(
         classes = [Application::class, IntegrationTestConfig::class, MockRegistryConfig::class],
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT

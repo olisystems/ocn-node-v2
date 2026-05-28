@@ -101,8 +101,12 @@ class RoutingService(
 
     /** Check sender is known to this node using only the authorization header token */
     fun checkSenderKnown(authorization: String) {
-        if (!platformRepo.existsByAuth_TokenC(authorization.extractToken())) {
-            throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_C")
+        val token = authorization.extractToken()
+        val platform = platformRepo.findByAuth_TokenC(token)
+                ?: platformRepo.findByAuth_TokenB(token)
+                ?: throw OcpiClientInvalidParametersException("Invalid authorization token")
+        if (platform.getAuthTokenToVerifyReceivedRequest() != token) {
+            throw OcpiClientInvalidParametersException("Invalid authorization token")
         }
     }
 
@@ -111,11 +115,13 @@ class RoutingService(
      * sender
      */
     fun checkSenderKnown(authorization: String, sender: BasicRole) {
-
-        // sender platform exists by auth token
-        val senderPlatform =
-                platformRepo.findByAuth_TokenC(authorization.extractToken())
-                        ?: throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_C")
+        val token = authorization.extractToken()
+        val senderPlatform = platformRepo.findByAuth_TokenC(token)
+                ?: platformRepo.findByAuth_TokenB(token)
+                ?: throw OcpiClientInvalidParametersException("Invalid authorization token")
+        if (senderPlatform.getAuthTokenToVerifyReceivedRequest() != token) {
+            throw OcpiClientInvalidParametersException("Invalid authorization token")
+        }
 
         // role exists on registered platform
         if (!roleRepo.existsByPlatformIDAndCountryCodeAndPartyIDAllIgnoreCase(
@@ -216,7 +222,7 @@ class RoutingService(
                 }
 
         val platform = platformRepo.findById(platformID).get()
-        val authToken = platform.getReceiverAuthToken()
+        val authToken = platform.getAuthTokenToIncludeInRequestHeader()
 
         val headers =
                 request.headers.copy(

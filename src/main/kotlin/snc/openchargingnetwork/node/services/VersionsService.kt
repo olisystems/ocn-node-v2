@@ -17,7 +17,7 @@ class VersionsService(
     fun getPartyVersions(toCountryCode: String, toPartyID: String): Pair<Boolean, List<Version>> {
         val platform = this.getLocalPlatform(toCountryCode, toPartyID);
         if(platform !== null) {
-            val authToken = platform.getReceiverAuthToken()
+            val authToken = platform.getAuthTokenToIncludeInRequestHeader()
             return true to httpClientComponent.getVersions(platform.versionsUrl!!, authToken);
         }
         return false to listOf();

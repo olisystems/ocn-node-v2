@@ -201,10 +201,39 @@ class RoutingServiceTest(
     }
 
     @Test
-    fun `checkSenderKnown should not throw for valid authorization`() {
+    fun `checkSenderKnown should not throw for valid authorization when handshakeSelfInitiated is false`() {
+        // handshakeSelfInitiated=false → getAuthTokenToVerifyReceivedRequest returns tokenC
         val authorization = "Token test-token-c"
 
         routingService.checkSenderKnown(authorization)
+        // If no exception is thrown, the test passes
+    }
+
+    @Test
+    fun `checkSenderKnown should not throw for valid authorization when handshakeSelfInitiated is true`() {
+        // handshakeSelfInitiated=true → getAuthTokenToVerifyReceivedRequest returns tokenB
+        val selfInitiatedPlatform = platformRepository.save(
+            PlatformEntity(
+                status = snc.openchargingnetwork.node.models.ocpi.ConnectionStatus.CONNECTED,
+                auth = Auth(
+                    tokenA = "self-token-a",
+                    tokenB = "self-token-b",
+                    tokenC = "self-token-c",
+                    handshakeSelfInitiated = true
+                )
+            )
+        )
+        roleRepository.save(
+            RoleEntity(
+                platformID = selfInitiatedPlatform.id!!,
+                role = snc.openchargingnetwork.node.models.ocpi.Role.CPO,
+                businessDetails = snc.openchargingnetwork.node.models.ocpi.BusinessDetails(name = "Self", website = "https://self.com"),
+                partyID = "SLF",
+                countryCode = "DE"
+            )
+        )
+
+        routingService.checkSenderKnown("Token self-token-b")
         // If no exception is thrown, the test passes
     }
 
@@ -218,7 +247,16 @@ class RoutingServiceTest(
     }
 
     @Test
-    fun `checkSenderKnown with role should not throw for valid sender`() {
+    fun `checkSenderKnown should throw exception when wrong token type is presented`() {
+        // handshakeSelfInitiated=false → tokenC is expected; tokenB should be rejected
+        assertThrows<OcpiClientInvalidParametersException> {
+            routingService.checkSenderKnown("Token test-token-b")
+        }
+    }
+
+    @Test
+    fun `checkSenderKnown with role should not throw for valid sender when handshakeSelfInitiated is false`() {
+        // handshakeSelfInitiated=false → getAuthTokenToVerifyReceivedRequest returns tokenC
         val authorization = "Token test-token-c"
         val sender = BasicRole("TST", "DE") // Same as testRole
 

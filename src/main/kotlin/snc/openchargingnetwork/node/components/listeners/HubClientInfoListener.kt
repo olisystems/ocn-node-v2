@@ -118,7 +118,7 @@ class HubClientInfoListener(
     private fun sendAllPartiesToNewlyConnectedParty(newlyConnectedPlatform: PlatformEntity, partyId: String, countryCode:  String) {
             val allRegisteredParties = hubClientInfoService.getAllRegisteredParties();
             val authToken = try {
-                newlyConnectedPlatform.getReceiverAuthToken()
+                newlyConnectedPlatform.getAuthTokenToIncludeInRequestHeader()
             } catch (e: Exception) {
                 logger.warn("Cannot send parties to newly connected platform: ${e.message}")
                 return
