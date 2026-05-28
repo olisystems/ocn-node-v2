@@ -103,38 +103,39 @@ class AdminController(
     fun startHandshake(
             @RequestHeader("Authorization") authorization: String,
             @PathVariable platformId: Long
-    ): ResponseEntity<String> {
+    ): ResponseEntity<Any> {
         // Log request
         logger.info("Starting handshake for platform: $platformId")
 
         // Check authorization
         if (!isAuthorized(authorization)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid Authorization")
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(mapOf("error" to "Invalid Authorization"))
         }
 
         // Get the platform
         val platform =
                 platformRepo.findByIdOrNull(platformId)
                         ?: return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                                .body("Platform not found")
+                                .body(mapOf("error" to "Platform not found"))
 
         // Verify platform was created with handshakeSelfInitiated=true
         if (!platform.auth.handshakeSelfInitiated) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("Platform was not created with handshakeSelfInitiated=true")
+                    .body(mapOf("error" to "Platform was not created with handshakeSelfInitiated=true"))
         }
 
         // Verify versionsUrl is set
         val versionsUrl =
                 platform.versionsUrl
                         ?: return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                .body("Platform has no versionsUrl set")
+                                .body(mapOf("error" to "Platform has no versionsUrl set"))
 
         // Get tokenA
         val tokenA =
                 platform.auth.tokenA
                         ?: return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                .body("Platform has no tokenA")
+                                .body(mapOf("error" to "Platform has no tokenA"))
 
         try {
             // Step 1: Call platform-whitelabel's versions endpoint with tokenA
@@ -144,7 +145,7 @@ class AdminController(
             val targetVersion =
                     versions.firstOrNull { it.version == "2.2.1" || it.version == "2.2" }
                             ?: return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                    .body("No compatible OCPI version found")
+                                    .body(mapOf("error" to "No compatible OCPI version found"))
 
             // Step 3: Get version details
             val versionDetail =
@@ -154,13 +155,13 @@ class AdminController(
             val credentialsEndpoint =
                     versionDetail.endpoints.find { it.identifier == "credentials" }
                             ?: return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                    .body("No credentials endpoint found")
+                                    .body(mapOf("error" to "No credentials endpoint found"))
 
             // Step 5: Get existing tokenB (self_credentials_token)
             val tokenB =
                     platform.auth.selfCredentialsToken
                             ?: return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                    .body("Platform has no selfCredentialsToken")
+                                    .body(mapOf("error" to "Platform has no selfCredentialsToken"))
 
             // Step 6: Build credentials payload with tokenB
             val credentialsPayload = credentialsService.myCredentials(tokenB.fromBs64String())
@@ -189,14 +190,14 @@ class AdminController(
             // Check response
             if (credentialsResponse.body?.statusCode != 1000) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body("Credentials POST failed: ${credentialsResponse.body?.statusMessage}")
+                        .body(mapOf("error" to "Credentials POST failed: ${credentialsResponse.body?.statusMessage}"))
             }
 
             // Step 8: Extract tokenC from response
             val receivedCredentials =
                     credentialsResponse.body?.data
                             ?: return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                    .body("No credentials data in response")
+                                    .body(mapOf("error" to "No credentials data in response"))
             val tokenCPlain = receivedCredentials.token
             val tokenC = receivedCredentials.token.toBs64String()
 
@@ -243,10 +244,14 @@ class AdminController(
             logger.info("Handshake completed successfully. Platform status: CONNECTED")
 
             return ResponseEntity.status(HttpStatus.OK)
-                    .body("Handshake completed successfully. Platform status: CONNECTED")
+                    .body(mapOf(
+                            "message" to "Handshake completed successfully. Platform status: CONNECTED",
+                            "token_c" to tokenCPlain,
+                            "base64_token_c" to "Token ${tokenC}"
+                    ))
         } catch (e: Exception) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Handshake failed: ${e.message}")
+                    .body(mapOf("error" to "Handshake failed: ${e.message}"))
         }
     }
 
