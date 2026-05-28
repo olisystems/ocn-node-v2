@@ -1,0 +1,51 @@
+name: Update Prod Tag
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-and-push:
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build and push
+        uses: olisystems/actions/docker/build-push@main
+        with:
+          image: swr.eu-de.otc.t-systems.com/oli_banula/ocnnodev2
+          tags: ${{ github.ref_name }}
+          registry-username: ${{ secrets.OTC_USERNAME }}
+          registry-password: ${{ secrets.OTC_PASSWORD }}
+
+  update-prod:
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: self-hosted
+    needs: build-and-push
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup yq
+        uses: olisystems/actions/yq/setup@main
+
+      - name: Update Argo app
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          yq -i '.spec.source.targetRevision = env(TAG)' infra/argo/prod.yaml
+          yq -i '(.spec.source.helm.parameters[] | select(.name == "oli-app.image.tag")).value = env(TAG)' infra/argo/prod.yaml
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add infra/argo/prod.yaml
+          git commit -m "chore: update prod to ${{ github.ref_name }}"
+          git push

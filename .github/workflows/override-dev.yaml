@@ -1,0 +1,51 @@
+name: Override Dev
+
+on:
+  workflow_dispatch:
+
+jobs:
+  prepare:
+    name: Prepare
+    runs-on: self-hosted
+    outputs:
+      short_sha: ${{ steps.sha.outputs.short_sha }}
+    steps:
+      - name: Calculate short SHA
+        id: sha
+        run: echo "short_sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+  override-dev:
+    name: Override Dev
+    needs: prepare
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build and push
+        uses: olisystems/actions/docker/build-push@main
+        with:
+          image: swr.eu-de.otc.t-systems.com/oli_banula/ocnnodev2
+          tags: latest,${{ github.ref_name }},develop-${{ needs.prepare.outputs.short_sha }},${{ needs.prepare.outputs.short_sha }}
+          registry-username: ${{ secrets.OTC_USERNAME }}
+          registry-password: ${{ secrets.OTC_PASSWORD }}
+
+      - name: Connect to VPN
+        uses: olisystems/actions/vpn/connect@main
+        with:
+          vpn-config: ${{ secrets.VPN_CONFIG }}
+          vpn-pass: ${{ secrets.VPN_PASS }}
+
+      - name: Configure kubectl
+        uses: olisystems/actions/kubectl/config@main
+        with:
+          kubeconfig: ${{ secrets.KUBECONFIG_DEV_INT }}
+
+      - name: Point ArgoCD dev app to feature branch
+        run: |
+          kubectl patch application ocn-node-v2-dev -n argocd --type merge -p '{"spec":{"source":{"targetRevision":"${{ github.ref_name }}","helm":{"parameters":[{"name":"oli-app.image.tag","value":"develop-${{ needs.prepare.outputs.short_sha }}"}]}}}}'
+
+      - name: Disconnect VPN
+        if: always()
+        uses: olisystems/actions/vpn/disconnect@main

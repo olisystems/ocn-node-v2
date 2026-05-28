@@ -1,0 +1,80 @@
+name: Build Image
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  prepare:
+    name: Prepare
+    runs-on: self-hosted
+    outputs:
+      short_sha: ${{ steps.sha.outputs.short_sha }}
+    steps:
+      - name: Calculate short SHA
+        id: sha
+        run: echo "short_sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+  build-and-push:
+    needs: prepare
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build and push
+        uses: olisystems/actions/docker/build-push@main
+        with:
+          image: swr.eu-de.otc.t-systems.com/oli_banula/ocnnodev2
+          tags: latest,${{ github.ref_name }},${{ github.ref_name }}-${{ needs.prepare.outputs.short_sha }},${{ needs.prepare.outputs.short_sha }}
+          registry-username: ${{ secrets.OTC_USERNAME }}
+          registry-password: ${{ secrets.OTC_PASSWORD }}
+
+      - name: Setup yq
+        uses: olisystems/actions/yq/setup@main
+
+      - name: Update image tag in values file
+        env:
+          TAG: ${{ github.ref_name }}-${{ needs.prepare.outputs.short_sha }}
+        run: |
+          if [ "${{ github.ref_name }}" = "develop" ]; then
+            yq -i '.oli-app.image.tag = env(TAG)' infra/helm/values.dev.yaml
+          elif [ "${{ github.ref_name }}" = "main" ]; then
+            yq -i '.oli-app.image.tag = env(TAG)' infra/helm/values.int.yaml
+          fi
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add infra/helm/
+          git commit -m "chore: update ${{ github.ref_name }} image to ${{ github.ref_name }}-${{ needs.prepare.outputs.short_sha }} [skip ci]"
+          git push
+
+      - name: Connect to VPN
+        if: github.ref_name == 'develop'
+        uses: olisystems/actions/vpn/connect@main
+        with:
+          vpn-config: ${{ secrets.VPN_CONFIG }}
+          vpn-pass: ${{ secrets.VPN_PASS }}
+
+      - name: Configure kubectl
+        if: github.ref_name == 'develop'
+        uses: olisystems/actions/kubectl/config@main
+        with:
+          kubeconfig: ${{ secrets.KUBECONFIG_DEV_INT }}
+
+      - name: Reset ArgoCD dev app to develop
+        if: github.ref_name == 'develop'
+        run: |
+          kubectl patch application ocn-node-v2-dev -n argocd --type merge -p '{"spec":{"source":{"targetRevision":"develop","helm":{"parameters":null}}}}'
+
+      - name: Disconnect VPN
+        if: always() && github.ref_name == 'develop'
+        uses: olisystems/actions/vpn/disconnect@main
