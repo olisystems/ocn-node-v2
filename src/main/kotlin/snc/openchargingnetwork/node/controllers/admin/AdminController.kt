@@ -33,6 +33,7 @@ import snc.openchargingnetwork.node.models.entities.RoleEntity
 import snc.openchargingnetwork.node.models.ocpi.ConnectionStatus
 import snc.openchargingnetwork.node.models.ocpi.Credentials
 import snc.openchargingnetwork.node.models.ocpi.CredentialsRole
+import snc.openchargingnetwork.node.models.ocpi.InterfaceRole
 import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
 import snc.openchargingnetwork.node.models.ocpi.OcpiStatus
 import snc.openchargingnetwork.node.models.ocpi.RegistrationInfo
@@ -347,18 +348,13 @@ class AdminController(
                 }
         platformRepo.save(platform)
 
-        return if (body.handshakeSelfInitiated) {
-            // self-initiated handshake: return 201 with no body
-            ResponseEntity.status(HttpStatus.CREATED).build()
-        } else {
-            // normal flow: return 201 with RegistrationInfo
-            val responseBody =
-                    RegistrationInfo(
-                            platform.auth.tokenA!!.fromBs64String(),
-                            urlJoin(properties.url, properties.apiPrefix, "/ocpi/versions")
-                    )
-            ResponseEntity.status(HttpStatus.CREATED).body(responseBody)
-        }
+        val responseBody =
+                RegistrationInfo(
+                        id = platform.id!!,
+                        token = platform.auth.tokenA!!.fromBs64String(),
+                        versions = urlJoin(properties.url, properties.apiPrefix, "/ocpi/versions")
+                )
+        return ResponseEntity.status(HttpStatus.CREATED).body(responseBody)
     }
 
     @GetMapping("/platform-by-party/{countryCode}/{partyID}")
@@ -512,6 +508,83 @@ class AdminController(
             ResponseEntity.ok().body(deletePlatformWithDependents(platform))
         } else {
             ResponseEntity.status(HttpStatus.NOT_FOUND).body("Platform not found")
+        }
+    }
+
+    @PostMapping("/platform/{platformId}/verify-credentials")
+    fun verifyPlatformCredentials(
+            @RequestHeader("Authorization") authorization: String,
+            @PathVariable platformId: String
+    ): ResponseEntity<Any> {
+
+        // check admin is authorized
+        if (!isAuthorized(authorization)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid admin / api key")
+        }
+
+        val platform = platformRepo.findByIdOrNull(platformId.toLong())
+                ?: return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Platform not found")
+
+        return try {
+            // Get the auth token to use for the request
+            val authToken = platform.getAuthTokenToIncludeInRequestHeader()
+
+            // Find the credentials endpoint for this platform
+            val credentialsEndpoint = endpointRepo.findFirstByPlatformIDAndIdentifierAndRoleOrderByIdAsc(
+                    platform.id,
+                    "credentials",
+                    InterfaceRole.RECEIVER
+            )
+
+            if (credentialsEndpoint == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body("Credentials endpoint not found for platform")
+            }
+
+            // Build the full credentials URL
+            val credentialsUrl = urlJoin(credentialsEndpoint.url)
+
+            logger.info("Verifying credentials for platform ${platform.id} at URL: $credentialsUrl")
+
+            // Make GET request to platform's credentials endpoint
+            val headers = mapOf(
+                    "Authorization" to "Token ${authToken.toBs64String()}",
+                    "X-Correlation-ID" to generateUUIDv4Token(),
+                    "X-Request-ID" to generateUUIDv4Token()
+            )
+
+            val response = httpClientComponent.sendHttpRequest(
+                    endpoint = credentialsUrl,
+                    method = HttpMethod.GET,
+                    headers = headers
+            )
+
+            if (response.statusCode.value == 200) {
+                logger.info("Credentials verification successful for platform ${platform.id}")
+                ResponseEntity.ok().body(mapOf(
+                        "message" to "Credentials verified successfully",
+                        "platformId" to platform.id,
+                        "credentialsUrl" to credentialsUrl,
+                        "responseStatus" to response.statusCode.value,
+                        "responseBody" to response.body
+                ))
+            } else {
+                logger.warn("Credentials verification failed for platform ${platform.id}: HTTP ${response.statusCode}")
+                ResponseEntity.status(response.statusCode.value).body(mapOf(
+                        "message" to "Credentials verification failed",
+                        "platformId" to platform.id,
+                        "credentialsUrl" to credentialsUrl,
+                        "responseStatus" to response.statusCode.value,
+                        "responseBody" to response.body
+                ))
+            }
+
+        } catch (e: Exception) {
+            logger.error("Error verifying credentials for platform ${platform.id}: ${e.message}")
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(mapOf(
+                    "message" to "Error verifying credentials",
+                    "error" to e.message
+            ))
         }
     }
 

@@ -89,6 +89,7 @@ data class OcpiRequestVariables(
 }
 
 data class RegistrationInfo(
+        @JsonProperty("id") val id: Long,
         @JsonProperty("token") val token: String,
         @JsonProperty("versions") val versions: String
 )
