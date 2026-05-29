@@ -1,0 +1,106 @@
+name: Build Image
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Compute short SHA
+        id: sha
+        run: echo "short_sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Login to SWR
+        uses: docker/login-action@v3
+        with:
+          registry: swr.eu-de.otc.t-systems.com
+          username: ${{ secrets.OTC_USERNAME }}
+          password: ${{ secrets.OTC_PASSWORD }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        env:
+          DOCKER_BUILD_SUMMARY: "false"
+        with:
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            swr.eu-de.otc.t-systems.com/oli_banula/ocnnodev2:latest
+            swr.eu-de.otc.t-systems.com/oli_banula/ocnnodev2:${{ github.ref_name }}
+            swr.eu-de.otc.t-systems.com/oli_banula/ocnnodev2:${{ github.ref_name }}-${{ steps.sha.outputs.short_sha }}
+            swr.eu-de.otc.t-systems.com/oli_banula/ocnnodev2:${{ steps.sha.outputs.short_sha }}
+
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Update image tag in values file
+        env:
+          TAG: ${{ github.ref_name }}-${{ steps.sha.outputs.short_sha }}
+        run: |
+          if [ "${{ github.ref_name }}" = "develop" ]; then
+            yq -i '.oli-app.image.tag = env(TAG)' infra/helm/values.dev.yaml
+          elif [ "${{ github.ref_name }}" = "main" ]; then
+            yq -i '.oli-app.image.tag = env(TAG)' infra/helm/values.int.yaml
+          fi
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add infra/helm/
+          git commit -m "chore: update ${{ github.ref_name }} image to ${{ github.ref_name }}-${{ steps.sha.outputs.short_sha }} [skip ci]"
+          git push
+
+      - name: Connect to VPN
+        if: github.ref_name == 'develop'
+        env:
+          VPN_CONFIG: ${{ secrets.VPN_CONFIG }}
+          VPN_PASS: ${{ secrets.VPN_PASS }}
+        run: |
+          sudo apt-get update && sudo apt-get install -y openvpn
+          printf '%s' "$VPN_CONFIG" > vpn.conf
+          printf '%s' "$VPN_PASS" > .vpn_pass
+          sudo openvpn --config vpn.conf --askpass .vpn_pass --log ovpn.log --daemon
+          for attempt in $(seq 1 30); do
+            if sudo grep -q "Initialization Sequence Completed" ovpn.log 2>/dev/null; then
+              echo "VPN connection established"
+              break
+            fi
+            sleep 2
+          done
+          if ! sudo grep -q "Initialization Sequence Completed" ovpn.log 2>/dev/null; then
+            echo "VPN failed to establish within timeout"
+            sudo tail -n 100 ovpn.log || true
+            exit 1
+          fi
+          rm -f vpn.conf .vpn_pass
+
+      - name: Configure kubectl and reset ArgoCD dev app
+        if: github.ref_name == 'develop'
+        env:
+          KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG }}
+        run: |
+          printf '%s' "$KUBECONFIG_CONTENT" > "$RUNNER_TEMP/kubeconfig.yaml"
+          chmod 600 "$RUNNER_TEMP/kubeconfig.yaml"
+          export KUBECONFIG="$RUNNER_TEMP/kubeconfig.yaml"
+          kubectl patch application ocn-node-v2-dev -n argocd --type merge \
+            -p '{"spec":{"source":{"targetRevision":"develop","helm":{"parameters":null}}}}'

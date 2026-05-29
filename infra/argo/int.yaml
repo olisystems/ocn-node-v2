@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ocn-node-v2-int
+  namespace: argocd
+  labels:
+    repo: ocn-node-v2
+spec:
+  project: banula
+  source:
+    repoURL: https://github.com/olisystems/ocn-node-v2.git
+    targetRevision: main
+    path: infra/helm
+    helm:
+      valueFiles:
+        - values.yaml
+        - values.int.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: banula-int
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

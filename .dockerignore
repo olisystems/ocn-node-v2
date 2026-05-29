@@ -25,3 +25,5 @@
 **/docker
 **/kubernetes
 README.md
+*.env
+.env.*
