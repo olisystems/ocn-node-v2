@@ -6,7 +6,7 @@ on:
 jobs:
   prepare:
     name: Prepare
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     outputs:
       short_sha: ${{ steps.sha.outputs.short_sha }}
     steps:
@@ -17,7 +17,7 @@ jobs:
   override-dev:
     name: Override Dev
     needs: prepare
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
