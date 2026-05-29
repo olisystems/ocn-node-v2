@@ -13,13 +13,27 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build and push
-        uses: olisystems/actions/docker/build-push@main
+      - name: Login to SWR
+        uses: docker/login-action@v3
         with:
-          image: swr.eu-de.otc.t-systems.com/oli_banula/ocnnodev2
-          tags: ${{ github.ref_name }}
-          registry-username: ${{ secrets.OTC_USERNAME }}
-          registry-password: ${{ secrets.OTC_PASSWORD }}
+          registry: swr.eu-de.otc.t-systems.com
+          username: ${{ secrets.OTC_USERNAME }}
+          password: ${{ secrets.OTC_PASSWORD }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        env:
+          DOCKER_BUILD_SUMMARY: "false"
+        with:
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: swr.eu-de.otc.t-systems.com/oli_banula/ocnnodev2:${{ github.ref_name }}
 
   update-prod:
     if: ${{ !github.event.release.prerelease }}
@@ -32,8 +46,10 @@ jobs:
         with:
           ref: main
 
-      - name: Setup yq
-        uses: olisystems/actions/yq/setup@main
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
 
       - name: Update Argo app
         env:
