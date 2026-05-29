@@ -16,6 +16,7 @@
 
 package snc.openchargingnetwork.node.repositories
 
+import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.repository.CrudRepository
 import snc.openchargingnetwork.node.models.entities.*
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
@@ -33,7 +34,7 @@ interface PlatformRepository : CrudRepository<PlatformEntity, Long> {
     fun findByStatusIn(connectionStatusList: List<ConnectionStatus>): Iterable<PlatformEntity>
 }
 
-interface RoleRepository : CrudRepository<RoleEntity, Long> {
+interface RoleRepository : JpaRepository<RoleEntity, Long> {
     // used in registration to prevent multiple roles of the same country_code/party_id combination
     fun existsByCountryCodeAndPartyIDAllIgnoreCase(countryCode: String, partyID: String): Boolean
 
@@ -55,6 +56,13 @@ interface RoleRepository : CrudRepository<RoleEntity, Long> {
     ): Iterable<RoleEntity>
     fun findAllByPlatformID(platformID: Long?): Iterable<RoleEntity>
     fun deleteByPlatformID(platformID: Long?)
+
+    // Delete role by composite key (country_code + party_id + role) for deduplication
+    fun deleteByCountryCodeAndPartyIDAndRoleAllIgnoreCase(
+            countryCode: String,
+            partyID: String,
+            role: Role
+    )
 }
 
 interface EndpointRepository : CrudRepository<EndpointEntity, Long> {

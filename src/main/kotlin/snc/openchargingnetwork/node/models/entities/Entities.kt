@@ -16,6 +16,7 @@
 
 package snc.openchargingnetwork.node.models.entities
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import jakarta.persistence.*
 import java.time.Instant
 import org.springframework.data.domain.AbstractAggregateRoot
@@ -80,6 +81,7 @@ class PlatformEntity(
          * @return The auth token (stored in base64 format, returned as-is for use in HTTP Authorization headers)
          * @throws OcpiClientInvalidParametersException if the expected token is null or empty
          */
+        @JsonIgnore
         fun getAuthTokenToIncludeInRequestHeader(): String {
                 return if (auth.handshakeSelfInitiated) {
                      auth.tokenC?: throw OcpiClientInvalidParametersException("platform has no valid TokenC | Please complete the platform-initiated handshake first")
@@ -88,7 +90,8 @@ class PlatformEntity(
                 }
         }
 
-         fun getAuthTokenToVerifyReceivedRequest(): String {
+        @JsonIgnore
+        fun getAuthTokenToVerifyReceivedRequest(): String {
                 return if (auth.handshakeSelfInitiated) {
                       auth.tokenB?: throw OcpiClientInvalidParametersException("platform has no valid TokenB | Please complete the OCN Node-initiated handshake first")
                     } else {
@@ -124,7 +127,15 @@ class OcnRules(
  * Store a role linked to an OCPI platform (i.e. a platform can implement both EMSP and CPO roles)
  */
 @Entity
-@Table(name = "roles")
+@Table(
+        name = "roles",
+        uniqueConstraints = [
+                UniqueConstraint(
+                        name = "uk_role_country_party_role",
+                        columnNames = ["countryCode", "partyID", "role"]
+                )
+        ]
+)
 class RoleEntity(
         var platformID: Long,
         @Enumerated(EnumType.STRING) var role: Role,

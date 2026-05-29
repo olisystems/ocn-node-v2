@@ -217,6 +217,15 @@ class AdminController(
             platformRepo.save(platform)
 
             // Step 11: Save roles from credentials response
+            // First, delete any existing roles with same (country_code, party_id, role) to prevent duplicates
+            receivedCredentials.roles.forEach { role ->
+                roleRepo.deleteByCountryCodeAndPartyIDAndRoleAllIgnoreCase(
+                        role.countryCode,
+                        role.partyID,
+                        role.role
+                )
+            }
+
             val roles =
                     receivedCredentials.roles.map { role: CredentialsRole ->
                         RoleEntity(
@@ -252,6 +261,140 @@ class AdminController(
         } catch (e: Exception) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(mapOf("error" to "Handshake failed: ${e.message}"))
+        }
+    }
+
+    @PostMapping("/platform/{platformId}/update-credentials")
+    @Transactional
+    fun updateCredentials(
+            @RequestHeader("Authorization") authorization: String,
+            @PathVariable platformId: Long
+    ): ResponseEntity<Any> {
+        // Log request
+        logger.info("Updating credentials for platform: $platformId")
+
+        // Check authorization
+        if (!isAuthorized(authorization)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(mapOf("error" to "Invalid Authorization"))
+        }
+
+        // Get the platform
+        val platform =
+                platformRepo.findByIdOrNull(platformId)
+                        ?: return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                .body(mapOf("error" to "Platform not found"))
+
+        // Verify platform was created with handshakeSelfInitiated=true
+        if (!platform.auth.handshakeSelfInitiated) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(mapOf("error" to "Platform was not created with handshakeSelfInitiated=true"))
+        }
+
+        // Verify tokenC exists (existing connection required)
+        val tokenC =
+                platform.auth.tokenC
+                        ?: return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                .body(mapOf("error" to "Platform has no existing connection (tokenC not found)"))
+
+        // Verify selfCredentialsToken (tokenB) exists
+        val tokenB =
+                platform.auth.selfCredentialsToken
+                        ?: return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                .body(mapOf("error" to "Platform has no selfCredentialsToken (tokenB)"))
+
+        try {
+            // Get credentials endpoint URL from stored endpoints
+            val credentialsEndpoint = endpointRepo.findFirstByPlatformIDAndIdentifierAndRoleOrderByIdAsc(
+                    platform.id,
+                    "credentials",
+                    InterfaceRole.RECEIVER
+            ) ?: return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(mapOf("error" to "No credentials endpoint found for platform"))
+
+            // Build credentials payload with tokenB
+            val credentialsPayload = credentialsService.myCredentials(tokenB.fromBs64String())
+
+            // Call platform-whitelabel's PUT credentials endpoint
+            val credentialsResponse =
+                    httpClientComponent.makeOcpiRequest<Credentials>(
+                            method = HttpMethod.PUT,
+                            url = credentialsEndpoint.url,
+                            headers =
+                                    mapOf(
+                                            "Authorization" to "Token ${tokenC}",
+                                            "Content-Type" to "application/json",
+                                            "X-Request-ID" to generateUUIDv4Token(),
+                                            "X-Correlation-ID" to generateUUIDv4Token()
+                                    ),
+                            body =
+                                    httpClientComponent.mapper.writeValueAsString(
+                                            credentialsPayload
+                                    ),
+                            typeClass = Credentials::class.java
+                    )
+
+            // Check response
+            if (credentialsResponse.body?.statusCode != 1000) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(mapOf("error" to "Credentials PUT failed: ${credentialsResponse.body?.statusMessage}"))
+            }
+
+            // Extract NEW tokenC from response
+            val receivedCredentials =
+                    credentialsResponse.body?.data
+                            ?: return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                    .body(mapOf("error" to "No credentials data in response"))
+            val newTokenCPlain = receivedCredentials.token
+            val newTokenC = receivedCredentials.token.toBs64String()
+
+            // Update platform with new tokenC
+            platform.auth =
+                    Auth(
+                            tokenA = platform.auth.tokenA,
+                            tokenB = platform.auth.tokenB,
+                            selfCredentialsToken = platform.auth.selfCredentialsToken,
+                            handshakeSelfInitiated = platform.auth.handshakeSelfInitiated,
+                            tokenC = newTokenC
+                    )
+            platform.lastUpdated = getTimestamp()
+            platformRepo.save(platform)
+
+            // Save roles from credentials response
+            // First, delete any existing roles with same (country_code, party_id, role) to prevent duplicates
+            receivedCredentials.roles.forEach { role ->
+                roleRepo.deleteByCountryCodeAndPartyIDAndRoleAllIgnoreCase(
+                        role.countryCode,
+                        role.partyID,
+                        role.role
+                )
+            }
+            roleRepo.flush()
+
+            val roles =
+                    receivedCredentials.roles.map { role: CredentialsRole ->
+                        RoleEntity(
+                                platformID = platform.id!!,
+                                role = role.role,
+                                businessDetails = role.businessDetails,
+                                partyID = role.partyID,
+                                countryCode = role.countryCode
+                        )
+                    }
+            roleRepo.saveAll(roles)
+
+            logger.info("Credentials updated successfully for platform: $platformId")
+
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(mapOf(
+                            "message" to "Credentials updated successfully",
+                            "token_c" to newTokenCPlain,
+                            "base64_token_c" to "Token ${newTokenC}"
+                    ))
+        } catch (e: Exception) {
+            logger.error("Error updating credentials for platform $platformId: ${e.message}")
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(mapOf("error" to "Credentials update failed: ${e.message}"))
         }
     }
 
@@ -323,6 +466,24 @@ class AdminController(
             }
         }
 
+        // If tokenA provided, check for existing platform
+        if (!body.tokenA.isNullOrEmpty()) {
+            val existingPlatform = platformRepo.findByAuth_TokenA(body.tokenA.toBs64String())
+            if (existingPlatform != null) {
+                // Check if platform is ACTIVE (CONNECTED with tokenC)
+                if (existingPlatform.status == ConnectionStatus.CONNECTED &&
+                        !existingPlatform.auth.tokenC.isNullOrEmpty()) {
+                    return ResponseEntity.status(HttpStatus.CONFLICT)
+                            .body(OcpiResponse<Unit>(
+                                    statusCode = OcpiStatus.CLIENT_INVALID_PARAMETERS.code,
+                                    statusMessage = "There is already an ACTIVE connection between ocn node and a platform with tokenA = ${body.tokenA}"
+                            ))
+                }
+                // Delete old platform and all dependents
+                deletePlatformWithDependents(existingPlatform)
+            }
+        }
+
         val platform =
                 if (body.handshakeSelfInitiated) {
                     // self-initiated handshake: use provided tokenA, generate
@@ -353,13 +514,7 @@ class AdminController(
                 }
         platformRepo.save(platform)
 
-        val responseBody =
-                RegistrationInfo(
-                        id = platform.id!!,
-                        token = platform.auth.tokenA!!.fromBs64String(),
-                        versions = urlJoin(properties.url, properties.apiPrefix, "/ocpi/versions")
-                )
-        return ResponseEntity.status(HttpStatus.CREATED).body(responseBody)
+        return ResponseEntity.status(HttpStatus.CREATED).body(platform)
     }
 
     @GetMapping("/platform-by-party/{countryCode}/{partyID}")

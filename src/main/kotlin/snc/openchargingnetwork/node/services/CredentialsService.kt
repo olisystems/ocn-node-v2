@@ -151,10 +151,17 @@ class CredentialsService(
         platform.lastUpdated = getTimestamp()
         platform.rules.signatures = properties.signatures
 
-        // set platform's roles' credentials
+        // set platform's roles' credentials with deduplication
         val roles = mutableListOf<RoleEntity>()
 
         for (role in body.roles) {
+            // Delete any existing role with same (country_code, party_id, role)
+            roleRepo.deleteByCountryCodeAndPartyIDAndRoleAllIgnoreCase(
+                    role.countryCode,
+                    role.partyID,
+                    role.role
+            )
+
             roles.add(
                     RoleEntity(
                             platformID = platform.id!!,
@@ -241,10 +248,17 @@ class CredentialsService(
         endpointRepo.deleteByPlatformID(platform.id)
         roleRepo.deleteByPlatformID(platform.id)
 
-        // set platform's roles' credentials
+        // set platform's roles' credentials with deduplication
         val roles = mutableListOf<RoleEntity>()
 
         for (role in body.roles) {
+            // Delete any existing role with same (country_code, party_id, role)
+            roleRepo.deleteByCountryCodeAndPartyIDAndRoleAllIgnoreCase(
+                    role.countryCode,
+                    role.partyID,
+                    role.role
+            )
+
             roles.add(
                     RoleEntity(
                             platformID = platform.id!!,
