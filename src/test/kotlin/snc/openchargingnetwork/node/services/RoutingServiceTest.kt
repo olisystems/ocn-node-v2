@@ -25,9 +25,11 @@ import snc.openchargingnetwork.node.repositories.EndpointRepository
 import snc.openchargingnetwork.node.repositories.PlatformRepository
 import snc.openchargingnetwork.node.repositories.ProxyResourceRepository
 import snc.openchargingnetwork.node.repositories.RoleRepository
-import snc.openchargingnetwork.node.config.TestOcnRegistryComponent
+import snc.openchargingnetwork.node.Application
+import snc.openchargingnetwork.node.tools.toBs64String
+import java.util.Base64
 
-@SpringBootTest(classes = [TestOcnRegistryComponent::class])
+@SpringBootTest(classes = [Application::class])
 @ActiveProfiles("test")
 @Transactional
 class RoutingServiceTest(
@@ -47,16 +49,16 @@ class RoutingServiceTest(
 
     @BeforeEach
     fun setUp() {
-        // Create test platform
+        // Create test platform with Base64-encoded tokens (as they are stored in DB after decoding)
         testPlatform =
                 PlatformEntity(
                         status =
                                 snc.openchargingnetwork.node.models.ocpi.ConnectionStatus.CONNECTED,
                         auth =
                                 Auth(
-                                        tokenA = "test-token-a",
-                                        tokenB = "test-token-b",
-                                        tokenC = "test-token-c"
+                                        tokenA = "testtokena",
+                                        tokenB = "testtokenb",
+                                        tokenC = "testtokenc"
                                 )
                 )
         testPlatform = platformRepository.save(testPlatform)
@@ -203,7 +205,8 @@ class RoutingServiceTest(
     @Test
     fun `checkSenderKnown should not throw for valid authorization when handshakeSelfInitiated is false`() {
         // handshakeSelfInitiated=false → getAuthTokenToVerifyReceivedRequest returns tokenC
-        val authorization = "Token test-token-c"
+        // Authorization format: "Token <base64-encoded-token>"
+        val authorization = "Token ${"testtokenc".toBs64String()}"
 
         routingService.checkSenderKnown(authorization)
         // If no exception is thrown, the test passes
@@ -216,9 +219,9 @@ class RoutingServiceTest(
             PlatformEntity(
                 status = snc.openchargingnetwork.node.models.ocpi.ConnectionStatus.CONNECTED,
                 auth = Auth(
-                    tokenA = "self-token-a",
-                    tokenB = "self-token-b",
-                    tokenC = "self-token-c",
+                    tokenA = "selftokena",
+                    tokenB = "selftokenb",
+                    tokenC = "selftokenc",
                     handshakeSelfInitiated = true
                 )
             )
@@ -233,13 +236,15 @@ class RoutingServiceTest(
             )
         )
 
-        routingService.checkSenderKnown("Token self-token-b")
+        // Authorization format: "Token <base64-encoded-token>"
+        routingService.checkSenderKnown("Token ${"selftokenb".toBs64String()}")
         // If no exception is thrown, the test passes
     }
 
     @Test
     fun `checkSenderKnown should throw exception for invalid authorization`() {
-        val invalidAuthorization = "Token invalid-token"
+        // Authorization format: "Token <base64-encoded-token>" - using invalid token
+        val invalidAuthorization = "Token ${"invalidtoken".toBs64String()}"
 
         assertThrows<OcpiClientInvalidParametersException> {
             routingService.checkSenderKnown(invalidAuthorization)
@@ -250,14 +255,16 @@ class RoutingServiceTest(
     fun `checkSenderKnown should throw exception when wrong token type is presented`() {
         // handshakeSelfInitiated=false → tokenC is expected; tokenB should be rejected
         assertThrows<OcpiClientInvalidParametersException> {
-            routingService.checkSenderKnown("Token test-token-b")
+            // Authorization format: "Token <base64-encoded-token>"
+            routingService.checkSenderKnown("Token ${"testtokenb".toBs64String()}")
         }
     }
 
     @Test
     fun `checkSenderKnown with role should not throw for valid sender when handshakeSelfInitiated is false`() {
         // handshakeSelfInitiated=false → getAuthTokenToVerifyReceivedRequest returns tokenC
-        val authorization = "Token test-token-c"
+        // Authorization format: "Token <base64-encoded-token>"
+        val authorization = "Token ${"testtokenc".toBs64String()}"
         val sender = BasicRole("TST", "DE") // Same as testRole
 
         routingService.checkSenderKnown(authorization, sender)
@@ -266,7 +273,8 @@ class RoutingServiceTest(
 
     @Test
     fun `checkSenderKnown with role should throw exception for invalid sender`() {
-        val authorization = "Token test-token-c"
+        // Authorization format: "Token <base64-encoded-token>"
+        val authorization = "Token ${"testtokenc".toBs64String()}"
         val invalidSender = BasicRole("XXX", "XX")
 
         assertThrows<OcpiClientInvalidParametersException> {
@@ -387,7 +395,8 @@ class RoutingServiceTest(
         assertThat(url).isNotNull()
         assertThat(url).isNotEmpty()
         assertThat(headers).isNotNull()
-        assertThat(headers.authorization).isEqualTo("Token test-token-b")
+        // The token should be Base64 encoded in the authorization header (format: "Token <base64-encoded-token>")
+        assertThat(headers.authorization).isEqualTo("Token ${"testtokenb".toBs64String()}")
         assertThat(headers.requestID).isNotEqualTo("test-request-id") // Should be regenerated
     }
 
