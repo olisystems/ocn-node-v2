@@ -66,9 +66,9 @@ class CredentialsService(
 
         val responseToken =
                 if (platform.auth.handshakeSelfInitiated == true) {
-                    platform.auth.tokenB!!.fromBs64String()
+                    platform.auth.tokenB!!
                 } else {
-                    platform.auth.tokenC!!.fromBs64String()
+                    platform.auth.tokenC!!
                 }
 
         return OcpiResponse(
@@ -94,7 +94,7 @@ class CredentialsService(
                         ?: throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_A")
 
         // GET versions information endpoint with TOKEN_B (both provided in request body)
-        val versionsInfo = httpClientComponent.getVersions(body.url, body.token.toBs64String())
+        val versionsInfo = httpClientComponent.getVersions(body.url, body.token)
 
         // try to match version 2.2
         val correctVersion =
@@ -105,7 +105,7 @@ class CredentialsService(
 
         // GET 2.2 version details
         val versionDetail =
-                httpClientComponent.getVersionDetail(correctVersion.url, body.token.toBs64String())
+                httpClientComponent.getVersionDetail(correctVersion.url, body.token)
 
         // ensure each role does not already exist; delete if planned
         for (role in body.roles) {
@@ -143,8 +143,8 @@ class CredentialsService(
                         tokenA = platform.auth.tokenA,
                         selfCredentialsToken = platform.auth.selfCredentialsToken,
                         handshakeSelfInitiated = platform.auth.handshakeSelfInitiated,
-                        tokenB = body.token.toBs64String(),
-                        tokenC = tokenC.toBs64String()
+                        tokenB = body.token,
+                        tokenC = tokenC
                 )
         platform.versionsUrl = body.url
         platform.status = ConnectionStatus.CONNECTED
@@ -216,7 +216,7 @@ class CredentialsService(
 
         // GET versions information endpoint with TOKEN_B (both provided in request body)
         val versionsInfo: List<Version> =
-                httpClientComponent.getVersions(body.url, body.token.toBs64String())
+                httpClientComponent.getVersions(body.url, body.token)
 
         // try to match version 2.2 or 2.2.1
         val correctVersion =
@@ -227,7 +227,7 @@ class CredentialsService(
 
         // GET version details
         val versionDetail =
-                httpClientComponent.getVersionDetail(correctVersion.url, body.token.toBs64String())
+                httpClientComponent.getVersionDetail(correctVersion.url, body.token)
 
         // generate TOKEN_C
         val newTokenC = generateUUIDv4Token()
@@ -238,8 +238,8 @@ class CredentialsService(
                         tokenA = platform.auth.tokenA,
                         selfCredentialsToken = platform.auth.selfCredentialsToken,
                         handshakeSelfInitiated = platform.auth.handshakeSelfInitiated,
-                        tokenB = body.token.toBs64String(),
-                        tokenC = newTokenC.toBs64String()
+                        tokenB = body.token,
+                        tokenC = newTokenC
                 )
         platform.versionsUrl = body.url
         platform.status = ConnectionStatus.CONNECTED

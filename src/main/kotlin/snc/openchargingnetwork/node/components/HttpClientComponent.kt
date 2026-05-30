@@ -49,6 +49,7 @@ import snc.openchargingnetwork.node.models.ocpi.Version
 import snc.openchargingnetwork.node.models.ocpi.VersionDetail
 import snc.openchargingnetwork.node.tools.CurlLogger
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
+import snc.openchargingnetwork.node.tools.toBs64String
 import snc.openchargingnetwork.node.tools.urlJoin
 
 @Component
@@ -299,7 +300,7 @@ open class HttpClientComponent(private val properties: NodeProperties) {
                 try {
                         val headers =
                                 mapOf(
-                                        "Authorization" to "Token $authorization",
+                                        "Authorization" to "Token ${authorization.toBs64String()}",
                                         "X-Correlation-ID" to generateUUIDv4Token(),
                                         "X-Request-ID" to generateUUIDv4Token()
                                 )
@@ -405,7 +406,7 @@ open class HttpClientComponent(private val properties: NodeProperties) {
                 try {
                         val headers =
                                 mapOf(
-                                        "Authorization" to "Token $authorization",
+                                        "Authorization" to "Token ${authorization.toBs64String()}",
                                         "X-Correlation-ID" to generateUUIDv4Token(),
                                         "X-Request-ID" to generateUUIDv4Token()
                                 )

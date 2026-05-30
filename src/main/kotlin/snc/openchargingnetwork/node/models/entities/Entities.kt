@@ -78,7 +78,7 @@ class PlatformEntity(
          * - When ocn-node initiated the handshake (handshakeSelfInitiated = false): returns TokenB (token created by receiver/platform)
          * - When platform initiated the handshake (handshakeSelfInitiated = true): returns TokenC (token created by ocn-node)
          *
-         * @return The auth token (stored in base64 format, returned as-is for use in HTTP Authorization headers)
+         * @return The auth token (stored as plain text; caller must Base64-encode before placing in HTTP Authorization header)
          * @throws OcpiClientInvalidParametersException if the expected token is null or empty
          */
         @JsonIgnore

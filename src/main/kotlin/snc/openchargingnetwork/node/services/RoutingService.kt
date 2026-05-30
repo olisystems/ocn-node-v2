@@ -38,7 +38,9 @@ import snc.openchargingnetwork.node.repositories.PlatformRepository
 import snc.openchargingnetwork.node.repositories.ProxyResourceRepository
 import snc.openchargingnetwork.node.repositories.RoleRepository
 import snc.openchargingnetwork.node.tools.extractToken
+import snc.openchargingnetwork.node.tools.fromBs64String
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
+import snc.openchargingnetwork.node.tools.toBs64String
 import snc.openchargingnetwork.node.tools.urlJoin
 
 @Service
@@ -57,7 +59,7 @@ class RoutingService(
     fun isRoleKnown(role: BasicRole) =
             roleRepo.existsByCountryCodeAndPartyIDAllIgnoreCase(role.country, role.id)
 
-    /** get platform by role TODO: review getPlatform* methods below */
+    /** get platform by role  */
     fun getPlatform(role: BasicRole): PlatformEntity {
         val platformID = getPlatformID(role)
         return platformRepo.findByIdOrNull(platformID)
@@ -101,11 +103,12 @@ class RoutingService(
 
     /** Check sender is known to this node using only the authorization header token */
     fun checkSenderKnown(authorization: String) {
-        val token = authorization.extractToken()
-        val platform = platformRepo.findByAuth_TokenC(token)
-                ?: platformRepo.findByAuth_TokenB(token)
+        val rawToken = authorization.extractToken()
+        val plainToken = rawToken.fromBs64String()
+        val platform = platformRepo.findByAuth_TokenC(plainToken)
+                ?: platformRepo.findByAuth_TokenB(plainToken)
                 ?: throw OcpiClientInvalidParametersException("Invalid authorization token")
-        if (platform.getAuthTokenToVerifyReceivedRequest() != token) {
+        if (platform.getAuthTokenToVerifyReceivedRequest() != plainToken) {
             throw OcpiClientInvalidParametersException("Invalid authorization token")
         }
     }
@@ -115,11 +118,12 @@ class RoutingService(
      * sender
      */
     fun checkSenderKnown(authorization: String, sender: BasicRole) {
-        val token = authorization.extractToken()
-        val senderPlatform = platformRepo.findByAuth_TokenC(token)
-                ?: platformRepo.findByAuth_TokenB(token)
+        val rawToken = authorization.extractToken()
+        val plainToken = rawToken.fromBs64String()
+        val senderPlatform = platformRepo.findByAuth_TokenC(plainToken)
+                ?: platformRepo.findByAuth_TokenB(plainToken)
                 ?: throw OcpiClientInvalidParametersException("Invalid authorization token")
-        if (senderPlatform.getAuthTokenToVerifyReceivedRequest() != token) {
+        if (senderPlatform.getAuthTokenToVerifyReceivedRequest() != plainToken) {
             throw OcpiClientInvalidParametersException("Invalid authorization token")
         }
 
@@ -222,7 +226,7 @@ class RoutingService(
                 }
 
         val platform = platformRepo.findById(platformID).get()
-        val authToken = platform.getAuthTokenToIncludeInRequestHeader()
+        val authToken = platform.getAuthTokenToIncludeInRequestHeader().toBs64String()
 
         val headers =
                 request.headers.copy(

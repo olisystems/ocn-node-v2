@@ -28,6 +28,7 @@ import snc.openchargingnetwork.node.models.ocpi.ModuleID
 import snc.openchargingnetwork.node.models.ocpi.OcpiStatus
 import snc.openchargingnetwork.node.repositories.PlatformRepository
 import snc.openchargingnetwork.node.tools.extractToken
+import snc.openchargingnetwork.node.tools.fromBs64String
 import snc.openchargingnetwork.node.tools.urlJoin
 
 @RestController
@@ -42,7 +43,7 @@ class InternalVersionsController(
             @RequestHeader("Authorization") authorization: String
     ): OcpiResponse<List<Version>> {
 
-        val token = authorization.extractToken()
+        val token = authorization.extractToken().fromBs64String()
         val endpoint2_2_1 = urlJoin(properties.url, properties.apiPrefix, "/ocpi/2.2.1")
         val versions = listOf(Version("2.2.1", endpoint2_2_1))
         val response = OcpiResponse(OcpiStatus.SUCCESS.code, data = versions)
@@ -60,7 +61,7 @@ class InternalVersionsController(
             @RequestHeader("Authorization") authorization: String
     ): OcpiResponse<VersionDetail> {
 
-        val token = authorization.extractToken()
+        val token = authorization.extractToken().fromBs64String()
         val endpoints = this.getAllEndpoints()
         val response = OcpiResponse(OcpiStatus.SUCCESS.code, data = VersionDetail("2.2", endpoints))
 
@@ -77,7 +78,7 @@ class InternalVersionsController(
             @RequestHeader("Authorization") authorization: String
     ): OcpiResponse<VersionDetail> {
 
-        val token = authorization.extractToken()
+        val token = authorization.extractToken().fromBs64String()
         val endpoints = this.getAllEndpoints()
         val response =
                 OcpiResponse(OcpiStatus.SUCCESS.code, data = VersionDetail("2.2.1", endpoints))

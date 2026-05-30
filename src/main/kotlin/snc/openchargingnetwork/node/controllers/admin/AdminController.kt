@@ -41,7 +41,6 @@ import snc.openchargingnetwork.node.repositories.EndpointRepository
 import snc.openchargingnetwork.node.repositories.PlatformRepository
 import snc.openchargingnetwork.node.repositories.RoleRepository
 import snc.openchargingnetwork.node.services.CredentialsService
-import snc.openchargingnetwork.node.tools.fromBs64String
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
 import snc.openchargingnetwork.node.tools.getTimestamp
 import snc.openchargingnetwork.node.tools.toBs64String
@@ -139,7 +138,7 @@ class AdminController(
 
         try {
             // Step 1: Call platform-whitelabel's versions endpoint with tokenA
-            val versions = httpClientComponent.getVersions(versionsUrl, tokenA.fromBs64String())
+            val versions = httpClientComponent.getVersions(versionsUrl, tokenA)
 
             // Step 2: Find matching version (2.2.1 or 2.2)
             val targetVersion =
@@ -149,7 +148,7 @@ class AdminController(
 
             // Step 3: Get version details
             val versionDetail =
-                    httpClientComponent.getVersionDetail(targetVersion.url, tokenA.fromBs64String())
+                    httpClientComponent.getVersionDetail(targetVersion.url, tokenA)
 
             // Step 4: Extract credentials module URL
             val credentialsEndpoint =
@@ -164,7 +163,7 @@ class AdminController(
                                     .body(mapOf("error" to "Platform has no selfCredentialsToken"))
 
             // Step 6: Build credentials payload with tokenB
-            val credentialsPayload = credentialsService.myCredentials(tokenB.fromBs64String())
+            val credentialsPayload = credentialsService.myCredentials(tokenB)
 
             // Step 7: Call platform-whitelabel's credentials POST with tokenA in
             // header, tokenB in
@@ -175,7 +174,7 @@ class AdminController(
                             url = credentialsEndpoint.url,
                             headers =
                                     mapOf(
-                                            "Authorization" to "Token ${tokenA}",
+                                            "Authorization" to "Token ${tokenA.toBs64String()}",
                                             "Content-Type" to "application/json",
                                             "X-Request-ID" to generateUUIDv4Token(),
                                             "X-Correlation-ID" to generateUUIDv4Token()
@@ -199,16 +198,15 @@ class AdminController(
                             ?: return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                                     .body(mapOf("error" to "No credentials data in response"))
             val tokenCPlain = receivedCredentials.token
-            val tokenC = receivedCredentials.token.toBs64String()
 
-            // Step 9: Store tokenC in platform
+            // Step 9: Store tokenC in platform (plain text)
             platform.auth =
                     Auth(
                             tokenA = platform.auth.tokenA,
                             tokenB = platform.auth.tokenB,
                             selfCredentialsToken = platform.auth.selfCredentialsToken,
                             handshakeSelfInitiated = platform.auth.handshakeSelfInitiated,
-                            tokenC = tokenC
+                            tokenC = tokenCPlain
                     )
 
             // Step 10: Update platform.status to CONNECTED
@@ -256,7 +254,7 @@ class AdminController(
                     .body(mapOf(
                             "message" to "Handshake completed successfully. Platform status: CONNECTED",
                             "token_c" to tokenCPlain,
-                            "base64_token_c" to "Token ${tokenC}"
+                            "base64_token_c" to "Token ${tokenCPlain.toBs64String()}"
                     ))
         } catch (e: Exception) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -313,7 +311,7 @@ class AdminController(
                     .body(mapOf("error" to "No credentials endpoint found for platform"))
 
             // Build credentials payload with tokenB
-            val credentialsPayload = credentialsService.myCredentials(tokenB.fromBs64String())
+            val credentialsPayload = credentialsService.myCredentials(tokenB)
 
             // Call platform-whitelabel's PUT credentials endpoint
             val credentialsResponse =
@@ -322,7 +320,7 @@ class AdminController(
                             url = credentialsEndpoint.url,
                             headers =
                                     mapOf(
-                                            "Authorization" to "Token ${tokenC}",
+                                            "Authorization" to "Token ${tokenC.toBs64String()}",
                                             "Content-Type" to "application/json",
                                             "X-Request-ID" to generateUUIDv4Token(),
                                             "X-Correlation-ID" to generateUUIDv4Token()
@@ -346,16 +344,15 @@ class AdminController(
                             ?: return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                                     .body(mapOf("error" to "No credentials data in response"))
             val newTokenCPlain = receivedCredentials.token
-            val newTokenC = receivedCredentials.token.toBs64String()
 
-            // Update platform with new tokenC
+            // Update platform with new tokenC (plain text)
             platform.auth =
                     Auth(
                             tokenA = platform.auth.tokenA,
                             tokenB = platform.auth.tokenB,
                             selfCredentialsToken = platform.auth.selfCredentialsToken,
                             handshakeSelfInitiated = platform.auth.handshakeSelfInitiated,
-                            tokenC = newTokenC
+                            tokenC = newTokenCPlain
                     )
             platform.lastUpdated = getTimestamp()
             platformRepo.save(platform)
@@ -389,7 +386,7 @@ class AdminController(
                     .body(mapOf(
                             "message" to "Credentials updated successfully",
                             "token_c" to newTokenCPlain,
-                            "base64_token_c" to "Token ${newTokenC}"
+                            "base64_token_c" to "Token ${newTokenCPlain.toBs64String()}"
                     ))
         } catch (e: Exception) {
             logger.error("Error updating credentials for platform $platformId: ${e.message}")
@@ -468,7 +465,7 @@ class AdminController(
 
         // If tokenA provided, check for existing platform
         if (!body.tokenA.isNullOrEmpty()) {
-            val existingPlatform = platformRepo.findByAuth_TokenA(body.tokenA.toBs64String())
+            val existingPlatform = platformRepo.findByAuth_TokenA(body.tokenA)
             if (existingPlatform != null) {
                 // Check if platform is ACTIVE (CONNECTED with tokenC)
                 if (existingPlatform.status == ConnectionStatus.CONNECTED &&
@@ -489,11 +486,11 @@ class AdminController(
                     // self-initiated handshake: use provided tokenA, generate
                     // selfCredentialsToken,
                     // store versionsUrl
-                    val selfCredentialsToken = generateUUIDv4Token().toBs64String()
+                    val selfCredentialsToken = generateUUIDv4Token()
                     PlatformEntity(
                             auth =
                                     Auth(
-                                            tokenA = body.tokenA!!.toBs64String(),
+                                            tokenA = body.tokenA!!,
                                             tokenB = selfCredentialsToken,
                                             selfCredentialsToken = selfCredentialsToken,
                                             handshakeSelfInitiated = true
@@ -506,8 +503,8 @@ class AdminController(
                     PlatformEntity(
                             auth =
                                     Auth(
-                                            tokenA = tokenA.toBs64String(),
-                                            selfCredentialsToken = tokenA.toBs64String(),
+                                            tokenA = tokenA,
+                                            selfCredentialsToken = tokenA,
                                             handshakeSelfInitiated = false
                                     )
                     )
@@ -712,6 +709,7 @@ class AdminController(
                     "X-Correlation-ID" to generateUUIDv4Token(),
                     "X-Request-ID" to generateUUIDv4Token()
             )
+
 
             val response = httpClientComponent.sendHttpRequest(
                     endpoint = credentialsUrl,

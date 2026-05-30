@@ -27,7 +27,7 @@ class CredentialsController(private val credentialsService: CredentialsService) 
 
     @GetMapping
     fun getCredentials(@RequestHeader("Authorization") authorization: String): OcpiResponse<Credentials> {
-        return credentialsService.getCredentials(authorization.extractToken())
+        return credentialsService.getCredentials(authorization.extractToken().fromBs64String())
     }
 
     @PostMapping
@@ -35,7 +35,7 @@ class CredentialsController(private val credentialsService: CredentialsService) 
         @RequestHeader("Authorization") authorization: String,
         @RequestBody body: Credentials
     ): OcpiResponse<Credentials> {
-        return credentialsService.postCredentials(authorization.extractToken(), body)
+        return credentialsService.postCredentials(authorization.extractToken().fromBs64String(), body)
     }
 
     @PutMapping
@@ -43,12 +43,12 @@ class CredentialsController(private val credentialsService: CredentialsService) 
         @RequestHeader("Authorization") authorization: String,
         @RequestBody body: Credentials
     ): OcpiResponse<Credentials> {
-        return credentialsService.putCredentials(authorization.extractToken(), body)
+        return credentialsService.putCredentials(authorization.extractToken().fromBs64String(), body)
     }
 
     @DeleteMapping
     fun deleteCredentials(@RequestHeader("Authorization") authorization: String): OcpiResponse<Nothing?> {
-        return credentialsService.deleteCredentials(authorization.extractToken())
+        return credentialsService.deleteCredentials(authorization.extractToken().fromBs64String())
     }
 
 }
