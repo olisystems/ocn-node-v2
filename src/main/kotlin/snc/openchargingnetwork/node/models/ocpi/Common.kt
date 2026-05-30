@@ -101,7 +101,8 @@ data class OcpiResponse<T>(
         @JsonProperty("data") val data: T? = null,
         @JsonProperty("timestamp")
         val timestamp: String = DateTimeFormatter.ISO_INSTANT.format(Instant.now()),
-        @JsonProperty("ocn_signature") var signature: String? = null
+        @JsonProperty("ocn_signature") var signature: String? = null,
+        @JsonProperty("ocn_verification_status") var verificationStatus: String? = null
 )
 
 @Embeddable
@@ -220,4 +221,11 @@ enum class AuthMethod {
     AUTH_REQUEST,
     COMMAND,
     WHITELIST
+}
+
+
+enum class SignatureVerificationStatus {
+    VERIFIED,
+    VERIFICATION_FAILED,
+    NOT_PRESENTED
 }

@@ -1,0 +1,16 @@
+oli-app:
+  fullnameOverride: "ocn-node-v2-dev"
+  image:
+    tag: "develop-01f358a"
+  ingress:
+    hosts:
+      - host: banula-dev.oli-system.com
+    tls:
+      - secretName: banula-dev-tls
+        hosts:
+          - banula-dev.oli-system.com
+    features:
+      router:
+        routes:
+          exposeCommon: false
+          exposeAll: true
