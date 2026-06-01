@@ -43,13 +43,13 @@ oli-app:
       router:
         enabled: true
         prefix: "/ocn-v2"
-        stripPrefix: false
+        stripPrefix: true
         routes:
           exposeCommon: false
           exposeAll: false
 
   env:
-    SERVER_CONTEXT_PATH: "/ocn-v2"
+    OCN_NODE_API: ""
     OCN_NODE_ENABLE_SIGNING: "false"
     OCN_WEB_LOGGING_LEVEL: "TRACE"
     OCN_NODE_HAAS_ON: "true"
