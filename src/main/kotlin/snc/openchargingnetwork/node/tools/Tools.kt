@@ -35,7 +35,7 @@ fun urlJoin(base: String, vararg paths: String?): String {
         base
     }
     for (path in paths) {
-        if (path == null) {
+        if (path.isNullOrBlank()) {
             continue
         }
         val sanitizedPath: String = if (path.startsWith("/") && !path.endsWith("/")) {
