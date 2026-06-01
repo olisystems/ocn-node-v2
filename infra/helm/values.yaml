@@ -139,13 +139,19 @@ oli-app:
     httpGet:
       path: /actuator/health
       port: http
-    initialDelaySeconds: 60
+    initialDelaySeconds: 90
+    periodSeconds: 10
+    failureThreshold: 5
+    timeoutSeconds: 5
 
   readinessProbe:
     httpGet:
       path: /actuator/health
       port: http
-    initialDelaySeconds: 30
+    initialDelaySeconds: 60
+    periodSeconds: 5
+    failureThreshold: 10
+    timeoutSeconds: 5
 
   autoscaling:
     enabled: true
