@@ -93,6 +93,7 @@ fabric.properties
 .editorconfig
 
 .windsurf/
+.devin/
 ### Kotlin ###
 # Compiled class file
 *.class

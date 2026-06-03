@@ -196,9 +196,6 @@ open class HttpClientComponent(private val properties: NodeProperties) {
                 val response = sendHttpRequest(url, method, body, stringHeaders, stringQueryParams)
 
                 try {
-                        logger.info(
-                                "HTTP Response - Status: ${response.statusCode.value}, Body: ${response.body.take(500)}"
-                        )
                         // Construct the proper type for OcpiResponse<T>
                         val typeFactory = mapper.typeFactory
                         val innerType = if (typeClass != null) {
@@ -213,6 +210,12 @@ open class HttpClientComponent(private val properties: NodeProperties) {
                                 )
                         val parsedBody: OcpiResponse<T> =
                                 mapper.readValue(response.body, responseType)
+                        val logMessage = "HTTP Response - Status: ${response.statusCode.value}, Body: ${response.body.take(500)}"
+                        if (parsedBody.statusCode != 1000) {
+                                logger.error(logMessage)
+                        } else {
+                                logger.info(logMessage)
+                        }
                         return OcpiHttpResponse(
                                 statusCode = response.statusCode.value,
                                 headers =
