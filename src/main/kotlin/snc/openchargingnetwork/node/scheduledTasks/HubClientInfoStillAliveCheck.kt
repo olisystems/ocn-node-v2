@@ -64,11 +64,12 @@ class HubClientInfoStillAliveCheck(
      */
     private fun isClientAvailable(client: PlatformEntity): Boolean {
         try {
-            if (client.versionsUrl == null || client.auth.tokenB == null) {
+            val authorizationToken = client.auth.tokenB ?: client.auth.tokenC
+            if (client.versionsUrl == null || authorizationToken == null) {
                 return false // Client isn't configured. Assume not available
             }
             // If no exception thrown during version request, assume that request was successful
-            httpClientComponent.getVersions(client.versionsUrl!!, client.auth.tokenB!!)
+            httpClientComponent.getVersions(client.versionsUrl!!, authorizationToken)
             return true
         } catch (e: OcpiServerUnusableApiException) {
             return false
