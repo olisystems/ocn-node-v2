@@ -116,10 +116,11 @@ class Verification(
                 )
 
         if (!response.success) {
-            throw IllegalArgumentException(
+            logger.error(
                     "Unable to connect to Registry Indexer. " +
                             "Ensure ${registryIndexerProperties.url} is reachable. " +
-                            "Reason: ${response.error}"
+                            "Reason: ${response.error}. " +
+                            "The node will continue running but registry features may be unavailable."
             )
         }
     }
