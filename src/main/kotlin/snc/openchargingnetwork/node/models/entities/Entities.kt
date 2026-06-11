@@ -35,6 +35,7 @@ class PlatformEntity(
         var versionsUrl: String? = null,
         @Embedded var auth: Auth = Auth(),
         @Embedded var rules: OcnRules = OcnRules(),
+        @Column(columnDefinition = "boolean default false") var testTool: Boolean = false,
         @Id @GeneratedValue var id: Long? = null
 ) : AbstractAggregateRoot<PlatformEntity>() {
 
