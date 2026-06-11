@@ -89,6 +89,10 @@ oli-app:
       configMapKeyRef:
         name: ocn-node-v2-config
         key: OCN_NODE_LOG_CURL_COMMANDS
+    OCN_NODE_LOG_FULL_HEADERS:
+      configMapKeyRef:
+        name: ocn-node-v2-config
+        key: OCN_NODE_LOG_FULL_HEADERS
     JAVA_TOOL_OPTIONS:
       configMapKeyRef:
         name: ocn-node-v2-config
@@ -97,7 +101,6 @@ oli-app:
       configMapKeyRef:
         name: ocn-node-v2-config
         key: EDX_CDR_SERVICE_BASE_URL
-
     OCN_NODE_ADMIN_KEY:
       secretKeyRef:
         name: ocn-node-v2-secret

@@ -64,7 +64,9 @@ class NodeInfoLogger(
                         " DEV MODE             | ${properties.dev}\n" +
                         " SIGNATURES           | ${properties.signatures}\n" +
                         " STILL ALIVE CHECK    | $stillAliveText\n" +
-                        " HUB CLIENT INFO SYNC | $hubClientInfoSyncText\n"
+                        " HUB CLIENT INFO SYNC | $hubClientInfoSyncText\n" +
+                        " LOG CURL COMMANDS    | ${properties.logCurlCommands}\n" +
+                        " LOG FULL HEADERS     | ${properties.logFullHeaders}\n"
         )
 
         println(
