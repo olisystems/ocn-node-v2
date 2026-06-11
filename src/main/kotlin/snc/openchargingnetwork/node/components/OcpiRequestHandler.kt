@@ -139,6 +139,7 @@ class OcpiRequestHandler<T : Any>(
             proxied: Boolean = false,
             fromLocalPlatform: Boolean = true
     ): OcpiResponseHandler<T> {
+        logFullHeaders()
         if (fromLocalPlatform) {
             assertSenderValid()
         }
@@ -151,32 +152,38 @@ class OcpiRequestHandler<T : Any>(
                 "Forwarding message to ${request.headers.receiver.country} ${request.headers.receiver.id}"
         )
 
+        var forwardUrl: String? = null
         val response: OcpiHttpResponse<T> =
-                when (routingService.getReceiverType(request.headers.receiver)) {
-                    Receiver.LOCAL -> {
-                        assertWhitelisted()
-                        assertValidSignature()
-                        val (url, headers) =
-                                routingService.prepareLocalPlatformRequest(request, proxied)
-                        val statusName = this.verificationStatus?.name
-                        val localHeaders =
-                                headers.copy(
-                                        verificationStatus =
-                                                if (statusName == null) headers.verificationStatus
-                                                else statusName
-                                )
-
-                        asyncTaskService.forwardOcpiRequestToLinkedServices(this, fromLocalPlatform)
-                        httpClientComponent.makeOcpiRequest(url, localHeaders, request)
+                try {
+                    when (routingService.getReceiverType(request.headers.receiver)) {
+                        Receiver.LOCAL -> {
+                            assertWhitelisted()
+                            assertValidSignature()
+                            val (url, headers) =
+                                    routingService.prepareLocalPlatformRequest(request, proxied)
+                            forwardUrl = url
+                            val statusName = this.verificationStatus?.name
+                            val localHeaders =
+                                    headers.copy(
+                                            verificationStatus =
+                                                    if (statusName == null) headers.verificationStatus
+                                                    else statusName
+                                    )
+                            httpClientComponent.makeOcpiRequest(url, localHeaders, request)
+                        }
+                        Receiver.REMOTE -> {
+                            assertValidSignature(false)
+                            val (url, headers, body) =
+                                    routingService.prepareRemotePlatformRequest(request, proxied)
+                            forwardUrl = url
+                            httpClientComponent.postOcnMessage(url, headers, body)
+                        }
                     }
-                    Receiver.REMOTE -> {
-                        assertValidSignature(false)
-                        val (url, headers, body) =
-                                routingService.prepareRemotePlatformRequest(request, proxied)
-
-                        asyncTaskService.forwardOcpiRequestToLinkedServices(this, fromLocalPlatform)
-                        httpClientComponent.postOcnMessage(url, headers, body)
-                    }
+                } catch (e: Exception) {
+                    logger.error(
+                            "Forward result: ERROR - Failed to forward request to ${request.headers.receiver.country} ${request.headers.receiver.id} | url: $forwardUrl | module: ${request.module} | method: ${request.method} | error: ${e.message}"
+                    )
+                    throw e
                 }
 
         if (response.statusCode in 200..299) {
@@ -287,79 +294,90 @@ class OcpiRequestHandler<T : Any>(
             responseUrl: String,
             modifyRequest: (newResponseUrl: String) -> OcpiRequestVariables
     ): OcpiResponseHandler<T> {
+        logFullHeaders()
         assertSenderValid()
 
         val proxyPath = "/ocpi/sender/2.2.1/${request.module.id}/${request.urlPath}"
         val rewriteFields = mapOf("$['body']['response_url']" to responseUrl)
 
+        var forwardUrl: String? = null
         val response: OcpiHttpResponse<T> =
-                when (routingService.getReceiverType(request.headers.receiver)) {
-                    Receiver.LOCAL -> {
-                        assertWhitelisted()
-                        assertValidSignature()
+                try {
+                    when (routingService.getReceiverType(request.headers.receiver)) {
+                        Receiver.LOCAL -> {
+                            assertWhitelisted()
+                            assertValidSignature()
 
-                        // save the original resource (response_url), returning a uid pointing to
-                        // its location
-                        val resourceID =
-                                routingService.setProxyResource(
-                                        responseUrl,
-                                        request.headers.receiver,
-                                        request.headers.sender
-                                )
-                        // use the callback to modify the original request with the new response_url
-                        val modifiedRequest =
-                                modifyRequest(
-                                        urlJoin(
-                                                properties.url,
-                                                properties.apiPrefix,
-                                                proxyPath,
-                                                resourceID
-                                        )
-                                )
-                        // use the notary to securely modify the request signature
-                        modifiedRequest.headers.signature =
-                                rewriteAndSign(modifiedRequest.toSignedValues(), rewriteFields)
-                        // send the request with the modified body
-                        val (url, headers) = routingService.prepareLocalPlatformRequest(request)
-                        val statusName = this.verificationStatus?.name
-                        val localHeaders =
-                                headers.copy(
-                                        verificationStatus =
-                                                if (statusName == null) headers.verificationStatus
-                                                else statusName
-                                )
-
-                        asyncTaskService.forwardOcpiRequestToLinkedServices(this)
-                        httpClientComponent.makeOcpiRequest(url, localHeaders, modifiedRequest)
-                    }
-                    Receiver.REMOTE -> {
-                        assertValidSignature(false)
-
-                        val (url, headers, body) =
-                                routingService.prepareRemotePlatformRequest(request) {
-                                    // create a uid that will point to the original response_url
-                                    val proxyUID = generateUUIDv4Token()
-                                    // use the callback to modify the original request with the new
-                                    // response_url
-                                    val modifiedRequest =
-                                            modifyRequest(urlJoin(it, proxyPath, proxyUID))
-                                    // use the notary to securely modify the request signature
-                                    modifiedRequest.headers.signature =
-                                            rewriteAndSign(
-                                                    modifiedRequest.toSignedValues(),
-                                                    rewriteFields
-                                            )
-                                    // add the proxy uid and resource to the outgoing body (read by
-                                    // the recipient's OCN node)
-                                    modifiedRequest.copy(
-                                            proxyUID = proxyUID,
-                                            proxyResource = responseUrl
+                            // save the original resource (response_url), returning a uid pointing to
+                            // its location
+                            val resourceID =
+                                    routingService.setProxyResource(
+                                            responseUrl,
+                                            request.headers.receiver,
+                                            request.headers.sender
                                     )
-                                }
+                            // use the callback to modify the original request with the new response_url
+                            val modifiedRequest =
+                                    modifyRequest(
+                                            urlJoin(
+                                                    properties.url,
+                                                    properties.apiPrefix,
+                                                    proxyPath,
+                                                    resourceID
+                                            )
+                                    )
+                            // use the notary to securely modify the request signature
+                            modifiedRequest.headers.signature =
+                                    rewriteAndSign(modifiedRequest.toSignedValues(), rewriteFields)
+                            // send the request with the modified body
+                            val (url, headers) = routingService.prepareLocalPlatformRequest(request)
+                            forwardUrl = url
+                            val statusName = this.verificationStatus?.name
+                            val localHeaders =
+                                    headers.copy(
+                                            verificationStatus =
+                                                    if (statusName == null) headers.verificationStatus
+                                                    else statusName
+                                    )
 
-                        asyncTaskService.forwardOcpiRequestToLinkedServices(this)
-                        httpClientComponent.postOcnMessage(url, headers, body)
+                            asyncTaskService.forwardOcpiRequestToLinkedServices(this)
+                            httpClientComponent.makeOcpiRequest(url, localHeaders, modifiedRequest)
+                        }
+                        Receiver.REMOTE -> {
+                            assertValidSignature(false)
+
+                            val (url, headers, body) =
+                                    routingService.prepareRemotePlatformRequest(request) {
+                                        // create a uid that will point to the original response_url
+                                        val proxyUID = generateUUIDv4Token()
+                                        // use the callback to modify the original request with the new
+                                        // response_url
+                                        val modifiedRequest =
+                                                modifyRequest(urlJoin(it, proxyPath, proxyUID))
+                                        // use the notary to securely modify the request signature
+                                        modifiedRequest.headers.signature =
+                                                rewriteAndSign(
+                                                        modifiedRequest.toSignedValues(),
+                                                        rewriteFields
+                                                )
+                                        // add the proxy uid and resource to the outgoing body (read by
+                                        // the recipient's OCN node)
+                                        modifiedRequest.copy(
+                                                proxyUID = proxyUID,
+                                                proxyResource = responseUrl
+                                        )
+                                    }
+                            forwardUrl = url
+
+                            asyncTaskService.forwardOcpiRequestToLinkedServices(this)
+                            httpClientComponent.postOcnMessage(url, headers, body)
+                        }
                     }
+                } catch (e: Exception) {
+                    logger.error(
+                            "Forward result: ERROR - Failed to forward async request to ${request.headers.receiver.country} ${request.headers.receiver.id} | url: $forwardUrl | module: ${request.module} | method: ${request.method} | error: ${e.message}"
+                    )
+                    throw e
                 }
 
         return responseHandlerBuilder.build(
@@ -375,6 +393,7 @@ class OcpiRequestHandler<T : Any>(
      * @param sendingNodeSignature the OCN-Signature header received from the sending node
      */
     fun forwardFromOcn(sendingNodeSignature: String): OcpiResponseHandler<T> {
+        logFullHeaders()
         validateOcnMessage(sendingNodeSignature)
         return forwardDefault(fromLocalPlatform = false)
     }
@@ -416,6 +435,15 @@ class OcpiRequestHandler<T : Any>(
                 }
 
         return responseHandlerBuilder.build(modifiedRequest, response)
+    }
+
+    /** Log full headers of the received request when logFullHeaders is enabled. */
+    private fun logFullHeaders() {
+        if (properties.logFullHeaders) {
+            logger.info(
+                    "Full headers on received request | method: ${request.method} | module: ${request.module} | interfaceRole: ${request.interfaceRole} | urlPath: ${request.urlPath} | headers: ${request.headers.toMap()}"
+            )
+        }
     }
 
     /** Assert the sender is allowed to send OCPI requests to this OCN Node. */
