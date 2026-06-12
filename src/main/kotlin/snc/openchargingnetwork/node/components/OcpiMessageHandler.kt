@@ -59,6 +59,8 @@ open class OcpiMessageHandler(
      * 2. request contains a signature header
      * 3. (optional) recipient requires it (overrides other settings)
      *
+     * When signing is disabled, responses will not include ocn_signature or ocn_verification_status
+     * fields, ensuring clean OCPI-compliant responses.
      */
     fun isSigningActive(recipient: BasicRole? = null): Boolean {
         // Only activate signing if the property is true

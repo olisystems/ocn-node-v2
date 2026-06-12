@@ -136,6 +136,9 @@ class TestToolRequestWrapper(
         if (request.getHeader("OCPI-to-party-id") == null) {
             headers["OCPI-to-party-id"] = toPartyId
         }
+        if (request.getHeader("test-tool-origin") == null) {
+            headers["test-tool-origin"] = "true"
+        }
 
         injectedHeaders = headers
     }
