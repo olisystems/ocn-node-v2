@@ -7,7 +7,7 @@ on:
 jobs:
   pr-source-check:
     name: PR source must be develop
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Ensure PR source is develop
         run: |
