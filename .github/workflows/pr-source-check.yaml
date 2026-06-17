@@ -1,0 +1,17 @@
+name: PR Source Check
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  pr-source-check:
+    name: PR source must be develop
+    runs-on: self-hosted
+    steps:
+      - name: Ensure PR source is develop
+        run: |
+          if [ "${{ github.head_ref }}" != "develop" ]; then
+            echo "::error::PRs to main must come from develop. Got '${{ github.head_ref }}'."
+            exit 1
+          fi
