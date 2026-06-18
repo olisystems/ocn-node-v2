@@ -16,6 +16,7 @@
 
 package snc.openchargingnetwork.node.models.exceptions
 
+import jakarta.servlet.http.HttpServletRequest
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import org.slf4j.LoggerFactory
@@ -44,6 +45,10 @@ class ExceptionHandler(private val properties: NodeProperties) {
         return Notary().sign(ValuesToSign(body = body), properties.privateKey!!).serialize()
     }
 
+    private fun isSigningEnabled(): Boolean {
+        return properties.signatures
+    }
+
     /** GENERIC EXCEPTIONS */
 
     // TODO: Not critical, check behaviour when there are missing headers or parameters in the
@@ -52,38 +57,45 @@ class ExceptionHandler(private val properties: NodeProperties) {
     // framework as per modern implementations.
 
     @ExceptionHandler(HttpMessageNotReadableException::class)
-    fun handleHttpMessageNotReadable(e: HttpMessageNotReadableException): ResponseEntity<Any> {
+    fun handleHttpMessageNotReadable(e: HttpMessageNotReadableException, httpRequest: HttpServletRequest): ResponseEntity<Any> {
         logger.error("Failed to parse request body: ${e.message}")
         val body =
                 OcpiResponse<Unit>(
                         statusCode = OcpiStatus.CLIENT_INVALID_PARAMETERS.code,
                         statusMessage = e.message
                 )
-        body.signature = signError(body)
+        if (isSigningEnabled()) {
+            body.signature = signError(body)
+        }
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body)
     }
 
     @ExceptionHandler(SocketTimeoutException::class)
     fun handleSocketTimeoutException(
-            e: SocketTimeoutException
+            e: SocketTimeoutException,
+            httpRequest: HttpServletRequest
     ): ResponseEntity<OcpiResponse<Unit>> {
         val body =
                 OcpiResponse<Unit>(
                         statusCode = OcpiStatus.HUB_REQUEST_TIMEOUT.code,
                         statusMessage = e.message
                 )
-        body.signature = signError(body)
+        if (isSigningEnabled()) {
+            body.signature = signError(body)
+        }
         return ResponseEntity.status(HttpStatus.OK).body(body)
     }
 
     @ExceptionHandler(ConnectException::class)
-    fun handleConnectException(e: ConnectException): ResponseEntity<OcpiResponse<Unit>> {
+    fun handleConnectException(e: ConnectException, httpRequest: HttpServletRequest): ResponseEntity<OcpiResponse<Unit>> {
         val body =
                 OcpiResponse<Unit>(
                         statusCode = OcpiStatus.HUB_CONNECTION_PROBLEM.code,
                         statusMessage = e.message
                 )
-        body.signature = signError(body)
+        if (isSigningEnabled()) {
+            body.signature = signError(body)
+        }
         return ResponseEntity.status(HttpStatus.OK).body(body)
     }
 
@@ -91,107 +103,122 @@ class ExceptionHandler(private val properties: NodeProperties) {
     private fun ocpiErrorToResponseEntity(
             httpStatus: HttpStatus,
             ocpiStatus: OcpiStatus,
-            message: String?
+            message: String?,
+            httpRequest: HttpServletRequest
     ): ResponseEntity<OcpiResponse<Unit>> {
         val body = OcpiResponse<Unit>(statusCode = ocpiStatus.code, statusMessage = message)
-        body.signature = signError(body)
+        if (isSigningEnabled()) {
+            body.signature = signError(body)
+        }
         return ResponseEntity.status(httpStatus).body(body)
     }
 
     @ExceptionHandler(OcpiClientGenericException::class)
-    fun handleOcpiClientGenericException(e: OcpiClientGenericException) =
+    fun handleOcpiClientGenericException(e: OcpiClientGenericException, httpRequest: HttpServletRequest) =
             ocpiErrorToResponseEntity(
                     httpStatus = e.httpStatus,
                     ocpiStatus = e.ocpiStatus,
-                    message = e.message
+                    message = e.message,
+                    httpRequest = httpRequest
             )
 
     @ExceptionHandler(OcpiClientInvalidParametersException::class)
-    fun handleOcpiClientInvalidParametersException(e: OcpiClientInvalidParametersException) =
+    fun handleOcpiClientInvalidParametersException(e: OcpiClientInvalidParametersException, httpRequest: HttpServletRequest) =
             ocpiErrorToResponseEntity(
                     httpStatus = e.httpStatus,
                     ocpiStatus = e.ocpiStatus,
-                    message = e.message
+                    message = e.message,
+                    httpRequest = httpRequest
             )
 
     @ExceptionHandler(OcpiClientNotEnoughInformationException::class)
-    fun handleOcpiClientNotEnoughInformationException(e: OcpiClientNotEnoughInformationException) =
+    fun handleOcpiClientNotEnoughInformationException(e: OcpiClientNotEnoughInformationException, httpRequest: HttpServletRequest) =
             ocpiErrorToResponseEntity(
                     httpStatus = e.httpStatus,
                     ocpiStatus = e.ocpiStatus,
-                    message = e.message
+                    message = e.message,
+                    httpRequest = httpRequest
             )
 
     @ExceptionHandler(OcpiClientUnknownLocationException::class)
-    fun handleOcpiClientUnknownLocationException(e: OcpiClientUnknownLocationException) =
+    fun handleOcpiClientUnknownLocationException(e: OcpiClientUnknownLocationException, httpRequest: HttpServletRequest) =
             ocpiErrorToResponseEntity(
                     httpStatus = e.httpStatus,
                     ocpiStatus = e.ocpiStatus,
-                    message = e.message
+                    message = e.message,
+                    httpRequest = httpRequest
             )
 
     @ExceptionHandler(OcpiServerGenericException::class)
-    fun handleOcpiServerGenericException(e: OcpiServerGenericException) =
+    fun handleOcpiServerGenericException(e: OcpiServerGenericException, httpRequest: HttpServletRequest) =
             ocpiErrorToResponseEntity(
                     httpStatus = e.httpStatus,
                     ocpiStatus = e.ocpiStatus,
-                    message = e.message
+                    message = e.message,
+                    httpRequest = httpRequest
             )
 
     @ExceptionHandler(OcpiServerUnusableApiException::class)
-    fun handleOcpiServerUnusableApiException(e: OcpiServerUnusableApiException) =
+    fun handleOcpiServerUnusableApiException(e: OcpiServerUnusableApiException, httpRequest: HttpServletRequest) =
             ocpiErrorToResponseEntity(
                     httpStatus = e.httpStatus,
                     ocpiStatus = e.ocpiStatus,
-                    message = e.message
+                    message = e.message,
+                    httpRequest = httpRequest
             )
 
     @ExceptionHandler(OcpiServerNoMatchingEndpointsException::class)
-    fun handleOcpiServerNoMatchingEndpointsException(e: OcpiServerNoMatchingEndpointsException) =
+    fun handleOcpiServerNoMatchingEndpointsException(e: OcpiServerNoMatchingEndpointsException, httpRequest: HttpServletRequest) =
             ocpiErrorToResponseEntity(
                     httpStatus = e.httpStatus,
                     ocpiStatus = e.ocpiStatus,
-                    message = e.message
+                    message = e.message,
+                    httpRequest = httpRequest
             )
 
     @ExceptionHandler(OcpiServerUnsupportedVersionException::class)
-    fun handleOcpiServerUnsupportedVersionException(e: OcpiServerUnsupportedVersionException) =
+    fun handleOcpiServerUnsupportedVersionException(e: OcpiServerUnsupportedVersionException, httpRequest: HttpServletRequest) =
             ocpiErrorToResponseEntity(
                     httpStatus = e.httpStatus,
                     ocpiStatus = e.ocpiStatus,
-                    message = e.message
+                    message = e.message,
+                    httpRequest = httpRequest
             )
 
     @ExceptionHandler(OcpiHubConnectionProblemException::class)
-    fun handleOcpiHubConnectionProblemException(e: OcpiHubConnectionProblemException) =
+    fun handleOcpiHubConnectionProblemException(e: OcpiHubConnectionProblemException, httpRequest: HttpServletRequest) =
             ocpiErrorToResponseEntity(
                     httpStatus = e.httpStatus,
                     ocpiStatus = e.ocpiStatus,
-                    message = e.message
+                    message = e.message,
+                    httpRequest = httpRequest
             )
 
     @ExceptionHandler(OcpiHubTimeoutOnRequestException::class)
-    fun handleOcpiHubTimeoutOnRequestException(e: OcpiHubTimeoutOnRequestException) =
+    fun handleOcpiHubTimeoutOnRequestException(e: OcpiHubTimeoutOnRequestException, httpRequest: HttpServletRequest) =
             ocpiErrorToResponseEntity(
                     httpStatus = e.httpStatus,
                     ocpiStatus = e.ocpiStatus,
-                    message = e.message
+                    message = e.message,
+                    httpRequest = httpRequest
             )
 
     @ExceptionHandler(OcpiHubUnknownReceiverException::class)
-    fun handleOcpiHubUnknownReceiverException(e: OcpiHubUnknownReceiverException) =
+    fun handleOcpiHubUnknownReceiverException(e: OcpiHubUnknownReceiverException, httpRequest: HttpServletRequest) =
             ocpiErrorToResponseEntity(
                     httpStatus = e.httpStatus,
                     ocpiStatus = e.ocpiStatus,
-                    message = e.message
+                    message = e.message,
+                    httpRequest = httpRequest
             )
 
     @ExceptionHandler(OcpiHubGenericException::class)
-    fun handleOcpiHubGenericException(e: OcpiHubGenericException) =
+    fun handleOcpiHubGenericException(e: OcpiHubGenericException, httpRequest: HttpServletRequest) =
             ocpiErrorToResponseEntity(
                     httpStatus = e.httpStatus,
                     ocpiStatus = e.ocpiStatus,
-                    message = e.message
+                    message = e.message,
+                    httpRequest = httpRequest
             )
 
     /** OCN Exceptions */

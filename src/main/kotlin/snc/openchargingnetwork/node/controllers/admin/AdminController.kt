@@ -67,7 +67,8 @@ data class PlatformDto(
         val status: String,
         val lastUpdated: String,
         val versionsUrl: String?,
-        val auth: PlatformAuthDto
+        val auth: PlatformAuthDto,
+        val testTool: Boolean = false
 )
 
 data class PlatformWithRolesResponse(val platform: PlatformDto, val roles: List<PlatformRoleDto>)
@@ -75,7 +76,8 @@ data class PlatformWithRolesResponse(val platform: PlatformDto, val roles: List<
 data class CreatePlatformRequest(
         val tokenA: String? = null,
         val handshakeSelfInitiated: Boolean = false,
-        val platformVersionsUrl: String? = null
+        val platformVersionsUrl: String? = null,
+        val testTool: Boolean = false
 )
 
 private val logger = LoggerFactory.getLogger(AdminController::class.java)
@@ -495,7 +497,8 @@ class AdminController(
                                             selfCredentialsToken = selfCredentialsToken,
                                             handshakeSelfInitiated = true
                                     ),
-                            versionsUrl = body.platformVersionsUrl
+                            versionsUrl = body.platformVersionsUrl,
+                            testTool = body.testTool
                     )
                 } else {
                     // generate and store new platform with authorization token
@@ -506,7 +509,8 @@ class AdminController(
                                             tokenA = tokenA,
                                             selfCredentialsToken = tokenA,
                                             handshakeSelfInitiated = false
-                                    )
+                                    ),
+                            testTool = body.testTool
                     )
                 }
         platformRepo.save(platform)
@@ -818,7 +822,8 @@ class AdminController(
                                                             handshakeSelfInitiated =
                                                                     platform.auth
                                                                             .handshakeSelfInitiated
-                                                    )
+                                                    ),
+                                            testTool = platform.testTool
                                     ),
                             roles =
                                     roleRepo.findAllByPlatformID(platform.id).map { role ->
