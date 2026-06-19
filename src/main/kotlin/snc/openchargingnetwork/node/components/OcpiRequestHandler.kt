@@ -144,24 +144,26 @@ class OcpiRequestHandler<T : Any>(
             assertSenderValid()
         }
 
-        logger.info(
-                "Counterparty ${request.headers.receiver.country} ${request.headers.receiver.id} properly identified"
-        )
+        val receiver = request.headers.receiver
+        val receiverLabel = "${receiver.country}/${receiver.id}"
+        val routeType = routingService.getReceiverType(receiver)
 
         logger.info(
-                "Forwarding message to ${request.headers.receiver.country} ${request.headers.receiver.id}"
+            "[Forward] {} {} to {} via {} route",
+            request.method, request.module, receiverLabel, routeType
         )
 
         var forwardUrl: String? = null
         val response: OcpiHttpResponse<T> =
                 try {
-                    when (routingService.getReceiverType(request.headers.receiver)) {
+                    when (routeType) {
                         Receiver.LOCAL -> {
                             assertWhitelisted()
                             assertValidSignature()
                             val (url, headers) =
                                     routingService.prepareLocalPlatformRequest(request, proxied)
                             forwardUrl = url
+                            logger.info("[Forward] Sending directly to local platform: {}", url)
                             val statusName = this.verificationStatus?.name
                             val localHeaders =
                                     headers.copy(
@@ -176,21 +178,28 @@ class OcpiRequestHandler<T : Any>(
                             val (url, headers, body) =
                                     routingService.prepareRemotePlatformRequest(request, proxied)
                             forwardUrl = url
+                            logger.info("[Forward] Sending via remote OCN node: {}/ocn/message", url)
                             httpClientComponent.postOcnMessage(url, headers, body)
                         }
                     }
                 } catch (e: Exception) {
+                    val actualEndpoint = when (routeType) {
+                        Receiver.REMOTE -> "$forwardUrl/ocn/message"
+                        else -> forwardUrl
+                    }
                     logger.error(
-                            "Forward result: ERROR - Failed to forward request to ${request.headers.receiver.country} ${request.headers.receiver.id} | url: $forwardUrl | module: ${request.module} | method: ${request.method} | error: ${e.message}"
+                        "[Forward] FAILED — {} {} to {} | endpoint: {} | error: {}",
+                        request.method, request.module, receiverLabel, actualEndpoint, e.message
                     )
                     throw e
                 }
 
         if (response.statusCode in 200..299) {
-            logger.info("Forward result: SUCCESS - Status code: ${response.statusCode}")
+            logger.info("[Forward] SUCCESS — {} {} to {} | HTTP {}", request.method, request.module, receiverLabel, response.statusCode)
         } else {
             logger.error(
-                    "Forward result: FAILED - Status code: ${response.statusCode}, Message: ${response.body}"
+                "[Forward] UPSTREAM ERROR — {} {} to {} | HTTP {} | body: {}",
+                request.method, request.module, receiverLabel, response.statusCode, response.body
             )
         }
 

@@ -64,39 +64,32 @@ class RegistryService(
      * check OCN registry to see if basic role is registered
      */
     fun isRoleKnown(role: BasicRole, belongsToMe: Boolean = true): Boolean {
-        logger.info("### BEGIN isRoleKnown verifications ###")
         val registry = ocnRegistryComponent.getRegistry()
         val op = filterOperatorByParty(registry, role)
 
-        logger.info("belongsToMe: {}", belongsToMe)
-
         if (belongsToMe) {
             val myKey = Credentials.create(properties.privateKey).address
-            // Extract main domains before comparison
             val opMainDomain = extractMainDomain(op.domain)
             val myMainDomain = extractMainDomain(properties.url)
             var domainMatches = opMainDomain == myMainDomain
             var idMatches = Keys.toChecksumAddress(op.id) == Keys.toChecksumAddress(myKey)
 
-            logger.info("Verifying if main domain matches | opMainDomain == myMainDomain | {} == {}", opMainDomain, myMainDomain)
-            logger.info("Domain matches: {}", domainMatches)
-            logger.info("Verifying if Address id matches | op.id == myKey | {} == {}", op.id, myKey)
-            logger.info("Address id matches: {}", idMatches)
-
-            // bypass checks in dev mode, used for local development
-            if (properties.dev){
-                logger.info("Dev mode enabled - bypassing Domain and ID match checks")
-                domainMatches  = true
+            if (properties.dev) {
+                logger.info("[Registry] {}/{} belongs to this node (dev mode - domain/id checks bypassed)", role.country, role.id)
+                domainMatches = true
                 idMatches = true
+            } else {
+                logger.info(
+                    "[Registry] {}/{} belongs-to-me check: domain={} (match={}) address={} (match={})",
+                    role.country, role.id, opMainDomain, domainMatches, op.id, idMatches
+                )
             }
-            logger.info("### END isRoleKnown verifications ###")
             return domainMatches && idMatches
         }
 
-        val result = op.domain != ""
-        logger.info("belongsToMe is false - checking if op.domain is not empty: {} -> result: {}", op.domain, result)
-        logger.info("### END isRoleKnown verifications ###")
-        return result
+        val isKnown = op.domain.isNotEmpty()
+        logger.info("[Registry] {}/{} is a remote role — OCN node domain: {} (known={})", role.country, role.id, op.domain, isKnown)
+        return isKnown
     }
 
     /**

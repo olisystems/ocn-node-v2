@@ -25,8 +25,11 @@ import org.springframework.core.annotation.Order
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ControllerAdvice
 import org.springframework.web.bind.annotation.ExceptionHandler
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
+import org.springframework.web.bind.MissingRequestHeaderException
 import shareandcharge.openchargingnetwork.notary.Notary
 import shareandcharge.openchargingnetwork.notary.ValuesToSign
 import snc.openchargingnetwork.node.config.NodeProperties
@@ -57,7 +60,7 @@ class ExceptionHandler(private val properties: NodeProperties) {
     // framework as per modern implementations.
 
     @ExceptionHandler(HttpMessageNotReadableException::class)
-    fun handleHttpMessageNotReadable(e: HttpMessageNotReadableException, httpRequest: HttpServletRequest): ResponseEntity<Any> {
+    fun handleHttpMessageNotReadable(e: HttpMessageNotReadableException, httpRequest: HttpServletRequest): ResponseEntity<OcpiResponse<Unit>> {
         logger.error("Failed to parse request body: ${e.message}")
         val body =
                 OcpiResponse<Unit>(
@@ -68,6 +71,48 @@ class ExceptionHandler(private val properties: NodeProperties) {
             body.signature = signError(body)
         }
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body)
+    }
+
+    @ExceptionHandler(MissingRequestHeaderException::class)
+    fun handleMissingRequestHeader(e: MissingRequestHeaderException, httpRequest: HttpServletRequest): ResponseEntity<OcpiResponse<Unit>> {
+        logger.error("Missing required request header '${e.headerName}': ${e.message}")
+        val body =
+                OcpiResponse<Unit>(
+                        statusCode = OcpiStatus.CLIENT_INVALID_PARAMETERS.code,
+                        statusMessage = "Missing required header: ${e.headerName}"
+                )
+        if (isSigningEnabled()) {
+            body.signature = signError(body)
+        }
+        return ResponseEntity.status(HttpStatus.OK).body(body)
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException::class)
+    fun handleMissingServletRequestParameter(e: MissingServletRequestParameterException, httpRequest: HttpServletRequest): ResponseEntity<OcpiResponse<Unit>> {
+        logger.error("Missing required request parameter '${e.parameterName}': ${e.message}")
+        val body =
+                OcpiResponse<Unit>(
+                        statusCode = OcpiStatus.CLIENT_INVALID_PARAMETERS.code,
+                        statusMessage = "Missing required parameter: ${e.parameterName}"
+                )
+        if (isSigningEnabled()) {
+            body.signature = signError(body)
+        }
+        return ResponseEntity.status(HttpStatus.OK).body(body)
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException::class)
+    fun handleMethodArgumentTypeMismatch(e: MethodArgumentTypeMismatchException, httpRequest: HttpServletRequest): ResponseEntity<OcpiResponse<Unit>> {
+        logger.error("Invalid argument type for parameter '${e.name}': ${e.message}")
+        val body =
+                OcpiResponse<Unit>(
+                        statusCode = OcpiStatus.CLIENT_INVALID_PARAMETERS.code,
+                        statusMessage = "Invalid parameter value: ${e.name}"
+                )
+        if (isSigningEnabled()) {
+            body.signature = signError(body)
+        }
+        return ResponseEntity.status(HttpStatus.OK).body(body)
     }
 
     @ExceptionHandler(SocketTimeoutException::class)

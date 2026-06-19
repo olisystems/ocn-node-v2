@@ -22,25 +22,25 @@ import snc.openchargingnetwork.node.models.ocpi.OcpiStatus
 // 2xxx: Client errors
 class OcpiClientGenericException(
     message: String,
-    val httpStatus: HttpStatus = HttpStatus.BAD_REQUEST,
+    val httpStatus: HttpStatus = HttpStatus.OK,
     val ocpiStatus: OcpiStatus = OcpiStatus.CLIENT_ERROR
 ) : Exception(message)
 
 class OcpiClientInvalidParametersException(
     message: String = "Invalid or missing parameters",
-    val httpStatus: HttpStatus = HttpStatus.BAD_REQUEST,
+    val httpStatus: HttpStatus = HttpStatus.OK,
     val ocpiStatus: OcpiStatus = OcpiStatus.CLIENT_INVALID_PARAMETERS
 ) : Exception(message)
 
 class OcpiClientNotEnoughInformationException(
     message: String = "Not enough information",
-    val httpStatus: HttpStatus = HttpStatus.BAD_REQUEST,
+    val httpStatus: HttpStatus = HttpStatus.OK,
     val ocpiStatus: OcpiStatus = OcpiStatus.CLIENT_NOT_ENOUGH_INFO
 ) : Exception(message)
 
 class OcpiClientUnknownLocationException(
     message: String = "Unknown location",
-    val httpStatus: HttpStatus = HttpStatus.NOT_FOUND,
+    val httpStatus: HttpStatus = HttpStatus.OK,
     val ocpiStatus: OcpiStatus = OcpiStatus.CLIENT_UNKNOWN_LOCATION
 ) : Exception(message)
 
