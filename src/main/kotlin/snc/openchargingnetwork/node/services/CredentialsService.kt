@@ -93,6 +93,13 @@ class CredentialsService(
                 platformRepo.findByAuth_TokenA(tokenA)
                         ?: throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_A")
 
+        // registration via POST is only valid before the handshake is complete
+        if (platform.status == ConnectionStatus.CONNECTED) {
+            throw OcpiClientInvalidParametersException(
+                    "Platform is already connected; use PUT to update credentials"
+            )
+        }
+
         // GET versions information endpoint with TOKEN_B (both provided in request body)
         val versionsInfo = httpClientComponent.getVersions(body.url, body.token)
 
