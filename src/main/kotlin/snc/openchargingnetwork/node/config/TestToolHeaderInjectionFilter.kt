@@ -130,12 +130,9 @@ class TestToolRequestWrapper(
         if (request.getHeader("OCPI-from-party-id") == null) {
             headers["OCPI-from-party-id"] = fromPartyId
         }
-        if (request.getHeader("OCPI-to-country-code") == null) {
-            headers["OCPI-to-country-code"] = "DE"
-        }
-        if (request.getHeader("OCPI-to-party-id") == null) {
-            headers["OCPI-to-party-id"] = toPartyId
-        }
+        // Unconditionally override OCPI-to headers for test-tool
+        headers["OCPI-to-country-code"] = "DE"
+        headers["OCPI-to-party-id"] = toPartyId
         if (request.getHeader("test-tool-origin") == null) {
             headers["test-tool-origin"] = "true"
         }
