@@ -49,7 +49,7 @@ oli-app:
           exposeAll: false
 
   env:
-    SERVER_CONTEXT_PATH: "/ocn-v2"
+    OCN_NODE_API: ""
     OCN_NODE_ENABLE_SIGNING: "false"
     OCN_WEB_LOGGING_LEVEL: "TRACE"
     OCN_NODE_HAAS_ON: "true"
@@ -137,15 +137,21 @@ oli-app:
 
   livenessProbe:
     httpGet:
-      path: /actuator/health
+      path: /health
       port: http
-    initialDelaySeconds: 60
+    initialDelaySeconds: 90
+    periodSeconds: 10
+    failureThreshold: 5
+    timeoutSeconds: 5
 
   readinessProbe:
     httpGet:
-      path: /actuator/health
+      path: /health
       port: http
-    initialDelaySeconds: 30
+    initialDelaySeconds: 60
+    periodSeconds: 5
+    failureThreshold: 10
+    timeoutSeconds: 5
 
   autoscaling:
     enabled: true

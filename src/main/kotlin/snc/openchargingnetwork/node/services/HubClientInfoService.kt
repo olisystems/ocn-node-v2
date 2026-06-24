@@ -34,8 +34,10 @@ import snc.openchargingnetwork.node.repositories.NetworkClientInfoRepository
 import snc.openchargingnetwork.node.repositories.PlatformRepository
 import snc.openchargingnetwork.node.repositories.RoleRepository
 import snc.openchargingnetwork.node.tools.extractToken
+import snc.openchargingnetwork.node.tools.fromBs64String
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
 import snc.openchargingnetwork.node.tools.getTimestamp
+import snc.openchargingnetwork.node.tools.toBs64String
 
 /**
  * Enhanced HubClientInfoService with both push and pull models for party discovery and updates This
@@ -64,11 +66,18 @@ class HubClientInfoService(
     fun getList(fromAuthorization: String): List<ClientInfo> {
         val clientInfoList = mutableListOf<ClientInfo>()
 
+        val plainToken = fromAuthorization.extractToken().fromBs64String()
         val requestingPlatform =
-                platformRepo.findByAuth_TokenC(fromAuthorization.extractToken())
+                platformRepo.findByAuth_TokenC(plainToken)
+                        ?: platformRepo.findByAuth_TokenB(plainToken)
                         ?: throw IllegalStateException(
                                 "Sender is validated but cannot find them by their authorization token"
                         )
+        if (requestingPlatform.getAuthTokenToVerifyReceivedRequest() != plainToken) {
+            throw IllegalStateException(
+                    "Sender is validated but cannot find them by their authorization token"
+            )
+        }
 
         // add connected party roles
         for (platform in platformRepo.findAll()) {
@@ -188,14 +197,18 @@ class HubClientInfoService(
             changedClientInfo: ClientInfo
     ) {
         for (party in parties) {
-            val tokenB = platformRepo.findById(party.platformID).get().auth.tokenB
-            if (tokenB != null) {
+            try {
+                val platform = platformRepo.findById(party.platformID).get()
+                val authToken = platform.getAuthTokenToIncludeInRequestHeader()
                 notifyPartyOfClientInfoChange(
                         party.partyID,
                         party.countryCode,
-                        tokenB,
+                        authToken,
                         changedClientInfo
                 )
+            } catch (e: Exception) {
+                // Skip parties where handshake is not complete (token is missing)
+                logger.warn("Skipping ClientInfo notification for party ${party.partyID}: ${e.message}")
             }
         }
     }
@@ -216,7 +229,7 @@ class HubClientInfoService(
     fun notifyPartyOfClientInfoChange(
             partyId: String,
             countryCode: String,
-            tokenB: String,
+            authToken: String,
             changedClientInfo: ClientInfo
     ) {
         val sender =
@@ -233,7 +246,7 @@ class HubClientInfoService(
                         method = HttpMethod.PUT,
                         headers =
                                 OcnHeaders(
-                                        authorization = "Token ${tokenB}",
+                                        authorization = "Token ${authToken.toBs64String()}",
                                         requestID = generateUUIDv4Token(),
                                         correlationID = generateUUIDv4Token(),
                                         sender = sender,

@@ -18,6 +18,7 @@ import snc.openchargingnetwork.node.models.exceptions.OcpiClientInvalidParameter
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
 import snc.openchargingnetwork.node.repositories.OcnRulesListRepository
 import snc.openchargingnetwork.node.repositories.PlatformRepository
+import snc.openchargingnetwork.node.tools.toBs64String
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -49,7 +50,7 @@ class OcnRulesServiceTest(
         testPlatform = platformRepository.save(testPlatform)
 
         testParty = BasicRole("TST", "DE")
-        testAuthorization = "Token test-token-c"
+        testAuthorization = "Token ${"test-token-c".toBs64String()}"
     }
 
     @Test
@@ -64,11 +65,36 @@ class OcnRulesServiceTest(
 
     @Test
     fun `getRules should throw exception for invalid authorization`() {
-        val invalidAuthorization = "Token invalid-token"
+        val invalidAuthorization = "Token ${"invalid-token".toBs64String()}"
 
         assertThrows<OcpiClientInvalidParametersException> {
             ocnRulesService.getRules(invalidAuthorization)
         }
+    }
+
+    @Test
+    fun `getRules should return rules for self-initiated handshake using tokenB`() {
+        val selfInitiatedPlatform =
+                platformRepository.save(
+                        PlatformEntity(
+                                status =
+                                        snc.openchargingnetwork.node.models.ocpi.ConnectionStatus
+                                                .CONNECTED,
+                                auth =
+                                        Auth(
+                                                tokenA = "self-token-a",
+                                                tokenB = "self-token-b",
+                                                tokenC = "self-token-c",
+                                                handshakeSelfInitiated = true
+                                        )
+                        )
+                )
+
+        val authorization = "Token ${"self-token-b".toBs64String()}"
+        val rules = ocnRulesService.getRules(authorization)
+
+        assertThat(rules).isInstanceOf(OcnRules::class.java)
+        assertThat(rules.signatures).isEqualTo(selfInitiatedPlatform.rules.signatures)
     }
 
     @Test

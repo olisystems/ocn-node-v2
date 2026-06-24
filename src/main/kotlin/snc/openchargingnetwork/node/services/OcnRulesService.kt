@@ -29,6 +29,7 @@ import snc.openchargingnetwork.node.models.ocpi.BasicRole
 import snc.openchargingnetwork.node.repositories.OcnRulesListRepository
 import snc.openchargingnetwork.node.repositories.PlatformRepository
 import snc.openchargingnetwork.node.tools.extractToken
+import snc.openchargingnetwork.node.tools.fromBs64String
 
 
 @Service
@@ -309,8 +310,15 @@ class OcnRulesService(
     }
 
     private fun findPlatform(authorization: String): PlatformEntity {
-        return platformRepo.findByAuth_TokenC(authorization.extractToken())
-            ?: throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_C")
+        val plainToken = authorization.extractToken().fromBs64String()
+        val platform =
+                platformRepo.findByAuth_TokenC(plainToken)
+                        ?: platformRepo.findByAuth_TokenB(plainToken)
+                        ?: throw OcpiClientInvalidParametersException("Invalid authorization token")
+        if (platform.getAuthTokenToVerifyReceivedRequest() != plainToken) {
+            throw OcpiClientInvalidParametersException("Invalid authorization token")
+        }
+        return platform
     }
 
     private fun checkModule(modules: List<String>) {

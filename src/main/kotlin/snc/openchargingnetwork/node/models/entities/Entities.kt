@@ -16,10 +16,12 @@
 
 package snc.openchargingnetwork.node.models.entities
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import jakarta.persistence.*
 import java.time.Instant
 import org.springframework.data.domain.AbstractAggregateRoot
 import snc.openchargingnetwork.node.models.events.*
+import snc.openchargingnetwork.node.models.exceptions.OcpiClientInvalidParametersException
 import snc.openchargingnetwork.node.models.ocpi.*
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
 import snc.openchargingnetwork.node.tools.getTimestamp
@@ -70,6 +72,33 @@ class PlatformEntity(
         fun sendAllPartiesToNewlyConnectedParty(countryCode: String, partyId: String) {
                 registerEvent(PlatformSendAllPartiesDomainEvent(this, countryCode, partyId))
         }
+
+        /**
+         * Returns the appropriate auth token to communicate with the platform based on who initiated the handshake.
+         * - When ocn-node initiated the handshake (handshakeSelfInitiated = false): returns TokenB (token created by receiver/platform)
+         * - When platform initiated the handshake (handshakeSelfInitiated = true): returns TokenC (token created by ocn-node)
+         *
+         * @return The auth token (stored as plain text; caller must Base64-encode before placing in HTTP Authorization header)
+         * @throws OcpiClientInvalidParametersException if the expected token is null or empty
+         */
+        @JsonIgnore
+        fun getAuthTokenToIncludeInRequestHeader(): String {
+                return if (auth.handshakeSelfInitiated) {
+                     auth.tokenC?: throw OcpiClientInvalidParametersException("platform has no valid TokenC | Please complete the platform-initiated handshake first")
+                   } else {
+                     auth.tokenB?: throw OcpiClientInvalidParametersException("platform has no valid TokenB | Please complete the OCN Node-initiated handshake first")
+                }
+        }
+
+        @JsonIgnore
+        fun getAuthTokenToVerifyReceivedRequest(): String {
+                return if (auth.handshakeSelfInitiated) {
+                      auth.tokenB?: throw OcpiClientInvalidParametersException("platform has no valid TokenB | Please complete the OCN Node-initiated handshake first")
+                    } else {
+                     auth.tokenC?: throw OcpiClientInvalidParametersException("platform has no valid TokenC | Please complete the platform-initiated handshake first")
+                    }
+        }
+
 }
 
 /**
@@ -82,7 +111,9 @@ class PlatformEntity(
 class Auth(
         var tokenA: String? = generateUUIDv4Token(),
         var tokenB: String? = null,
-        var tokenC: String? = null
+        var tokenC: String? = null,
+        var selfCredentialsToken: String? = null,
+        @Column(columnDefinition = "boolean default false") var handshakeSelfInitiated: Boolean = false
 )
 
 @Embeddable
@@ -96,7 +127,15 @@ class OcnRules(
  * Store a role linked to an OCPI platform (i.e. a platform can implement both EMSP and CPO roles)
  */
 @Entity
-@Table(name = "roles")
+@Table(
+        name = "roles",
+        uniqueConstraints = [
+                UniqueConstraint(
+                        name = "uk_role_country_party_role",
+                        columnNames = ["countryCode", "partyID", "role"]
+                )
+        ]
+)
 class RoleEntity(
         var platformID: Long,
         @Enumerated(EnumType.STRING) var role: Role,
@@ -104,7 +143,11 @@ class RoleEntity(
         var partyID: String,
         var countryCode: String,
         @Id @GeneratedValue var id: Long? = null
-)
+) {
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "platformid", insertable = false, updatable = false)
+        var platform: PlatformEntity? = null
+}
 
 /**
  * Store endpoints associated with an OCPI platform retreived during the Versions/Credentials
@@ -118,7 +161,11 @@ class EndpointEntity(
         @Enumerated(EnumType.STRING) var role: InterfaceRole,
         var url: String,
         @Id @GeneratedValue var id: Long? = null
-)
+) {
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "platformid", insertable = false, updatable = false)
+        var platform: PlatformEntity? = null
+}
 
 /** Store a resource (URL) which will be proxied by the controller of the request */
 @Entity
@@ -153,7 +200,11 @@ class OcnRulesListEntity(
         val counterparty: BasicRole,
         @ElementCollection(fetch = FetchType.EAGER) val modules: List<String> = listOf(),
         @Id @GeneratedValue val id: Long? = null
-)
+) {
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "platformid", insertable = false, updatable = false)
+        var platform: PlatformEntity? = null
+}
 
 /**
  * Store the client info object of a party/role from the network (other nodes; planned party from
