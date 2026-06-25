@@ -65,6 +65,7 @@ class TokensController(private val requestHandlerBuilder: OcpiRequestHandlerBuil
 
         return requestHandlerBuilder
             .build<Array<Token>>(requestVariables)
+            .forwardSenderIntegrationsAsync(ModuleID.TOKENS)
             .forwardDefault()
             .getResponseWithPaginationHeaders() // proxies Link response header
     }
@@ -95,6 +96,7 @@ class TokensController(private val requestHandlerBuilder: OcpiRequestHandlerBuil
 
         return requestHandlerBuilder
             .build<Array<Token>>(requestVariables)
+            .forwardSenderIntegrationsAsync(ModuleID.TOKENS)
             .forwardDefault(proxied = true) // retrieves proxied Link response header
             .getResponseWithPaginationHeaders()
     }

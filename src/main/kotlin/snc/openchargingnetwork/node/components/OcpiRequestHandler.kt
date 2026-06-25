@@ -292,6 +292,65 @@ class OcpiRequestHandler<T : Any>(
         return this
     }
 
+    fun forwardSenderIntegrationsAsync(module: ModuleID): OcpiRequestHandler<T> {
+        val currentContext = this
+        coroutineScope.launch {
+            val receivingParties =
+                    integrationsRoutingService.getSenderIntegrationReceivingParties(
+                            module,
+                            request.headers.sender
+                    )
+            for (receivingParty in receivingParties) {
+                try {
+                    val modifiedRequest = request.copy(
+                            headers = request.headers.copy(receiver = receivingParty)
+                    )
+                    val response: OcpiHttpResponse<T> =
+                            when (routingService.getReceiverType(receivingParty)) {
+                                Receiver.LOCAL -> {
+                                    val (url, headers) =
+                                            routingService.prepareLocalPlatformRequest(modifiedRequest, false)
+                                    val statusName = currentContext.verificationStatus?.name
+                                    val localHeaders =
+                                            headers.copy(
+                                                    verificationStatus =
+                                                            if (statusName == null)
+                                                                    headers.verificationStatus
+                                                            else statusName
+                                            )
+                                    logger.info(
+                                            "[ForwardSender] Routing {} {} to integration party {}/{}: {}",
+                                            request.method, module, receivingParty.country, receivingParty.id, url
+                                    )
+                                    httpClientComponent.makeOcpiRequest(url, localHeaders, modifiedRequest)
+                                }
+                                Receiver.REMOTE -> {
+                                    val (url, headers, body) =
+                                            routingService.prepareRemotePlatformRequest(modifiedRequest, false)
+                                    logger.info(
+                                            "[ForwardSender] Routing {} {} to remote integration party {}/{} via: {}/ocn/message",
+                                            request.method, module, receivingParty.country, receivingParty.id, url
+                                    )
+                                    httpClientComponent.postOcnMessage(url, headers, body)
+                                }
+                            }
+                    logger.info(
+                            "[ForwardSender] SUCCESS — {} {} to {}/{} | HTTP {} | ocpi status: {}",
+                            request.method, module, receivingParty.country, receivingParty.id,
+                            response.statusCode, response.body?.statusCode
+                    )
+                } catch (e: Exception) {
+                    logger.error(
+                            "[ForwardSender] FAILED — {} {} to {}/{} | error: {}",
+                            request.method, module, receivingParty.country, receivingParty.id, e.message
+                    )
+                }
+            }
+        }
+
+        return this
+    }
+
     /**
      * Forward requests from module interfaces which require the modifying of a "response_url" (i.e.
      * commands, charging profiles).
