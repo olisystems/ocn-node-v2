@@ -352,6 +352,85 @@ class OcpiRequestHandler<T : Any>(
     }
 
     /**
+     * Asynchronously forward a receiver-interface request to an additional configurable party
+     * (e.g. DE_OLI) in addition to the original receiver. Used for Tokens and Sessions modules.
+     * No-op when countryCode or partyId is null or blank.
+     */
+    fun forwardToPartyAsync(countryCode: String?, partyId: String?): OcpiRequestHandler<T> {
+        if (countryCode.isNullOrBlank() || partyId.isNullOrBlank()) return this
+        val currentContext = this
+        coroutineScope.launch {
+            try {
+                val targetParty = BasicRole(partyId, countryCode)
+
+                // Guard 1: target party must be locally known (registered in DB)
+                if (!routingService.isRoleKnown(targetParty)) {
+                    logger.warn(
+                        "[ForwardToParty] There is no {} {} currently in database, please make sure the handshake was properly done so that {} {} can receive forwarded Token and Sessions receiver requests",
+                        countryCode, partyId, countryCode, partyId
+                    )
+                    return@launch
+                }
+
+                // Guard 2: skip if the original ocpi-to receiver is on the same platform as the target
+                val originalReceiver = request.headers.receiver
+                if (routingService.isRoleKnown(originalReceiver)) {
+                    val originalPlatformId = routingService.getPlatformID(originalReceiver)
+                    val targetPlatformId = routingService.getPlatformID(targetParty)
+                    if (originalPlatformId == targetPlatformId) {
+                        logger.info(
+                            "[ForwardToParty] Skipping {}/{} — original receiver {}/{} is already on the same platform (platformId={})",
+                            countryCode, partyId, originalReceiver.country, originalReceiver.id, originalPlatformId
+                        )
+                        return@launch
+                    }
+                }
+
+                // Forward to target party, replacing the receiver header
+                val modifiedRequest = request.copy(
+                    headers = request.headers.copy(receiver = targetParty)
+                )
+
+                val response: OcpiHttpResponse<T> =
+                    when (routingService.getReceiverType(targetParty)) {
+                        Receiver.LOCAL -> {
+                            val (url, headers) = routingService.prepareLocalPlatformRequest(modifiedRequest, false)
+                            val statusName = currentContext.verificationStatus?.name
+                            val localHeaders = headers.copy(
+                                verificationStatus = if (statusName == null) headers.verificationStatus else statusName
+                            )
+                            logger.info(
+                                "[ForwardToParty] Routing {} {} to {}/{}: {}",
+                                request.method, request.module, countryCode, partyId, url
+                            )
+                            httpClientComponent.makeOcpiRequest(url, localHeaders, modifiedRequest)
+                        }
+                        Receiver.REMOTE -> {
+                            val (url, headers, body) = routingService.prepareRemotePlatformRequest(modifiedRequest, false)
+                            logger.info(
+                                "[ForwardToParty] Routing {} {} to remote {}/{} via: {}/ocn/message",
+                                request.method, request.module, countryCode, partyId, url
+                            )
+                            httpClientComponent.postOcnMessage(url, headers, body)
+                        }
+                    }
+
+                logger.info(
+                    "[ForwardToParty] SUCCESS — {} {} to {}/{} | HTTP {} | ocpi status: {}",
+                    request.method, request.module, countryCode, partyId,
+                    response.statusCode, response.body?.statusCode
+                )
+            } catch (e: Exception) {
+                logger.error(
+                    "[ForwardToParty] FAILED — {} {} to {}/{} | error: {}",
+                    request.method, request.module, countryCode, partyId, e.message
+                )
+            }
+        }
+        return this
+    }
+
+    /**
      * Forward requests from module interfaces which require the modifying of a "response_url" (i.e.
      * commands, charging profiles).
      * @param responseUrl the original response_url as defined by the sender
