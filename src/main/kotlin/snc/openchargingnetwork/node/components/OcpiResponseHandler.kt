@@ -126,7 +126,9 @@ class OcpiResponseHandler<T : Any>(
 
                 response.headers["X-Total-Count"]?.let { headers["X-Total-Count"] = it }
                 response.headers["X-Limit"]?.let { headers["X-Limit"] = it }
-                response.headers["OCN-Signature"]?.let { headers["OCN-Signature"] = it }
+                if (isSigningActive(request.headers.sender)) {
+                    response.headers["OCN-Signature"]?.let { headers["OCN-Signature"] = it }
+                }
 
                 response.headers["Link"]?.let {
                     it.extractNextLink()?.let { next ->

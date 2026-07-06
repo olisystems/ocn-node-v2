@@ -5,18 +5,30 @@ import org.slf4j.LoggerFactory
 import org.springframework.boot.web.servlet.error.ErrorController
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.stereotype.Component
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import shareandcharge.openchargingnetwork.notary.Notary
+import shareandcharge.openchargingnetwork.notary.ValuesToSign
+import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
 import snc.openchargingnetwork.node.models.ocpi.OcpiStatus
 
 @RestController
-class OcpiErrorController : ErrorController {
+class OcpiErrorController(private val properties: NodeProperties) : ErrorController {
 
     companion object {
         private val logger = LoggerFactory.getLogger(OcpiErrorController::class.java)
 
         private val OCPI_PATH_PREFIXES = listOf("/ocpi/receiver/", "/ocpi/sender/")
+    }
+
+    private fun signError(body: OcpiResponse<Unit>): String {
+        return Notary().sign(ValuesToSign(body = body), properties.privateKey!!).serialize()
+    }
+
+    private fun isSigningEnabled(): Boolean {
+        return properties.signatures
     }
 
     @RequestMapping("/error")
@@ -42,14 +54,18 @@ class OcpiErrorController : ErrorController {
                 statusCode = OcpiStatus.SERVER_ERROR.code,
                 statusMessage = errorMessage ?: "Internal server error"
             )
+            if (isSigningEnabled()) {
+                body.signature = signError(body)
+            }
             ResponseEntity.status(HttpStatus.OK).body(body)
         } else {
             if (isOcpiPath) {
                 logger.error("[ErrorFallback] OCPI transport-layer error: status={}, uri={}, message={}", status, requestUri, errorMessage)
             }
+            val reasonPhrase = errorMessage ?: (HttpStatus.resolve(status)?.reasonPhrase ?: HttpStatus.INTERNAL_SERVER_ERROR.reasonPhrase)
             val body = mapOf(
                 "status" to status,
-                "error" to (errorMessage ?: HttpStatus.valueOf(status).reasonPhrase),
+                "error" to reasonPhrase,
                 "path" to requestUri
             )
             ResponseEntity.status(status).body(body)

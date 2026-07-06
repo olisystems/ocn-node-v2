@@ -65,7 +65,7 @@ class ExceptionHandler(private val properties: NodeProperties) {
         val body =
                 OcpiResponse<Unit>(
                         statusCode = OcpiStatus.CLIENT_INVALID_PARAMETERS.code,
-                        statusMessage = e.message
+                        statusMessage = "Invalid request body"
                 )
         if (isSigningEnabled()) {
             body.signature = signError(body)

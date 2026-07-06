@@ -155,43 +155,47 @@ class OcpiRequestHandler<T : Any>(
 
         var forwardUrl: String? = null
         val response: OcpiHttpResponse<T> =
-                try {
-                    when (routeType) {
-                        Receiver.LOCAL -> {
-                            assertWhitelisted()
-                            assertValidSignature()
-                            val (url, headers) =
-                                    routingService.prepareLocalPlatformRequest(request, proxied)
-                            forwardUrl = url
-                            logger.info("[Forward] Sending directly to local platform: {}", url)
-                            val statusName = this.verificationStatus?.name
-                            val localHeaders =
-                                    headers.copy(
-                                            verificationStatus =
-                                                    if (statusName == null) headers.verificationStatus
-                                                    else statusName
-                                    )
+                when (routeType) {
+                    Receiver.LOCAL -> {
+                        assertWhitelisted()
+                        assertValidSignature()
+                        val (url, headers) =
+                                routingService.prepareLocalPlatformRequest(request, proxied)
+                        forwardUrl = url
+                        logger.info("[Forward] Sending directly to local platform: {}", url)
+                        val statusName = this.verificationStatus?.name
+                        val localHeaders =
+                                headers.copy(
+                                        verificationStatus =
+                                                if (statusName == null) headers.verificationStatus
+                                                else statusName
+                                )
+                        try {
                             httpClientComponent.makeOcpiRequest(url, localHeaders, request)
+                        } catch (e: Exception) {
+                            logger.error(
+                                "[Forward] FAILED — {} {} to {} | endpoint: {} | error: {}",
+                                request.method, request.module, receiverLabel, url, e.message
+                            )
+                            throw e
                         }
-                        Receiver.REMOTE -> {
-                            assertValidSignature(false)
-                            val (url, headers, body) =
-                                    routingService.prepareRemotePlatformRequest(request, proxied)
-                            forwardUrl = url
-                            logger.info("[Forward] Sending via remote OCN node: {}/ocn/message", url)
+                    }
+                    Receiver.REMOTE -> {
+                        assertValidSignature(false)
+                        val (url, headers, body) =
+                                routingService.prepareRemotePlatformRequest(request, proxied)
+                        forwardUrl = url
+                        logger.info("[Forward] Sending via remote OCN node: {}/ocn/message", url)
+                        try {
                             httpClientComponent.postOcnMessage(url, headers, body)
+                        } catch (e: Exception) {
+                            logger.error(
+                                "[Forward] FAILED — {} {} to {} | endpoint: {} | error: {}",
+                                request.method, request.module, receiverLabel, "$url/ocn/message", e.message
+                            )
+                            throw e
                         }
                     }
-                } catch (e: Exception) {
-                    val actualEndpoint = when (routeType) {
-                        Receiver.REMOTE -> "$forwardUrl/ocn/message"
-                        else -> forwardUrl
-                    }
-                    logger.error(
-                        "[Forward] FAILED — {} {} to {} | endpoint: {} | error: {}",
-                        request.method, request.module, receiverLabel, actualEndpoint, e.message
-                    )
-                    throw e
                 }
 
         if (response.statusCode in 200..299) {
