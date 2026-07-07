@@ -1,7 +1,7 @@
 oli-app:
   fullnameOverride: "ocn-node-v2-dev"
   image:
-    tag: "develop-88e846d"
+    tag: "develop-0f0965e"
   ingress:
     hosts:
       - host: banula-dev.oli-system.com
