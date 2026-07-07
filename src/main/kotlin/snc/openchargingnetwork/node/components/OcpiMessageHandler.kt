@@ -59,6 +59,8 @@ open class OcpiMessageHandler(
      * 2. request contains a signature header
      * 3. (optional) recipient requires it (overrides other settings)
      *
+     * When signing is disabled, responses will not include ocn_signature or ocn_verification_status
+     * fields, ensuring clean OCPI-compliant responses.
      */
     fun isSigningActive(recipient: BasicRole? = null): Boolean {
         // Only activate signing if the property is true
@@ -105,7 +107,9 @@ open class OcpiMessageHandler(
                     return false
                 }
                 if (!result.isValid) {
-                    logger.warn("Signature verification failed for {}: {}", signer, result.error)
+                    if (properties.signatures) {
+                        logger.warn("Signature verification failed for {}: {}", signer, result.error)
+                    }
                     verificationStatus = SignatureVerificationStatus.VERIFICATION_FAILED
                     return false
                 }
@@ -117,15 +121,19 @@ open class OcpiMessageHandler(
                     verificationStatus = SignatureVerificationStatus.VERIFIED
                     true
                 } else {
-                    logger.warn(
-                        "Signature signatory {} does not match party {} or operator {}",
-                        actualSignatory, party.address, party.operator
-                    )
+                    if (properties.signatures) {
+                        logger.warn(
+                            "Signature signatory {} does not match party {} or operator {}",
+                            actualSignatory, party.address, party.operator
+                        )
+                    }
                     verificationStatus = SignatureVerificationStatus.VERIFICATION_FAILED
                     false
                 }
             } catch (e: Exception) {
-                logger.warn("Signature verification encountered an error for {}: {}", signer, e.message)
+                if (properties.signatures) {
+                    logger.warn("Signature verification encountered an error for {}: {}", signer, e.message)
+                }
                 verificationStatus = SignatureVerificationStatus.VERIFICATION_FAILED
                 false
             }

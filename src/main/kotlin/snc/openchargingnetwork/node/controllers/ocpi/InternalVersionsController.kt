@@ -112,7 +112,7 @@ class InternalVersionsController(
         val senderOnlyInterfaces = listOf(ModuleID.CREDENTIALS, ModuleID.HUB_CLIENT_INFO)
 
         for (module in ModuleID.values()) {
-            if (module == ModuleID.CUSTOM) {
+            if (module == ModuleID.CUSTOM || module == ModuleID.VERSIONS) {
                 continue
             }
             if (senderOnlyInterfaces.contains(module)) {
@@ -133,20 +133,6 @@ class InternalVersionsController(
                 endpoints.addAll(getModuleEndpoints(module))
             }
         }
-
-        // add custom OcnRules module endpoint
-        endpoints.add(
-                Endpoint(
-                        identifier = "ocnrules",
-                        role = InterfaceRole.RECEIVER,
-                        url =
-                                urlJoin(
-                                        properties.url,
-                                        properties.apiPrefix,
-                                        "/ocpi/2.2.1/receiver/ocnrules"
-                                )
-                )
-        )
 
         return endpoints
     }

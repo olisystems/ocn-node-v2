@@ -474,6 +474,14 @@ open class HttpClientComponent(private val properties: NodeProperties) {
         ): OcpiHttpResponse<T> {
                 val fullUrl = urlJoin(url, OCN_MESSAGE_ENDPOINT)
 
+                CurlLogger.logCurlCommand(
+                        HttpMethod.POST,
+                        fullUrl,
+                        headers.toMap(),
+                        body,
+                        properties.logCurlCommands
+                )
+
                 try {
                         val response =
                                 sendHttpRequest(
@@ -483,6 +491,11 @@ open class HttpClientComponent(private val properties: NodeProperties) {
                                         headers = headers.toMap()
                                 )
 
+                        logger.info(
+                                "[OCN Message] Response from remote node {} — HTTP {} | body preview: {}",
+                                url, response.statusCode.value, response.body.take(200)
+                        )
+
                         return OcpiHttpResponse(
                                 statusCode = response.statusCode.value,
                                 headers =
@@ -491,7 +504,7 @@ open class HttpClientComponent(private val properties: NodeProperties) {
                         )
                 } catch (e: JsonParseException) {
                         throw OcpiServerGenericException(
-                                "Failed to parse OCN message response: ${e.message}"
+                                "Failed to forward OCN message to $fullUrl: Non-OCPI response received — verify this is a valid OCPI-compliant endpoint"
                         )
                 } catch (e: Exception) {
                         throw OcpiServerGenericException("Failed to post OCN message: ${e.message}")

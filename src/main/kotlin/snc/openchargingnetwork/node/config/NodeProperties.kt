@@ -61,4 +61,7 @@ class NodeProperties {
     // If Enabled logs full curl commands for forwarded OCPI requests (includes tokens/sensitive
     // data)
     var logCurlCommands: Boolean = false
+
+    // If Enabled logs full headers of received requests on forwarding endpoints
+    var logFullHeaders: Boolean = false
 }

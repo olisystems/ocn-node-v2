@@ -51,7 +51,9 @@ data class OcnHeaders(
     val sender: BasicRole,
     val receiver: BasicRole,
     @JsonProperty("OCN-Verification-Status")
-    var verificationStatus: String? = SignatureVerificationStatus.NOT_PRESENTED.name
+    var verificationStatus: String? = SignatureVerificationStatus.NOT_PRESENTED.name,
+    @JsonProperty("test-tool-origin")
+    val testToolOrigin: Boolean? = null
 ) {
 
     fun toMap(routingHeaders: Boolean = true): MutableMap<String, String?> {
