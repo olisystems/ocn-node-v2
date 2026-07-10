@@ -362,6 +362,21 @@ class OcpiRequestHandler<T : Any>(
      */
     fun forwardToPartyAsync(countryCode: String?, partyId: String?): OcpiRequestHandler<T> {
         if (countryCode.isNullOrBlank() || partyId.isNullOrBlank()) return this
+
+        // Validate the sender synchronously BEFORE dispatching anything to the additional party,
+        // mirroring the checks forwardDefault() performs on the original receiver. Because the
+        // forwarding below runs in a fire-and-forget coroutine, skipping this would allow an
+        // unvalidated/unauthorized payload to reach the extra party even when forwardDefault()
+        // would later reject the request.
+        assertSenderValid()
+        when (routingService.getReceiverType(request.headers.receiver)) {
+            Receiver.LOCAL -> {
+                assertWhitelisted()
+                assertValidSignature()
+            }
+            Receiver.REMOTE -> assertValidSignature(false)
+        }
+
         val currentContext = this
         coroutineScope.launch {
             try {
@@ -390,10 +405,19 @@ class OcpiRequestHandler<T : Any>(
                     }
                 }
 
-                // Forward to target party, replacing the receiver header
+                // Forward to target party, replacing the receiver header. The rewritten
+                // ocpi-to headers change the signed values, so re-sign the request (stashing
+                // the original receiver as a rewrite) — mirroring forwardAgain — otherwise the
+                // REMOTE path would send a signature that no longer matches the modified headers.
                 val modifiedRequest = request.copy(
                     headers = request.headers.copy(receiver = targetParty)
                 )
+                val rewriteFields = mapOf(
+                    "$['headers']['ocpi-to-country-code']" to request.headers.receiver.country,
+                    "$['headers']['ocpi-to-party-id']" to request.headers.receiver.id
+                )
+                modifiedRequest.headers.signature =
+                    rewriteAndSign(modifiedRequest.toSignedValues(), rewriteFields)
 
                 val response: OcpiHttpResponse<T> =
                     when (routingService.getReceiverType(targetParty)) {
