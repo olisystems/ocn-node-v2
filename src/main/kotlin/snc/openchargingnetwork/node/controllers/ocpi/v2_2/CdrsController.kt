@@ -66,6 +66,7 @@ class CdrsController(private val requestHandlerBuilder: OcpiRequestHandlerBuilde
         // TODO: all pagination response header links should contain original url-encoded parameters
         return requestHandlerBuilder
             .build<Array<CDR>>(requestVariables)
+            .forwardSenderIntegrationsAsync(ModuleID.CDRS)
             .forwardDefault()
             .getResponseWithPaginationHeaders() // proxies the Link response header
     }
@@ -96,6 +97,7 @@ class CdrsController(private val requestHandlerBuilder: OcpiRequestHandlerBuilde
 
         return requestHandlerBuilder
             .build<Array<CDR>>(requestVariables)
+            .forwardSenderIntegrationsAsync(ModuleID.CDRS)
             .forwardDefault(proxied = true) // retrieves proxied Link response header
             .getResponseWithPaginationHeaders()
     }

@@ -1,0 +1,167 @@
+oli-app:
+  replicaCount: 1
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+
+  restartPolicy: Always
+  terminationGracePeriodSeconds: 45
+
+  image:
+    repository: "swr.eu-de.otc.t-systems.com/oli_banula/ocnnodev2"
+    pullPolicy: IfNotPresent
+    tag: ""
+
+  imagePullSecrets:
+    - name: default-secret
+
+  service:
+    type: ClusterIP
+    port: 80
+    containerPort: 8080
+    name: ocn-node-v2-service
+
+  ingress:
+    enabled: true
+    className: "nginx"
+    features:
+      certManager:
+        enabled: false
+      sslRedirect:
+        enabled: true
+      rateLimiting:
+        enabled: true
+        rpm: 300
+        connections: 10
+      proxySettings:
+        enabled: true
+        bodySize: "8m"
+        bufferSize: "32k"
+      router:
+        enabled: true
+        prefix: "/ocn-v2"
+        stripPrefix: true
+        routes:
+          exposeCommon: false
+          exposeAll: false
+
+  env:
+    OCN_NODE_API: ""
+    OCN_NODE_ENABLE_SIGNING: "false"
+    OCN_WEB_LOGGING_LEVEL: "TRACE"
+    OCN_NODE_HAAS_ON: "true"
+    OCN_NODE_STILL_ALIVE_RATE: "900000"
+    OCN_NODE_HUB_CLIENT_INFO_SYNC_RATE: "3600000"
+    OCN_FF_BANULA_VALIDATION: "true"
+
+    ENVIRONMENT:
+      configMapKeyRef:
+        name: ocn-node-v2-config
+        key: ENVIRONMENT
+    SPRING_PROFILE:
+      configMapKeyRef:
+        name: ocn-node-v2-config
+        key: SPRING_PROFILE
+    OCN_NODE_URL:
+      configMapKeyRef:
+        name: ocn-node-v2-config
+        key: OCN_NODE_URL
+    OCN_REGISTRY_INDEXER_URL:
+      configMapKeyRef:
+        name: ocn-node-v2-config
+        key: OCN_REGISTRY_INDEXER_URL
+    OCN_NODE_PUBLIC_ADDRESS:
+      configMapKeyRef:
+        name: ocn-node-v2-config
+        key: OCN_NODE_PUBLIC_ADDRESS
+    OCN_NODE_DEV_MODE:
+      configMapKeyRef:
+        name: ocn-node-v2-config
+        key: OCN_NODE_DEV_MODE
+    OCN_NODE_HAAS_URL:
+      configMapKeyRef:
+        name: ocn-node-v2-config
+        key: OCN_NODE_HAAS_URL
+    OCN_NODE_LOG_CURL_COMMANDS:
+      configMapKeyRef:
+        name: ocn-node-v2-config
+        key: OCN_NODE_LOG_CURL_COMMANDS
+    OCN_NODE_LOG_FULL_HEADERS:
+      configMapKeyRef:
+        name: ocn-node-v2-config
+        key: OCN_NODE_LOG_FULL_HEADERS
+    JAVA_TOOL_OPTIONS:
+      configMapKeyRef:
+        name: ocn-node-v2-config
+        key: JAVA_TOOL_OPTIONS
+    EDX_CDR_SERVICE_BASE_URL:
+      configMapKeyRef:
+        name: ocn-node-v2-config
+        key: EDX_CDR_SERVICE_BASE_URL
+    OCN_NODE_ADMIN_KEY:
+      secretKeyRef:
+        name: ocn-node-v2-secret
+        key: ocn_node_v2_admin_key
+    OCN_REGISTRY_INDEXER_TOKEN:
+      secretKeyRef:
+        name: ocn-node-v2-secret
+        key: node_indexer_token
+    OCN_NODE_PRIVATE_KEY:
+      secretKeyRef:
+        name: ocn-node-v2-secret
+        key: node_private_key
+    OCN_NODE_POSTGRES_DATABASE:
+      secretKeyRef:
+        name: postgres-secret
+        key: ocn_node_v2_postgres_database
+    OCN_NODE_POSTGRES_USER:
+      secretKeyRef:
+        name: postgres-secret
+        key: ocn_node_v2_postgres_user
+    OCN_NODE_POSTGRES_PASSWORD:
+      secretKeyRef:
+        name: postgres-secret
+        key: ocn_node_v2_postgres_password
+    EDX_CDR_SERVICE_API_KEY:
+      secretKeyRef:
+        name: ocn-node-v2-secret
+        key: edx_cdr_service_api_key
+
+  resources:
+    requests:
+      memory: 768Mi
+      cpu: 500m
+    limits:
+      memory: 2Gi
+      cpu: 2000m
+
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 90
+    periodSeconds: 10
+    failureThreshold: 5
+    timeoutSeconds: 5
+
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 60
+    periodSeconds: 5
+    failureThreshold: 10
+    timeoutSeconds: 5
+
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 1
+    targetCPUUtilizationPercentage: 90
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1

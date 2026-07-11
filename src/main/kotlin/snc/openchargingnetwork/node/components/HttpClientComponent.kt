@@ -3,6 +3,7 @@ package snc.openchargingnetwork.node.components
 import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.core.JsonParseException
 import com.fasterxml.jackson.core.JsonProcessingException
+import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.JsonSerializer
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.databind.SerializerProvider
@@ -48,6 +49,7 @@ import snc.openchargingnetwork.node.models.ocpi.Version
 import snc.openchargingnetwork.node.models.ocpi.VersionDetail
 import snc.openchargingnetwork.node.tools.CurlLogger
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
+import snc.openchargingnetwork.node.tools.toBs64String
 import snc.openchargingnetwork.node.tools.urlJoin
 
 @Component
@@ -176,7 +178,8 @@ open class HttpClientComponent(private val properties: NodeProperties) {
                 url: String,
                 headers: Map<String, String?>,
                 queryParams: Map<String, Any?>? = null,
-                body: String? = null
+                body: String? = null,
+                typeClass: Class<T>? = null
         ): OcpiHttpResponse<T> {
                 val stringHeaders = headers.mapNotNull { (key, value) -> value?.let { key to it } }.toMap()
                 val stringQueryParams =
@@ -193,16 +196,33 @@ open class HttpClientComponent(private val properties: NodeProperties) {
                 val response = sendHttpRequest(url, method, body, stringHeaders, stringQueryParams)
 
                 try {
-                        logger.info(
-                                "HTTP Response - Status: ${response.statusCode.value}, Body: ${response.body.take(500)}"
-                        )
+                        // Construct the proper type for OcpiResponse<T>
+                        val typeFactory = mapper.typeFactory
+                        val innerType = if (typeClass != null) {
+                                typeFactory.constructType(typeClass)
+                        } else {
+                                typeFactory.constructType(object : TypeReference<T>() {})
+                        }
+                        val responseType =
+                                typeFactory.constructParametricType(
+                                        OcpiResponse::class.java,
+                                        innerType
+                                )
+                        val parsedBody: OcpiResponse<T> =
+                                mapper.readValue(response.body, responseType)
+                        val logMessage = "HTTP Response - Status: ${response.statusCode.value}, Body: ${response.body.take(500)}"
+                        if (parsedBody.statusCode != 1000) {
+                                logger.error(logMessage)
+                        } else {
+                                logger.info(logMessage)
+                        }
                         return OcpiHttpResponse(
                                 statusCode = response.statusCode.value,
                                 headers =
                                         response.headers.toMap().mapValues { (_, value) ->
                                                 value.toString()
                                         },
-                                body = mapper.readValue(response.body),
+                                body = parsedBody,
                         )
                 } catch (e: JsonParseException) {
                         val toCountry = stringHeaders["OCPI-to-country-code"] ?: "UNKNOWN"
@@ -281,16 +301,26 @@ open class HttpClientComponent(private val properties: NodeProperties) {
          */
         open fun getVersions(url: String, authorization: String): List<Version> {
                 try {
+                        val headers =
+                                mapOf(
+                                        "Authorization" to "Token ${authorization.toBs64String()}",
+                                        "X-Correlation-ID" to generateUUIDv4Token(),
+                                        "X-Request-ID" to generateUUIDv4Token()
+                                )
+
+                        CurlLogger.logCurlCommand(
+                                HttpMethod.GET,
+                                url,
+                                headers,
+                                null,
+                                properties.logCurlCommands
+                        )
+
                         val response =
                                 sendHttpRequest(
                                         endpoint = url,
                                         method = HttpMethod.GET,
-                                        headers =
-                                                mapOf(
-                                                        "Authorization" to "Token $authorization",
-                                                        "X-Correlation-ID" to generateUUIDv4Token(),
-                                                        "X-Request-ID" to generateUUIDv4Token()
-                                                )
+                                        headers = headers
                                 )
 
                         val body: OcpiResponse<List<Version>> = mapper.readValue(response.body)
@@ -377,16 +407,26 @@ open class HttpClientComponent(private val properties: NodeProperties) {
          */
         open fun getVersionDetail(url: String, authorization: String): VersionDetail {
                 try {
+                        val headers =
+                                mapOf(
+                                        "Authorization" to "Token ${authorization.toBs64String()}",
+                                        "X-Correlation-ID" to generateUUIDv4Token(),
+                                        "X-Request-ID" to generateUUIDv4Token()
+                                )
+
+                        CurlLogger.logCurlCommand(
+                                HttpMethod.GET,
+                                url,
+                                headers,
+                                null,
+                                properties.logCurlCommands
+                        )
+
                         val response =
                                 sendHttpRequest(
                                         endpoint = url,
                                         method = HttpMethod.GET,
-                                        headers =
-                                                mapOf(
-                                                        "Authorization" to "Token $authorization",
-                                                        "X-Correlation-ID" to generateUUIDv4Token(),
-                                                        "X-Request-ID" to generateUUIDv4Token()
-                                                )
+                                        headers = headers
                                 )
 
                         val body: OcpiResponse<VersionDetail> = mapper.readValue(response.body)
@@ -434,6 +474,14 @@ open class HttpClientComponent(private val properties: NodeProperties) {
         ): OcpiHttpResponse<T> {
                 val fullUrl = urlJoin(url, OCN_MESSAGE_ENDPOINT)
 
+                CurlLogger.logCurlCommand(
+                        HttpMethod.POST,
+                        fullUrl,
+                        headers.toMap(),
+                        body,
+                        properties.logCurlCommands
+                )
+
                 try {
                         val response =
                                 sendHttpRequest(
@@ -443,6 +491,11 @@ open class HttpClientComponent(private val properties: NodeProperties) {
                                         headers = headers.toMap()
                                 )
 
+                        logger.info(
+                                "[OCN Message] Response from remote node {} — HTTP {} | body preview: {}",
+                                url, response.statusCode.value, response.body.take(200)
+                        )
+
                         return OcpiHttpResponse(
                                 statusCode = response.statusCode.value,
                                 headers =
@@ -451,7 +504,7 @@ open class HttpClientComponent(private val properties: NodeProperties) {
                         )
                 } catch (e: JsonParseException) {
                         throw OcpiServerGenericException(
-                                "Failed to parse OCN message response: ${e.message}"
+                                "Failed to forward OCN message to $fullUrl: Non-OCPI response received — verify this is a valid OCPI-compliant endpoint"
                         )
                 } catch (e: Exception) {
                         throw OcpiServerGenericException("Failed to post OCN message: ${e.message}")

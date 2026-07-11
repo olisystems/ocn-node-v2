@@ -20,17 +20,23 @@ import org.springframework.stereotype.Component
 import snc.openchargingnetwork.node.models.exceptions.OcpiClientInvalidParametersException
 import snc.openchargingnetwork.node.repositories.PlatformRepository
 import snc.openchargingnetwork.node.tools.extractToken
+import snc.openchargingnetwork.node.tools.fromBs64String
 
 @Component
 class OcpiPlatformAuthService(private val platformRepository: PlatformRepository) {
 
+    /**
+     * Accept Token A/B/C. Tokens may arrive as plain or Base64 (OCPI common practice); match develop's
+     * InternalVersionsController validation.
+     */
     fun assertTokenAOrC(authorization: String) {
-        val token = authorization.extractToken()
+        val token = authorization.extractToken().fromBs64String()
         val valid =
                 platformRepository.existsByAuth_TokenA(token) ||
+                        platformRepository.existsByAuth_TokenB(token) ||
                         platformRepository.existsByAuth_TokenC(token)
         if (!valid) {
-            throw OcpiClientInvalidParametersException("Invalid CREDENTIALS_TOKEN_A")
+            throw OcpiClientInvalidParametersException("Invalid authorization token")
         }
     }
 }

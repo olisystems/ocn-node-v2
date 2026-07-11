@@ -1,8 +1,6 @@
 package snc.openchargingnetwork.node.services;
 
-import jdk.jshell.spi.ExecutionControl
 import org.springframework.stereotype.Service
-import org.springframework.web.client.HttpServerErrorException
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
 import snc.openchargingnetwork.node.models.ocpi.ModuleID
 
@@ -10,16 +8,21 @@ import snc.openchargingnetwork.node.models.ocpi.ModuleID
 class IntegrationsRoutingService(
     private val registryService: RegistryService
 ) {
+    private fun getIntegrationPartyForModule(module: ModuleID): BasicRole? {
+        return when (module) {
+            ModuleID.CDRS, ModuleID.TOKENS, ModuleID.SESSIONS -> BasicRole("OLI", "DE")
+            ModuleID.LOCATIONS, ModuleID.TARIFFS -> BasicRole("BAN", "DE")
+            else -> null
+        }
+    }
+
     fun getIntegrationReceivingParties(module: ModuleID, from: BasicRole): List<BasicRole> {
-        // Don't allow other modules than CDRs for now
-        if(module !== ModuleID.CDRS) {
-            throw NotImplementedError("Module integration support not yet implemented");
-        }
+        val target = getIntegrationPartyForModule(module) ?: return emptyList()
+        return listOf(target).filter { role -> role.id != from.id || role.country != from.country }
+    }
 
-        val receivers = listOf(BasicRole("OLI", "DE")).filter { role ->
-            role.id != from.id && role.country != from.country
-        }
-
-        return receivers
+    fun getSenderIntegrationReceivingParties(module: ModuleID, from: BasicRole): List<BasicRole> {
+        val target = getIntegrationPartyForModule(module) ?: return emptyList()
+        return listOf(target).filter { role -> role.id != from.id || role.country != from.country }
     }
 }

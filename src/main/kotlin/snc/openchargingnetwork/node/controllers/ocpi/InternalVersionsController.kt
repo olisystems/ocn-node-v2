@@ -22,76 +22,69 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import snc.openchargingnetwork.node.components.OcpiPlatformAuthService
 import snc.openchargingnetwork.node.config.NodeProperties
+import snc.openchargingnetwork.node.models.ocpi.Endpoint
 import snc.openchargingnetwork.node.models.ocpi.InterfaceRole
 import snc.openchargingnetwork.node.models.ocpi.ModuleID
+import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
 import snc.openchargingnetwork.node.models.ocpi.OcpiStatus
-import snc.openchargingnetwork.node.models.ocpi.*
+import snc.openchargingnetwork.node.models.ocpi.Version
+import snc.openchargingnetwork.node.models.ocpi.VersionDetail
 import snc.openchargingnetwork.node.plugins.core.OcpiVersionContributor
 import snc.openchargingnetwork.node.tools.urlJoin
 
 @RestController
 @RequestMapping("\${ocn.node.apiPrefix}/ocpi")
 class InternalVersionsController(
-    private val platformAuthService: OcpiPlatformAuthService,
-    private val versionContributors: List<OcpiVersionContributor>,
-    private val properties: NodeProperties
+        private val platformAuthService: OcpiPlatformAuthService,
+        private val versionContributors: List<OcpiVersionContributor>,
+        private val properties: NodeProperties
 ) {
 
     @GetMapping("/versions")
     fun getVersions(
-        @RequestHeader("Authorization") authorization: String
+            @RequestHeader("Authorization") authorization: String
     ): OcpiResponse<List<Version>> {
 
         platformAuthService.assertTokenAOrC(authorization)
-        val endpoint2_2 = urlJoin(properties.url, properties.apiPrefix, "/ocpi/2.2")
         val endpoint2_2_1 = urlJoin(properties.url, properties.apiPrefix, "/ocpi/2.2.1")
         val versions =
-                mutableListOf(
-                        Version("2.2", endpoint2_2),
-                        Version("2.2.1", endpoint2_2_1)
-                )
+                mutableListOf(Version("2.2.1", endpoint2_2_1))
         versions.addAll(versionContributors.flatMap { it.versions() })
         return OcpiResponse(OcpiStatus.SUCCESS.code, data = versions.distinctBy { it.version })
     }
 
     @GetMapping("/2.2")
     fun getVersionsDetail(
-        @RequestHeader("Authorization") authorization: String
+            @RequestHeader("Authorization") authorization: String
     ): OcpiResponse<VersionDetail> {
 
         platformAuthService.assertTokenAOrC(authorization)
         val endpoints = this.getAllEndpoints()
-        return OcpiResponse(
-            OcpiStatus.SUCCESS.code,
-            data = VersionDetail("2.2", endpoints)
-        )
+        return OcpiResponse(OcpiStatus.SUCCESS.code, data = VersionDetail("2.2", endpoints))
     }
 
     @GetMapping("/2.2.1")
     fun getVersionsDetail2_2_1(
-        @RequestHeader("Authorization") authorization: String
+            @RequestHeader("Authorization") authorization: String
     ): OcpiResponse<VersionDetail> {
 
         platformAuthService.assertTokenAOrC(authorization)
         val endpoints = this.getAllEndpoints()
-        return OcpiResponse(
-            OcpiStatus.SUCCESS.code,
-            data = VersionDetail("2.2.1", endpoints)
-        )
+        return OcpiResponse(OcpiStatus.SUCCESS.code, data = VersionDetail("2.2.1", endpoints))
     }
 
     private fun getModuleEndpoints(module: ModuleID): List<Endpoint> {
         return InterfaceRole.values().map {
             val paths =
-                if (module == ModuleID.CUSTOM) {
-                    "/ocpi/custom/${it.id}"
-                } else {
-                    "/ocpi/${it.id}/2.2.1/${module.id}"
-                }
+                    if (module == ModuleID.CUSTOM) {
+                        "/ocpi/custom/${it.id}"
+                    } else {
+                        "/ocpi/${it.id}/2.2.1/${module.id}"
+                    }
             Endpoint(
-                identifier = module.id,
-                role = it,
-                url = urlJoin(properties.url, properties.apiPrefix, paths)
+                    identifier = module.id,
+                    role = it,
+                    url = urlJoin(properties.url, properties.apiPrefix, paths)
             )
         }
     }
@@ -101,36 +94,28 @@ class InternalVersionsController(
         val senderOnlyInterfaces = listOf(ModuleID.CREDENTIALS, ModuleID.HUB_CLIENT_INFO)
 
         for (module in ModuleID.values()) {
-            if (module == ModuleID.CUSTOM) {
+            if (module == ModuleID.CUSTOM || module == ModuleID.VERSIONS) {
                 continue
             }
             if (senderOnlyInterfaces.contains(module)) {
                 // these modules have only SENDER endpoint (the node/hub)
                 endpoints.add(
-                    Endpoint(
-                        identifier = module.id,
-                        role = InterfaceRole.SENDER,
-                        url =
-                            urlJoin(
-                                properties.url,
-                                properties.apiPrefix,
-                                "/ocpi/2.2.1/${module.id}"
-                            )
-                    )
+                        Endpoint(
+                                identifier = module.id,
+                                role = InterfaceRole.SENDER,
+                                url =
+                                        urlJoin(
+                                                properties.url,
+                                                properties.apiPrefix,
+                                                "/ocpi/2.2.1/${module.id}"
+                                        )
+                        )
                 )
             } else {
                 endpoints.addAll(getModuleEndpoints(module))
             }
         }
 
-        // add custom OcnRules module endpoint
-         endpoints.add(Endpoint(
-                identifier = "ocnrules",
-                role = InterfaceRole.RECEIVER,
-                url = urlJoin(properties.url, properties.apiPrefix, "/ocpi/2.2.1/receiver/ocnrules")
-         ))
-
         return endpoints
     }
-
 }

@@ -24,9 +24,10 @@ import snc.openchargingnetwork.node.repositories.EndpointRepository
 import snc.openchargingnetwork.node.repositories.NetworkClientInfoRepository
 import snc.openchargingnetwork.node.repositories.PlatformRepository
 import snc.openchargingnetwork.node.repositories.RoleRepository
-import snc.openchargingnetwork.node.config.TestOcnRegistryComponent
+import snc.openchargingnetwork.node.Application
+import snc.openchargingnetwork.node.tools.toBs64String
 
-@SpringBootTest(classes = [TestOcnRegistryComponent::class])
+@SpringBootTest(classes = [Application::class])
 @ActiveProfiles("test")
 @Transactional
 class HubClientInfoServiceTest(
@@ -90,7 +91,7 @@ class HubClientInfoServiceTest(
             )
         testEndpoint = endpointRepository.save(testEndpoint)
 
-        testAuthorization = "Token test-token-c"
+        testAuthorization = "Token ${"test-token-c".toBs64String()}"
         testClientInfo =
             ClientInfo(
                 partyID = "TST",
@@ -111,8 +112,44 @@ class HubClientInfoServiceTest(
     }
 
     @Test
+    fun `getList should return client info for self-initiated handshake using tokenB`() {
+        val selfInitiatedPlatform =
+            platformRepository.save(
+                PlatformEntity(
+                    status = ConnectionStatus.CONNECTED,
+                    auth =
+                        Auth(
+                            tokenA = "self-token-a",
+                            tokenB = "self-token-b",
+                            tokenC = "self-token-c",
+                            handshakeSelfInitiated = true
+                        )
+                )
+            )
+        roleRepository.save(
+            RoleEntity(
+                platformID = selfInitiatedPlatform.id!!,
+                role = Role.CPO,
+                businessDetails =
+                    snc.openchargingnetwork.node.models.ocpi.BusinessDetails(
+                        name = "Self Company",
+                        website = "https://self.com"
+                    ),
+                partyID = "SLF",
+                countryCode = "DE"
+            )
+        )
+
+        val authorization = "Token ${"self-token-b".toBs64String()}"
+        val clientInfoList = hubClientInfoService.getList(authorization)
+
+        assertThat(clientInfoList).isNotNull()
+        assertThat(clientInfoList).isInstanceOf(List::class.java)
+    }
+
+    @Test
     fun `getList should throw exception for invalid authorization`() {
-        val invalidAuthorization = "Token invalid-token"
+        val invalidAuthorization = "Token ${"invalid-token".toBs64String()}"
 
         try {
             hubClientInfoService.getList(invalidAuthorization)

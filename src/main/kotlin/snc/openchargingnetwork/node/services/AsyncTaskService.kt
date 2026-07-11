@@ -33,6 +33,7 @@ class AsyncTaskService(private val registryService: RegistryService, private val
      * Finds all services, linked to a sender, with permissions that grant them access to a given request type.
      * Once services have been found, sends via provided request handler.
      * TODO new ocn: forward request o all parties of a given oposite role
+     * TODO: considere delete this class
      */
     @Async
     fun forwardOcpiRequestToLinkedServices(requestHandler: OcpiRequestHandler<*>, fromLocalPlatform: Boolean = true) {

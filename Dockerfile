@@ -1,9 +1,24 @@
-FROM mcr.microsoft.com/openjdk/jdk:21-azurelinux
+FROM docker.io/eclipse-temurin:21-jdk AS builder
 
-COPY build /ocn-node
-WORKDIR /ocn-node
-ENV JAVA_TOOL_OPTIONS "-Djava.rmi.server.hostname=localhost"
-ENV OCN_NODE_JAVA_TOOL_OPTIONS ""
-ENV SERVER_HOST "0.0.0.0"
-ENV OCN_PLUGINS_LOADER_PATH "/ocn-node/plugins"
-ENTRYPOINT ["java", "-Dloader.path=/ocn-node/plugins", "-jar", "./libs/node-ocn-v2.jar"]
+WORKDIR /app
+
+COPY gradle/ gradle/
+COPY gradlew build.gradle.kts settings.gradle.kts ./
+RUN ./gradlew dependencies --no-daemon
+
+COPY src/ src/
+RUN ./gradlew build -x test -x asciidoctor -x integrationTest --no-daemon
+
+FROM docker.io/eclipse-temurin:21-jre
+
+WORKDIR /app
+
+# archive name follows rootProject.name + project.version (see build.gradle.kts)
+COPY --from=builder /app/build/libs/node-ocn-v2.jar app.jar
+
+USER nobody
+
+EXPOSE 8080
+
+ENV OCN_PLUGINS_LOADER_PATH="/app/plugins"
+ENTRYPOINT ["java", "-Dloader.path=/app/plugins", "-jar", "app.jar"]
