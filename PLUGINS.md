@@ -37,7 +37,7 @@ Add a configuration class and register it for Boot:
 
 **`src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`**
 
-```
+```text
 com.example.myplugin.MyPluginAutoConfiguration
 ```
 

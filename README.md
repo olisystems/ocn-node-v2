@@ -6,7 +6,7 @@ This repository is a maintained fork of the original OCN Node with updated depen
 
 ## What is in this fork
 
-- OCPI v2.2 oriented node implementation
+- OCPI v2.2-oriented node implementation
 - Registry/indexer integration used by this deployment
 - Plugin system for:
   - custom non-OCPI HTTP endpoints

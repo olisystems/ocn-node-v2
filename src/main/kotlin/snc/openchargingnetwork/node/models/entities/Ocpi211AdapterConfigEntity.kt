@@ -23,6 +23,7 @@ import jakarta.persistence.Id
 import jakarta.persistence.Table
 import java.time.Instant
 import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.annotations.UpdateTimestamp
 import org.hibernate.type.SqlTypes
 
 @Entity
@@ -43,6 +44,8 @@ class Ocpi211AdapterConfigEntity(
         @Column(name = "mapping_bundle_version") var mappingBundleVersion: String? = null,
         @Column(name = "mapping_imported_at") var mappingImportedAt: Instant? = null,
         @Column(name = "created_at", nullable = false) var createdAt: Instant = Instant.now(),
-        @Column(name = "updated_at", nullable = false) var updatedAt: Instant = Instant.now(),
+        @UpdateTimestamp
+        @Column(name = "updated_at", nullable = false)
+        var updatedAt: Instant = Instant.now(),
         @Id @GeneratedValue var id: Long? = null
 )

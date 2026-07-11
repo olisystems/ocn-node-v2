@@ -104,7 +104,11 @@ class OcpiResponseHandler<T : Any>(
         if (isOcpiSuccess() && routingService.isRoleKnown(request.headers.receiver)) { // only renew connection of known recipients
             hubClientInfoService.renewClientConnection(request.headers.receiver)
         }
-        publishResponseDataEvent()
+        try {
+            publishResponseDataEvent()
+        } catch (e: Exception) {
+            logger.warn("Failed to publish response data OcpiObjectEvent: ${e.message}")
+        }
     }
 
     /**
@@ -249,7 +253,7 @@ class OcpiResponseHandler<T : Any>(
                     fromCountryCode = request.headers.sender.country,
                     toPartyId = request.headers.receiver.id,
                     toCountryCode = request.headers.receiver.country,
-                    headers = request.headers.toMap().filterValues { it != null }.mapValues { it.value!! },
+                    headers = request.headers.toPluginEventHeaders(),
                     responseStatusCode = response.statusCode,
                     ocpiStatusCode = response.body?.statusCode
                 )

@@ -551,8 +551,12 @@ class OcpiRequestHandler<T : Any>(
     }
 
     private fun publishRequestBodyEvent(response: OcpiHttpResponse<T>) {
-        val body = request.body ?: return
-        publishObjectEvents(body, response, OcpiObjectEventPhase.REQUEST_BODY)
+        try {
+            val body = request.body ?: return
+            publishObjectEvents(body, response, OcpiObjectEventPhase.REQUEST_BODY)
+        } catch (e: Exception) {
+            logger.warn("Failed to publish request body OcpiObjectEvent: ${e.message}")
+        }
     }
 
     private fun publishObjectEvents(
@@ -576,11 +580,7 @@ class OcpiRequestHandler<T : Any>(
                             fromCountryCode = request.headers.sender.country,
                             toPartyId = request.headers.receiver.id,
                             toCountryCode = request.headers.receiver.country,
-                            headers =
-                                    request.headers
-                                            .toMap()
-                                            .filterValues { it != null }
-                                            .mapValues { it.value!! },
+                            headers = request.headers.toPluginEventHeaders(),
                             responseStatusCode = response.statusCode,
                             ocpiStatusCode = response.body?.statusCode
                     )

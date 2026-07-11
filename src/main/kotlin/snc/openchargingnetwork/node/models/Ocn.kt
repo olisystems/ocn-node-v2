@@ -72,6 +72,14 @@ data class OcnHeaders(
         return map
     }
 
+    /** Headers safe to expose to plugin event listeners (excludes Authorization / tokens). */
+    fun toPluginEventHeaders(routingHeaders: Boolean = true): Map<String, String> {
+        return toMap(routingHeaders)
+                .filterKeys { !it.equals("Authorization", ignoreCase = true) }
+                .filterValues { it != null }
+                .mapValues { it.value!! }
+    }
+
     fun toSignedHeaders(): SignableHeaders {
         return SignableHeaders(
             correlationId = correlationID,

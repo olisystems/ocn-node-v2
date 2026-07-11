@@ -106,4 +106,5 @@ interface NetworkClientInfoRepository : CrudRepository<NetworkClientInfoEntity, 
 interface Ocpi211AdapterConfigRepository : CrudRepository<Ocpi211AdapterConfigEntity, Long> {
     fun findByPlatformId(platformId: Long): Ocpi211AdapterConfigEntity?
     fun existsByPlatformId(platformId: Long): Boolean
+    fun deleteByPlatformId(platformId: Long)
 }

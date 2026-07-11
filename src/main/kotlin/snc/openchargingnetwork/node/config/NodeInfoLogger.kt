@@ -132,13 +132,7 @@ class NodeInfoLogger(
         val modules = customModules.map { it.moduleId() }
         val adapters = protocolAdapters.map { it.protocolVersion }
         val versions = versionContributors.flatMap { it.versions() }.map { it.version }
-        val jars =
-            File(pluginProperties.loaderPath)
-                .listFiles()
-                ?.filter { it.isFile && it.name.endsWith(".jar") }
-                ?.map { it.name }
-                ?.sorted()
-                .orEmpty()
+        val jars = listPluginJarNames(pluginProperties.loaderPath)
         return buildString {
             append("PLUGIN JARS | ${if (jars.isEmpty()) "none" else jars.joinToString(", ")}\n")
             append(" CUSTOM MODULES | ${if (modules.isEmpty()) "none" else modules.joinToString(", ")}\n")
@@ -146,4 +140,31 @@ class NodeInfoLogger(
             append(" EXTRA VERSIONS | ${if (versions.isEmpty()) "none" else versions.joinToString(", ")}")
         }
     }
+
+    /**
+     * Spring Boot `loader.path` may be a comma-separated list of directories and archives.
+     * List JAR names from each existing directory entry (and bare `.jar` path entries).
+     */
+    private fun listPluginJarNames(loaderPath: String): List<String> =
+            loaderPath
+                    .split(",")
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                    .flatMap { entry ->
+                        val file = File(entry)
+                        when {
+                            file.isFile && file.name.endsWith(".jar", ignoreCase = true) ->
+                                    listOf(file.name)
+                            file.isDirectory ->
+                                    file.listFiles()
+                                            ?.filter {
+                                                it.isFile && it.name.endsWith(".jar", ignoreCase = true)
+                                            }
+                                            ?.map { it.name }
+                                            .orEmpty()
+                            else -> emptyList()
+                        }
+                    }
+                    .distinct()
+                    .sorted()
 }

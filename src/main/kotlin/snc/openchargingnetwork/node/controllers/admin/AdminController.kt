@@ -464,15 +464,16 @@ class AdminController(
 
         val tokenA = generateUUIDv4Token()
         val platform =
-                PlatformEntity(
-                        auth =
-                                Auth(
-                                        tokenA = tokenA,
-                                        selfCredentialsToken = tokenA,
-                                        handshakeSelfInitiated = false
-                                )
+                platformRepo.save(
+                        PlatformEntity(
+                                auth =
+                                        Auth(
+                                                tokenA = tokenA,
+                                                selfCredentialsToken = tokenA,
+                                                handshakeSelfInitiated = false
+                                        )
+                        )
                 )
-        platformRepo.save(platform)
 
         if (adapterRole?.credentialsRole != null && adapterRole.interfaceRole != null) {
             adapterConfigRepo.save(
@@ -853,16 +854,22 @@ class AdminController(
     }
 
     private fun deletePlatformWithDependents(platform: PlatformEntity): String {
+        val platformId = platform.id
         // 1) delete endpoints (depend on platform)
-        endpointRepo.deleteByPlatformID(platform.id)
+        endpointRepo.deleteByPlatformID(platformId)
 
-        // 2) delete all roles for this platform
-        roleRepo.deleteByPlatformID(platform.id)
+        // 2) delete adapter config if present (OCPI 2.1.1 plugin onboarding)
+        if (platformId != null) {
+            adapterConfigRepo.deleteByPlatformId(platformId)
+        }
 
-        // 3) delete platform (after all dependents removed)
+        // 3) delete all roles for this platform
+        roleRepo.deleteByPlatformID(platformId)
+
+        // 4) delete platform (after all dependents removed)
         platformRepo.delete(platform)
 
-        return "Platform ${platform.id} deleted (endpoints + roles removed)"
+        return "Platform $platformId deleted (endpoints + roles + adapter config removed)"
     }
 
     @GetMapping("/platforms")
