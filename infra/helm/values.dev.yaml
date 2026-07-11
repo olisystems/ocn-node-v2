@@ -1,5 +1,11 @@
 oli-app:
   fullnameOverride: "ocn-node-v2-dev"
+  persistence:
+    - name: ocn-node-v2-dev-plugins
+      accessModes:
+        - ReadWriteOnce
+      size: 1Gi
+      mountPath: /app/plugins
   image:
     tag: "develop-0f0965e"
   ingress:

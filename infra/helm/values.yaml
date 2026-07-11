@@ -18,6 +18,20 @@ oli-app:
   imagePullSecrets:
     - name: default-secret
 
+  # nobody (65534) must write/read plugin JARs on the PVC via the deploy Action.
+  podSecurityContext:
+    fsGroup: 65534
+    fsGroupChangePolicy: OnRootMismatch
+
+  # Plugin JARs (EDX, etc.) live on a PVC mounted at loader.path (/app/plugins).
+  # Deploy JARs via the ocn-edx-dataspaces-plugin GitHub Action (deploy-plugin-jar).
+  persistence:
+    - name: ocn-node-v2-plugins
+      accessModes:
+        - ReadWriteOnce
+      size: 1Gi
+      mountPath: /app/plugins
+
   service:
     type: ClusterIP
     port: 80
