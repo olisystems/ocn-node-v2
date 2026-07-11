@@ -142,6 +142,26 @@ class OcpiRequestHandler<T : Any>(
     }
 
     /**
+     * Validate sender auth, whitelist (local receivers), and OCN signature without forwarding.
+     * Used when a plugin handles a custom OCPI module locally.
+     */
+    fun validateIncoming(fromLocalPlatform: Boolean = true): OcpiRequestHandler<T> {
+        if (fromLocalPlatform) {
+            assertSenderValid()
+        }
+        when (routingService.getReceiverType(request.headers.receiver)) {
+            Receiver.LOCAL -> {
+                assertWhitelisted()
+                assertValidSignature()
+            }
+            Receiver.REMOTE -> {
+                assertValidSignature(false)
+            }
+        }
+        return this
+    }
+
+    /**
      * Forward an incoming request to the specified receiver.
      * @param proxied tells the RequestHandler that this request requires a proxied resource that
      * was previously saved by the OCN Node (e.g. a paginated "Link" response header).

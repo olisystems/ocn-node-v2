@@ -40,9 +40,12 @@ data class CustomModuleRequest(
     val headers: Map<String, String>
 )
 
+/**
+ * Local custom-module result. [statusCode] is an OCPI status code (e.g. 1000), not an HTTP status.
+ * The controller maps this into [snc.openchargingnetwork.node.models.ocpi.OcpiResponse] with HTTP 200.
+ */
 data class CustomModuleResponse(
     val statusCode: Int,
     val statusMessage: String? = null,
-    val data: Any? = null,
-    val body: String? = null
+    val data: Any? = null
 )

@@ -19,6 +19,7 @@ package snc.openchargingnetwork.node.plugins
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpMethod
+import snc.openchargingnetwork.node.controllers.ocpi.v2_2.extractCustomModuleUrlPath
 import snc.openchargingnetwork.node.plugins.core.CustomModule
 import snc.openchargingnetwork.node.plugins.core.CustomModuleRequest
 import snc.openchargingnetwork.node.plugins.core.CustomModuleResponse
@@ -79,5 +80,38 @@ class CustomModuleDispatchTest {
                         )
                 )
         assertThat(response.data).isEqualTo("first")
+        assertThat(response.statusCode).isEqualTo(1000)
+    }
+
+    @Test
+    fun `extractCustomModuleUrlPath returns relative path without scheme or prefix`() {
+        assertThat(
+                        extractCustomModuleUrlPath(
+                                "/ocn-v2/ocpi/custom/sender/example/extra/path",
+                                "sender",
+                                "example"
+                        )
+                )
+                .isEqualTo("/extra/path")
+
+        assertThat(
+                        extractCustomModuleUrlPath(
+                                "/ocn-v2/ocpi/custom/receiver/mymodule",
+                                "receiver",
+                                "mymodule"
+                        )
+                )
+                .isNull()
+
+        // Full URI strings are not expected (controller uses URI.path), but marker search still
+        // yields a clean relative suffix rather than leaving scheme/host attached.
+        assertThat(
+                        extractCustomModuleUrlPath(
+                                "http://localhost:8080/ocn-v2/ocpi/custom/sender/example/x",
+                                "sender",
+                                "example"
+                        )
+                )
+                .isEqualTo("/x")
     }
 }

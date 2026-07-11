@@ -96,7 +96,7 @@ class NodeInfoLogger(
                 when {
                     url >= apikey && url >= address -> url
                     apikey >= url && apikey >= address -> apikey
-                    address >= url && address >= address -> address
+                    address >= url && address >= apikey -> address
                     else -> 50
                 }
     }

@@ -2,6 +2,7 @@ package snc.openchargingnetwork.node.controllers.ocpi.v2_2
 
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpRequest
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import snc.openchargingnetwork.node.components.OcpiRequestHandlerBuilder
@@ -39,19 +40,32 @@ class CustomModulesController(
         request: HttpRequest
     ): ResponseEntity<OcpiResponse<Any>> {
 
+        val sender = BasicRole(fromPartyID, fromCountryCode)
+        val receiver = BasicRole(toPartyID, toCountryCode)
+        val urlPath = extractCustomModuleUrlPath(request, interfaceRole, module)
+        val method = HttpMethod.valueOf(request.method.toString())
+        val headers = OcnHeaders(authorization, signature, requestID, correlationID, sender, receiver)
+
+        val requestVariables = OcpiRequestVariables(
+            module = ModuleID.CUSTOM,
+            customModuleId = module,
+            interfaceRole = InterfaceRole.resolve(interfaceRole),
+            method = method,
+            headers = headers,
+            urlPath = urlPath,
+            queryParams = queryParams,
+            body = body
+        )
+
         val pluginHandler = modulesById[module.lowercase()]
         if (pluginHandler != null) {
-            val urlPath = try {
-                request.uri.toString().replace("/ocpi/custom/${interfaceRole}/${module}", "")
-                    .takeIf { it.isNotEmpty() }
-            } catch (e: IllegalStateException) {
-                null
-            }
+            val validated =
+                    requestHandlerBuilder.build<Any>(requestVariables).validateIncoming()
             val pluginRequest = CustomModuleRequest(
                 interfaceRole = interfaceRole,
                 customModuleId = module,
                 urlPath = urlPath,
-                method = HttpMethod.valueOf(request.method.toString()),
+                method = method,
                 queryParams = queryParams,
                 body = body,
                 fromPartyId = fromPartyID,
@@ -69,31 +83,12 @@ class CustomModulesController(
             val ocpiResponse = OcpiResponse<Any>(
                 statusCode = response.statusCode,
                 statusMessage = response.statusMessage,
-                data = response.data
+                data = response.data,
+                verificationStatus = validated.verificationStatus?.name
             )
-            return ResponseEntity.status(response.statusCode).body(ocpiResponse)
+            // OCPI status lives in the body; HTTP status is always OK for handled custom modules.
+            return ResponseEntity.status(HttpStatus.OK).body(ocpiResponse)
         }
-
-        val sender = BasicRole(fromPartyID, fromCountryCode)
-        val receiver = BasicRole(toPartyID, toCountryCode)
-
-        val urlPath = try {
-            // TODO: Test this
-            request.uri.toString().replace("/ocpi/custom/${interfaceRole}/${module}", "")
-        } catch (e: IllegalStateException) { // catch IllegalStateException: request.pathInfo must not be null
-            null
-        }
-
-        val requestVariables = OcpiRequestVariables(
-            module = ModuleID.CUSTOM,
-            customModuleId = module,
-            interfaceRole = InterfaceRole.resolve(interfaceRole),
-            method = HttpMethod.valueOf(request.method.toString()),
-            headers = OcnHeaders(authorization, signature, requestID, correlationID, sender, receiver),
-            urlPath = urlPath,
-            queryParams = queryParams,
-            body = body
-        )
 
         return requestHandlerBuilder
             .build<Any>(requestVariables)
@@ -101,4 +96,31 @@ class CustomModulesController(
             .getResponseWithAllHeaders()
     }
 
+}
+
+/**
+ * Returns the path segment after `/ocpi/custom/{interfaceRole}/{module}`, or null when absent.
+ * Uses [java.net.URI.getPath] so scheme/host and query are never included.
+ */
+internal fun extractCustomModuleUrlPath(
+        request: HttpRequest,
+        interfaceRole: String,
+        module: String
+): String? {
+    return try {
+        extractCustomModuleUrlPath(request.uri.path, interfaceRole, module)
+    } catch (_: IllegalStateException) {
+        null
+    }
+}
+
+internal fun extractCustomModuleUrlPath(
+        path: String,
+        interfaceRole: String,
+        module: String
+): String? {
+    val marker = "/ocpi/custom/$interfaceRole/$module"
+    val idx = path.indexOf(marker)
+    if (idx < 0) return null
+    return path.substring(idx + marker.length).takeIf { it.isNotEmpty() }
 }

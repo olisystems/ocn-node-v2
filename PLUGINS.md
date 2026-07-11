@@ -71,9 +71,14 @@ Implement `CustomModule` as a Spring `@Component`:
 @Component
 class MyCustomModule : CustomModule {
     override fun moduleId() = "mymodule"
-    override fun handle(request: CustomModuleRequest) = CustomModuleResponse(...)
+    override fun handle(request: CustomModuleRequest) =
+        CustomModuleResponse(statusCode = 1000, statusMessage = "Success", data = mapOf("ok" to true))
 }
 ```
+
+`CustomModuleResponse.statusCode` is an **OCPI** status code (e.g. `1000`), not an HTTP status. The node always returns HTTP 200 for plugin-handled custom modules and puts the OCPI status in the response body.
+
+Incoming requests are authenticated the same way as forwarded OCPI traffic (known sender token/role, whitelist for local receivers, and OCN signature checks when enabled) before the handler runs.
 
 Requests to `{apiPrefix}/ocpi/custom/{sender|receiver}/mymodule[/...]` are handled locally when a bean is present; otherwise the node forwards as before.
 
