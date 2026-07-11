@@ -4,7 +4,7 @@ Plugins extend the node with custom HTTP endpoints, custom OCPI modules, and OCP
 
 ## Quick start
 
-1. Build a plugin:
+1. Build a plugin in its own repo (example):
    ```bash
    cd ../ocn-node-plugins/example-plugin
    ./gradlew clean jar
@@ -13,7 +13,7 @@ Plugins extend the node with custom HTTP endpoints, custom OCPI modules, and OCP
    ```bash
    cd ../ocn-node-v2
    mkdir -p plugins
-   cp ../ocn-node-plugins/example-plugin/build/libs/ocn-node-example-plugin-*.jar plugins/
+   cp ../ocn-node-plugins/example-plugin/build/libs/*.jar plugins/
    ```
 3. Start the node (`loader.path` defaults to `./plugins` for `bootRun` and Docker):
    ```bash
@@ -23,11 +23,12 @@ Plugins extend the node with custom HTTP endpoints, custom OCPI modules, and OCP
    ```bash
    java -Dloader.path=plugins -jar build/libs/node-ocn-v2.jar
    ```
-4. Call the example plugin endpoint:
+4. Call a plugin HTTP route (path depends on the plugin):
    ```bash
    curl http://localhost:8080/ocn-v2/plugin/hello
    ```
 
+Plugin configuration (env / properties) belongs with each plugin — the node only provides `loader.path` and the plugin SPI.
 ## Creating a plugin
 
 ### 1. Auto-configuration entry point
@@ -136,21 +137,15 @@ Plugin JAR references a class not on the node classpath or in the plugin JAR. Ad
 - `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` lists your `@Configuration` class
 - Check startup logs under **PLUGINS** in the node banner
 
-### Plugin HTTP routes return 404 (`/plugin/edx/...`)
+### Plugin HTTP routes return 404 (`/plugin/...`)
 
 The route exists in the plugin JAR, but Spring never registered the `@RestController`. Common causes:
 
 1. **`loader.path` not applied** — only `PropertiesLauncher` (fat JAR + `-Dloader.path=plugins`) or `bootRun` with plugin JARs on the classpath loads plugins. Running `ApplicationKt` from the IDE without plugin JARs on the classpath gives 404.
-2. **DevTools restart** — a restarted dev process can drop `PropertiesLauncher` and ignore `loader.path`. `bootRun` disables restart and puts plugin JARs on the classpath; restart the node after changing plugins.
-3. **EDX beans missing** — `EdxIngestedCdrController` needs `CdrServiceClient` (`edx.cdr.service.baseUrl` in `local` / `local-custom`). Without it, auto-config does not register CDR/CO₂ controllers.
+2. **DevTools restart** — a restarted dev process can drop `PropertiesLauncher` and ignore `loader.path`. `bootRun` disables restart; restart the node after changing plugins.
+3. **Plugin config missing** — some plugins only register controllers when required properties/env are set (see that plugin’s README).
 
-Verify after restart:
-
-```bash
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:9999/ocn-v2/plugin/edx/cdrs
-# expect 200 (or 502 if CDR service is down), not 404
-```
-
+Verify after restart with the plugin’s documented health/list route.
 ### Custom module not invoked
 
 - A `@Component` implements `CustomModule` with matching `moduleId()`

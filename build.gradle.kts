@@ -90,24 +90,19 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 val pluginsDir = layout.projectDirectory.dir("plugins")
 
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
-	dependsOn("bootJar", "syncPlugins")
+	dependsOn("bootJar")
 	mainClass.set("org.springframework.boot.loader.launch.PropertiesLauncher")
 	val bootJarFile = tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar").get().archiveFile
-	val edxPluginJar = pluginsDir.asFile.resolve("ocn-node-edx-plugin.jar")
 	classpath = files(bootJarFile)
-	// bootRun loads EDX only: 211 on loader.path clashes with node CdrsController; 211 SLF4J breaks main classpath.
-	val loaderPath =
-		if (edxPluginJar.isFile) {
-			edxPluginJar.absolutePath
-		} else {
-			pluginsDir.asFile.absolutePath
-		}
+	// Any plugin JARs dropped into plugins/ are loaded via PropertiesLauncher.
+	val loaderPath = pluginsDir.asFile.absolutePath
 	jvmArgs(
 		"-Dloader.path=$loaderPath",
 		"-Dloader.main=snc.openchargingnetwork.node.ApplicationKt",
 		"-Dspring.devtools.restart.enabled=false",
 	)
 	doFirst {
+		pluginsDir.asFile.mkdirs()
 		val pluginJars =
 			pluginsDir.asFile.listFiles()
 				?.filter { it.isFile && it.name.endsWith(".jar") }
@@ -115,40 +110,12 @@ tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
 				?.sorted()
 				.orEmpty()
 		if (pluginJars.isEmpty()) {
-			logger.warn(
-				"No plugin JARs in ${pluginsDir.asFile}. " +
-					"Run ./gradlew syncPlugins or copy plugin JARs into plugins/."
+			logger.lifecycle(
+				"bootRun loader.path=$loaderPath (no plugin JARs — copy any plugin JARs into plugins/ to enable them)"
 			)
 		} else {
-			logger.lifecycle("bootRun loader.path=${pluginsDir.asFile.absolutePath} ($pluginJars)")
+			logger.lifecycle("bootRun loader.path=$loaderPath ($pluginJars)")
 		}
-	}
-}
-
-tasks.register("syncPlugins") {
-	group = "application"
-	description = "Builds ocn-node-edx-plugin and copies its JAR into plugins/"
-	doLast {
-		val edxPluginDir = rootProject.layout.projectDirectory.dir("../ocn-node-plugins/ocn-node-edx-plugin").asFile
-		if (!edxPluginDir.isDirectory) {
-			throw GradleException("EDX plugin project not found at $edxPluginDir")
-		}
-		exec {
-			commandLine(edxPluginDir.resolve("gradlew").absolutePath, "jar", "--no-daemon")
-			workingDir(edxPluginDir)
-		}
-		val libsDir = edxPluginDir.resolve("build/libs")
-		val jar =
-			libsDir.listFiles()
-				?.filter { it.name.startsWith("ocn-node-edx-plugin") && it.name.endsWith(".jar") && !it.name.contains("plain") }
-				?.maxByOrNull { it.lastModified() }
-				?: throw GradleException("No EDX plugin JAR found in $libsDir")
-		copy {
-			from(jar)
-			into(pluginsDir)
-			rename { "ocn-node-edx-plugin.jar" }
-		}
-		logger.lifecycle("Copied EDX plugin to ${pluginsDir.asFile}/ocn-node-edx-plugin.jar")
 	}
 }
 

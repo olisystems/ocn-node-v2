@@ -8,6 +8,17 @@ oli-app:
       mountPath: /app/plugins
   image:
     tag: "develop-0f0965e"
+  # Optional: env consumed by plugins loaded onto the plugins PVC (e.g. EDX).
+  # Keep plugin-specific keys out of the base values.yaml.
+  env:
+    EDX_CDR_SERVICE_BASE_URL:
+      configMapKeyRef:
+        name: ocn-node-v2-config
+        key: EDX_CDR_SERVICE_BASE_URL
+    EDX_CDR_SERVICE_API_KEY:
+      secretKeyRef:
+        name: ocn-node-v2-secret
+        key: edx_cdr_service_api_key
   ingress:
     hosts:
       - host: banula-dev.oli-system.com

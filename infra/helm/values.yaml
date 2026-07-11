@@ -23,8 +23,8 @@ oli-app:
     fsGroup: 65534
     fsGroupChangePolicy: OnRootMismatch
 
-  # Plugin JARs (EDX, etc.) live on a PVC mounted at loader.path (/app/plugins).
-  # Deploy JARs via the ocn-edx-dataspaces-plugin GitHub Action (deploy-plugin-jar).
+  # Plugin JARs are loaded from a PVC mounted at loader.path (/app/plugins).
+  # Drop JARs via each plugin's deploy pipeline (independent of this repo).
   persistence:
     - name: ocn-node-v2-plugins
       accessModes:
@@ -111,10 +111,6 @@ oli-app:
       configMapKeyRef:
         name: ocn-node-v2-config
         key: JAVA_TOOL_OPTIONS
-    EDX_CDR_SERVICE_BASE_URL:
-      configMapKeyRef:
-        name: ocn-node-v2-config
-        key: EDX_CDR_SERVICE_BASE_URL
     OCN_NODE_ADMIN_KEY:
       secretKeyRef:
         name: ocn-node-v2-secret
@@ -139,10 +135,6 @@ oli-app:
       secretKeyRef:
         name: postgres-secret
         key: ocn_node_v2_postgres_password
-    EDX_CDR_SERVICE_API_KEY:
-      secretKeyRef:
-        name: ocn-node-v2-secret
-        key: edx_cdr_service_api_key
 
   resources:
     requests:

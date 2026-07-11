@@ -22,7 +22,7 @@ import org.springframework.context.annotation.Profile
 import org.springframework.web.servlet.config.annotation.CorsRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
 
-/** Allows local HTML test tools (e.g. EDX CDR/CO₂ lab) to call the node from the browser. */
+/** Allows local HTML test tools to call the node from the browser. */
 @Configuration
 @Profile("local", "dev")
 class DevWebCorsConfig {
