@@ -22,12 +22,14 @@ import org.springframework.web.bind.annotation.*
 import snc.openchargingnetwork.node.components.OcpiRequestHandlerBuilder
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.ocpi.*
+import snc.openchargingnetwork.node.services.NodeObjectRoutingService
 import snc.openchargingnetwork.node.tools.filterNull
 
 @RestController
 @RequestMapping("\${ocn.node.apiPrefix}\${ocn.node.apiPrefixPublic}")
 class TokensController(
-    private val requestHandlerBuilder: OcpiRequestHandlerBuilder
+    private val requestHandlerBuilder: OcpiRequestHandlerBuilder,
+    private val nodeObjectRoutingService: NodeObjectRoutingService
 ) {
 
 
@@ -208,11 +210,12 @@ class TokensController(
             body = body
         )
 
-        return requestHandlerBuilder
+        // Fire-and-forget additional receiver (develop), then hub/object routing (hub role).
+        requestHandlerBuilder
             .build<Unit>(requestVariables)
             .forwardIntegrationsAsync(ModuleID.TOKENS)
-            .forwardDefault()
-            .getResponse()
+
+        return nodeObjectRoutingService.route<Unit>(requestVariables)
     }
 
     @PatchMapping("/ocpi/receiver/2.2.1/tokens/{countryCode}/{partyID}/{tokenUID}")
@@ -245,11 +248,11 @@ class TokensController(
             body = body
         )
 
-        return requestHandlerBuilder
+        requestHandlerBuilder
             .build<Unit>(requestVariables)
             .forwardIntegrationsAsync(ModuleID.TOKENS)
-            .forwardDefault()
-            .getResponse()
+
+        return nodeObjectRoutingService.route<Unit>(requestVariables)
     }
 
 }

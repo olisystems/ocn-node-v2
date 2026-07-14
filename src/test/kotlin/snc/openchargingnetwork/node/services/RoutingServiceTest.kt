@@ -139,6 +139,16 @@ class RoutingServiceTest(
     }
 
     @Test
+    fun `isRoleConnected requires the owning platform to be connected`() {
+        assertThat(routingService.isRoleConnected(testReceiver)).isTrue()
+
+        testPlatform.status = snc.openchargingnetwork.node.models.ocpi.ConnectionStatus.OFFLINE
+        platformRepository.save(testPlatform)
+
+        assertThat(routingService.isRoleConnected(testReceiver)).isFalse()
+    }
+
+    @Test
     fun `getPlatform should return platform for known role`() {
         val platform = routingService.getPlatform(testReceiver)
 

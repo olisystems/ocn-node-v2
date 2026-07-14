@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.web3j</groupId>
+  <artifactId>abi</artifactId>
+  <version>5.0.0</version>
+  <name>web3j</name>
+  <description>Ethereum Application Binary Interface (ABI) for working with smart contracts</description>
+  <url>https://web3j.io</url>
+  <licenses>
+    <license>
+      <name>The Apache License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <id>conor10</id>
+      <name>Conor Svensson</name>
+      <email>conor10@gmail.com</email>
+    </developer>
+    <developer>
+      <id>antonydenyer</id>
+      <name>Antony Denyer</name>
+      <email>antony@web3labs.com</email>
+    </developer>
+  </developers>
+  <scm>
+    <connection>scm:https://github.com/web3j/web3j.git</connection>
+    <developerConnection>scm:git://github.com/web3j/web3j.git</developerConnection>
+    <url>https://github.com/web3j/web3j</url>
+  </scm>
+  <dependencies>
+    <dependency>
+      <groupId>org.web3j</groupId>
+      <artifactId>utils</artifactId>
+      <version>5.0.0</version>
+      <scope>compile</scope>
+    </dependency>
+  </dependencies>
+</project>

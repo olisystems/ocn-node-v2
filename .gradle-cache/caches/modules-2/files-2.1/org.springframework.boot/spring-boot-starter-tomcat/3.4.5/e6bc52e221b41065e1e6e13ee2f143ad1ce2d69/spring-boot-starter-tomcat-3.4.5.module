@@ -1,0 +1,184 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "org.springframework.boot",
+    "module": "spring-boot-starter-tomcat",
+    "version": "3.4.5",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "8.13"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 17,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api"
+      },
+      "dependencies": [
+        {
+          "group": "jakarta.annotation",
+          "module": "jakarta.annotation-api",
+          "version": {
+            "requires": "2.1.1"
+          }
+        },
+        {
+          "group": "org.apache.tomcat.embed",
+          "module": "tomcat-embed-core",
+          "version": {
+            "requires": "10.1.40"
+          },
+          "excludes": [
+            {
+              "group": "org.apache.tomcat",
+              "module": "tomcat-annotations-api"
+            }
+          ]
+        },
+        {
+          "group": "org.apache.tomcat.embed",
+          "module": "tomcat-embed-el",
+          "version": {
+            "requires": "10.1.40"
+          }
+        },
+        {
+          "group": "org.apache.tomcat.embed",
+          "module": "tomcat-embed-websocket",
+          "version": {
+            "requires": "10.1.40"
+          },
+          "excludes": [
+            {
+              "group": "org.apache.tomcat",
+              "module": "tomcat-annotations-api"
+            }
+          ]
+        }
+      ],
+      "files": [
+        {
+          "name": "spring-boot-starter-tomcat-3.4.5.jar",
+          "url": "spring-boot-starter-tomcat-3.4.5.jar",
+          "size": 4794,
+          "sha512": "487978dfdcd3a0401a0c4ef85090463a4766c9e78c62d6b9b3dadce3ed5c7227ccfc4d5b59a23c0faae9270c5aa888b861f58c96319badb146fa1202dab4091b",
+          "sha256": "e513f30dff8f3b0932b3d3fe61f30f3c196f0f9c34a1786d2819d85d4a136d8d",
+          "sha1": "d3121e25897969409967675c0c450dd3cad45162",
+          "md5": "979b29055b2a18bdf8e379e8b5417924"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 17,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "jakarta.annotation",
+          "module": "jakarta.annotation-api",
+          "version": {
+            "requires": "2.1.1"
+          }
+        },
+        {
+          "group": "org.apache.tomcat.embed",
+          "module": "tomcat-embed-core",
+          "version": {
+            "requires": "10.1.40"
+          },
+          "excludes": [
+            {
+              "group": "org.apache.tomcat",
+              "module": "tomcat-annotations-api"
+            }
+          ]
+        },
+        {
+          "group": "org.apache.tomcat.embed",
+          "module": "tomcat-embed-el",
+          "version": {
+            "requires": "10.1.40"
+          }
+        },
+        {
+          "group": "org.apache.tomcat.embed",
+          "module": "tomcat-embed-websocket",
+          "version": {
+            "requires": "10.1.40"
+          },
+          "excludes": [
+            {
+              "group": "org.apache.tomcat",
+              "module": "tomcat-annotations-api"
+            }
+          ]
+        }
+      ],
+      "files": [
+        {
+          "name": "spring-boot-starter-tomcat-3.4.5.jar",
+          "url": "spring-boot-starter-tomcat-3.4.5.jar",
+          "size": 4794,
+          "sha512": "487978dfdcd3a0401a0c4ef85090463a4766c9e78c62d6b9b3dadce3ed5c7227ccfc4d5b59a23c0faae9270c5aa888b861f58c96319badb146fa1202dab4091b",
+          "sha256": "e513f30dff8f3b0932b3d3fe61f30f3c196f0f9c34a1786d2819d85d4a136d8d",
+          "sha1": "d3121e25897969409967675c0c450dd3cad45162",
+          "md5": "979b29055b2a18bdf8e379e8b5417924"
+        }
+      ]
+    },
+    {
+      "name": "javadocElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "javadoc",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "spring-boot-starter-tomcat-3.4.5-javadoc.jar",
+          "url": "spring-boot-starter-tomcat-3.4.5-javadoc.jar",
+          "size": 4794,
+          "sha512": "171764da245b0ad1df0e2670006e00019527cd7e2c01a0b4e76a360800c06aa5f8f5cba9c7ba965d21f01ca19006bc5eaeaae01cd63e13b547e1919f3e5685e3",
+          "sha256": "5996bfb17a5759f55b48ff47d77d868f80d3a286ba79ec136be4ff8de8a49e65",
+          "sha1": "1f946f47f0a52fb6c5afa0c2d2bb05ce2e52de14",
+          "md5": "f8c3383e6a22cb9a1cd6b4ab18986a50"
+        }
+      ]
+    },
+    {
+      "name": "sourcesElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "spring-boot-starter-tomcat-3.4.5-sources.jar",
+          "url": "spring-boot-starter-tomcat-3.4.5-sources.jar",
+          "size": 4794,
+          "sha512": "171764da245b0ad1df0e2670006e00019527cd7e2c01a0b4e76a360800c06aa5f8f5cba9c7ba965d21f01ca19006bc5eaeaae01cd63e13b547e1919f3e5685e3",
+          "sha256": "5996bfb17a5759f55b48ff47d77d868f80d3a286ba79ec136be4ff8de8a49e65",
+          "sha1": "1f946f47f0a52fb6c5afa0c2d2bb05ce2e52de14",
+          "md5": "f8c3383e6a22cb9a1cd6b4ab18986a50"
+        }
+      ]
+    }
+  ]
+}
