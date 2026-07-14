@@ -1,16 +1,11 @@
 oli-app:
   fullnameOverride: "ocn-node-v2-dev"
-  persistence:
-    - name: ocn-node-v2-dev-plugins
-      accessModes:
-        - ReadWriteOnce
-      size: 1Gi
-      mountPath: /app/plugins
   image:
     tag: "develop-0f0965e"
-  # Optional: env consumed by plugins loaded onto the plugins PVC (e.g. EDX).
-  # Keep plugin-specific keys out of the base values.yaml.
+  # Per-env plugin list only. OBS bucket/credentials live in values.yaml.
+  # Plugin-specific runtime env (e.g. EDX) stays here too.
   env:
+    OCN_PLUGINS: "ocn-node-edx-plugin"
     EDX_CDR_SERVICE_BASE_URL:
       configMapKeyRef:
         name: ocn-node-v2-config

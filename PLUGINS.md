@@ -121,9 +121,18 @@ compileOnly("snc.openchargingnetwork:node:ocn-v2")
 |----------------|---------|-------------|
 | `loader.path` / `-Dloader.path` | `plugins` (via `bootRun` / Docker) | Classpath directories or JARs for plugins |
 | `ocn.plugins.loader-path` | `plugins` | Documented default path (informational; use `loader.path` at JVM startup) |
-| `OCN_PLUGINS_LOADER_PATH` | — | Same, for ops documentation |
+| `OCN_PLUGINS_LOADER_PATH` | `/app/plugins` (Docker) | Directory passed to `-Dloader.path` |
+| `OCN_PLUGINS` | _(empty)_ | Comma-separated plugin ids to download before JVM start (e.g. `edx_v1,other_v2` → objects `edx_v1.jar`, `other_v2.jar`) |
+| `OTC_BUCKET_NAME` | — | OBS bucket that holds plugin JARs (e.g. `ocn-node-plugins`; required when `OCN_PLUGINS` is set) |
+| `OTC_ACCESS_KEY_ID` / `OTC_SECRET_ACCESS_KEY` | — | OBS credentials (required when `OCN_PLUGINS` is set) |
+| `OTC_ENDPOINT_URL` | `https://obs.eu-de.otc.t-systems.com` | S3-compatible OBS endpoint |
+| `OTC_DEFAULT_REGION` | `eu-de` | OBS region |
 
-There is no runtime reload: add or change JARs under `plugins/` and **restart** the process.
+There is no runtime reload: change JARs in the bucket (or under `plugins/` locally) and **restart** the process.
+
+### Cluster
+
+The Docker entrypoint fetches each key in `OCN_PLUGINS` from OTC OBS into `/app/plugins`, then starts the JVM. No plugins PVC is required — upload JARs to the bucket manually and rollout-restart the deployment.
 
 ## Operations and troubleshooting
 

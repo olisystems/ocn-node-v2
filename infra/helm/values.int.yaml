@@ -1,17 +1,11 @@
 oli-app:
   fullnameOverride: "ocn-node-v2-int"
 
-  persistence:
-    - name: ocn-node-v2-int-plugins
-      accessModes:
-        - ReadWriteOnce
-      size: 1Gi
-      mountPath: /app/plugins
-
   image:
     tag: "main"
 
   env:
+    OCN_PLUGINS: "ocn-node-edx-plugin"
     EDX_CDR_SERVICE_BASE_URL:
       configMapKeyRef:
         name: ocn-node-v2-config
