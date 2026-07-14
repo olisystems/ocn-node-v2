@@ -1,0 +1,102 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "url": "../../kotlinx-datetime/0.6.2/kotlinx-datetime-0.6.2.module",
+    "group": "org.jetbrains.kotlinx",
+    "module": "kotlinx-datetime",
+    "version": "0.6.2",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "8.0.2"
+    }
+  },
+  "variants": [
+    {
+      "name": "jvmApiElements-published",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.jvm.version": 8,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "dependencies": [
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "1.9.21"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "kotlinx-datetime-jvm-0.6.2.jar",
+          "url": "kotlinx-datetime-jvm-0.6.2.jar",
+          "size": 675271,
+          "sha512": "333027adfa9ed17047af5bce7ed080dc6608dc0260a5d0f6749c6b3de324500d29ec868c92c5dc5cb77bad12b6892a547fd9a394836bd8050f49b4850afc0488",
+          "sha256": "102764921129e1e44a74f408b7a0b8dac6d1892c6042e0e48f8bdbbbf78c6d2e",
+          "sha1": "f177b43ce53f69151797206ce762b36199692474",
+          "md5": "b90b1ca386336657e970b44b8d174488"
+        }
+      ]
+    },
+    {
+      "name": "jvmRuntimeElements-published",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.jvm.version": 8,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "dependencies": [
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "1.9.21"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "kotlinx-datetime-jvm-0.6.2.jar",
+          "url": "kotlinx-datetime-jvm-0.6.2.jar",
+          "size": 675271,
+          "sha512": "333027adfa9ed17047af5bce7ed080dc6608dc0260a5d0f6749c6b3de324500d29ec868c92c5dc5cb77bad12b6892a547fd9a394836bd8050f49b4850afc0488",
+          "sha256": "102764921129e1e44a74f408b7a0b8dac6d1892c6042e0e48f8bdbbbf78c6d2e",
+          "sha1": "f177b43ce53f69151797206ce762b36199692474",
+          "md5": "b90b1ca386336657e970b44b8d174488"
+        }
+      ]
+    },
+    {
+      "name": "jvmSourcesElements-published",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.jvm.version": 8,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "files": [
+        {
+          "name": "kotlinx-datetime-jvm-0.6.2-sources.jar",
+          "url": "kotlinx-datetime-jvm-0.6.2-sources.jar",
+          "size": 119771,
+          "sha512": "156af33b62a37394879b2f99afacf9cbd9199fef7b39455b499b740c5c33790a6143efea651ae50f6f65a47844c2da3095bae547ec1c8c0a5eeb18745d16b4c1",
+          "sha256": "9bbe1ca4e6e421f64f98f4468e775fe39ae47bd0ea09f69aab506fc70839dafa",
+          "sha1": "1d1592a42d0f6d340495dd8f40c5b8811be02c9c",
+          "md5": "6025ee2f1867d8bc3b8692c55c181f38"
+        }
+      ]
+    }
+  ]
+}

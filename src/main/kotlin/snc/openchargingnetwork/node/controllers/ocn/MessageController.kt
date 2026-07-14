@@ -19,12 +19,9 @@ package snc.openchargingnetwork.node.controllers.ocn
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import snc.openchargingnetwork.node.components.OcpiRequestHandlerBuilder
-import snc.openchargingnetwork.node.controllers.ocpi.v2_2.VersionsController
 import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
 import snc.openchargingnetwork.node.models.ocpi.OcpiStatus
-import snc.openchargingnetwork.node.models.ocpi.Version
-import snc.openchargingnetwork.node.repositories.PlatformRepository
-import snc.openchargingnetwork.node.repositories.RoleRepository
+import snc.openchargingnetwork.node.services.NodeObjectRoutingService
 import snc.openchargingnetwork.node.services.VersionsService
 
 
@@ -32,7 +29,8 @@ import snc.openchargingnetwork.node.services.VersionsService
 @RequestMapping("\${ocn.node.apiPrefix}/ocn/message")
 class MessageController(
     private val requestHandlerBuilder: OcpiRequestHandlerBuilder,
-    private val versionsService: VersionsService
+    private val versionsService: VersionsService,
+    private val nodeObjectRoutingService: NodeObjectRoutingService
 ) {
 
     @PostMapping
@@ -53,6 +51,13 @@ class MessageController(
                     statusCode = OcpiStatus.SUCCESS.code,
                     data = versions
                 )
+            )
+        }
+
+        if (nodeObjectRoutingService.handles(ocpiRequest.request)) {
+            return nodeObjectRoutingService.route<Any>(
+                request = ocpiRequest.request,
+                sendingNodeSignature = signature
             )
         }
 

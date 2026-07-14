@@ -23,12 +23,14 @@ import snc.openchargingnetwork.node.components.OcpiRequestHandlerBuilder
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.ocpi.*
+import snc.openchargingnetwork.node.services.NodeObjectRoutingService
 import snc.openchargingnetwork.node.tools.filterNull
 
 @RestController
 @RequestMapping("\${ocn.node.apiPrefix}")
 class TokensController(
     private val requestHandlerBuilder: OcpiRequestHandlerBuilder,
+    private val nodeObjectRoutingService: NodeObjectRoutingService,
     private val properties: NodeProperties
 ) {
 
@@ -210,11 +212,15 @@ class TokensController(
             body = body
         )
 
-        return requestHandlerBuilder
+        // Fire-and-forget additional receiver (develop), then hub/object routing (hub role).
+        requestHandlerBuilder
             .build<Unit>(requestVariables)
-            .forwardToPartyAsync(properties.tokensAdditionalReceiverCountryCode, properties.tokensAdditionalReceiverPartyId)
-            .forwardDefault()
-            .getResponse()
+            .forwardToPartyAsync(
+                properties.tokensAdditionalReceiverCountryCode,
+                properties.tokensAdditionalReceiverPartyId
+            )
+
+        return nodeObjectRoutingService.route<Unit>(requestVariables)
     }
 
     @PatchMapping("/ocpi/receiver/2.2.1/tokens/{countryCode}/{partyID}/{tokenUID}")
@@ -247,11 +253,14 @@ class TokensController(
             body = body
         )
 
-        return requestHandlerBuilder
+        requestHandlerBuilder
             .build<Unit>(requestVariables)
-            .forwardToPartyAsync(properties.tokensAdditionalReceiverCountryCode, properties.tokensAdditionalReceiverPartyId)
-            .forwardDefault()
-            .getResponse()
+            .forwardToPartyAsync(
+                properties.tokensAdditionalReceiverCountryCode,
+                properties.tokensAdditionalReceiverPartyId
+            )
+
+        return nodeObjectRoutingService.route<Unit>(requestVariables)
     }
 
 }

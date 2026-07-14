@@ -102,21 +102,25 @@ class ModuleNotificationService(
     fun notifyPartiesOfModuleChange(
         moduleId: ModuleID,
         parties: Iterable<RoleEntity>,
-        changedData: Any,
+        changedData: Any?,
         urlPath: String,
-        sender: BasicRole
+        sender: BasicRole,
+        method: HttpMethod = HttpMethod.PUT,
+        queryParams: Map<String, Any?>? = null
     ) {
         for (party in parties) {
-            val tokenB = platformRepo.findById(party.platformID).get().auth.tokenB
-            if (tokenB != null) {
+            val platform = platformRepo.findById(party.platformID).orElse(null)
+            if (platform != null) {
                 notifyPartyOfModuleChange(
                     moduleId = moduleId,
                     partyId = party.partyID,
                     countryCode = party.countryCode,
-                    tokenB = tokenB,
+                    authToken = platform.getAuthTokenToIncludeInRequestHeader(),
                     changedData = changedData,
                     urlPath = urlPath,
-                    sender = sender
+                    sender = sender,
+                    method = method,
+                    queryParams = queryParams
                 )
             }
         }
@@ -130,42 +134,77 @@ class ModuleNotificationService(
     fun notifyPartiesOfModuleChangeAsync(
         moduleId: ModuleID,
         parties: Iterable<RoleEntity>,
-        changedData: Any,
+        changedData: Any?,
         urlPath: String,
-        sender: BasicRole
+        sender: BasicRole,
+        method: HttpMethod = HttpMethod.PUT,
+        queryParams: Map<String, Any?>? = null
     ) {
         logger.info(
             "Starting async notification of ${moduleId.id} change to ${parties.count()} parties (custom sender)"
         )
-        notifyPartiesOfModuleChange(moduleId, parties, changedData, urlPath, sender)
+        notifyPartiesOfModuleChange(
+            moduleId,
+            parties,
+            changedData,
+            urlPath,
+            sender,
+            method,
+            queryParams
+        )
         logger.info("Completed async notification of ${moduleId.id} change (custom sender)")
+    }
+
+    /** Broadcast an object push while preserving its HTTP method, path and query parameters. */
+    @Async
+    fun broadcastObjectRequestAsync(request: OcpiRequestVariables) {
+        val sender = request.headers.sender
+        val parties =
+            getPartiesToNotifyOfModuleChange(
+                moduleId = request.module,
+                partyId = sender.id,
+                countryCode = sender.country
+            )
+
+        notifyPartiesOfModuleChange(
+            moduleId = request.module,
+            parties = parties,
+            changedData = request.body,
+            urlPath = request.urlPath?.removePrefix("/") ?: "",
+            sender = sender,
+            method = request.method,
+            queryParams = request.queryParams
+        )
     }
 
     fun notifyPartyOfModuleChange(
         moduleId: ModuleID,
         partyId: String,
         countryCode: String,
-        tokenB: String,
-        changedData: Any,
+        authToken: String,
+        changedData: Any?,
         urlPath: String,
-        sender: BasicRole
+        sender: BasicRole,
+        method: HttpMethod = HttpMethod.PUT,
+        queryParams: Map<String, Any?>? = null
     ) {
         val receiver = BasicRole(partyId, countryCode)
         val requestVariables =
             OcpiRequestVariables(
                 module = moduleId,
                 interfaceRole = InterfaceRole.RECEIVER,
-                method = HttpMethod.PUT,
+                method = method,
                 headers =
                     OcnHeaders(
-                        authorization = "Token ${tokenB}",
+                        authorization = "Token $authToken",
                         requestID = generateUUIDv4Token(),
                         correlationID = generateUUIDv4Token(),
                         sender = sender,
                         receiver = receiver
                     ),
                 body = changedData,
-                urlPath = urlPath
+                urlPath = urlPath,
+                queryParams = queryParams
             )
 
         val (url, headers) =

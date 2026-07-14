@@ -31,6 +31,13 @@ class CredentialsService(
     }
 
     fun myCredentials(token: String): Credentials {
+        val nodeCountryCode =
+                properties.countryCode
+                        ?: throw IllegalStateException("ocn.node.countryCode must be configured")
+        val nodePartyId =
+                properties.partyId
+                        ?: throw IllegalStateException("ocn.node.partyId must be configured")
+
         return Credentials(
                 token = token,
                 url = urlJoin(properties.url, properties.apiPrefix, "/ocpi/versions"),
@@ -42,8 +49,8 @@ class CredentialsService(
                                                 BusinessDetails(
                                                         name = "OCN Node Managed by DE BAN"
                                                 ),
-                                        partyID = "BAN",
-                                        countryCode = "DE"
+                                        partyID = nodePartyId,
+                                        countryCode = nodeCountryCode
                                 )
                         )
         )

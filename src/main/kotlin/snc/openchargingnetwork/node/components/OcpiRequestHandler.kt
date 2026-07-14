@@ -141,6 +141,24 @@ class OcpiRequestHandler<T : Any>(
         private var logger: Logger = LoggerFactory.getLogger(OcpiRequestHandler::class.java)
     }
 
+    /** Validate a request that the node will broadcast instead of forwarding to one receiver. */
+    fun validateIncomingForBroadcast(): OcpiRequestHandler<T> {
+        logFullHeaders()
+        assertSenderValid()
+        assertValidSignature(knownReceiver = false)
+        return this
+    }
+
+    /** Validate an inter-node request that this node will broadcast locally. */
+    fun validateIncomingFromOcnForBroadcast(
+        sendingNodeSignature: String
+    ): OcpiRequestHandler<T> {
+        logFullHeaders()
+        validateOcnMessage(sendingNodeSignature, requireLocalReceiver = false)
+        assertValidSignature(knownReceiver = false)
+        return this
+    }
+
     /**
      * Validate sender auth, whitelist (local receivers), and OCN signature without forwarding.
      * Used when a plugin handles a custom OCPI module locally.
@@ -750,7 +768,10 @@ class OcpiRequestHandler<T : Any>(
      * Asserts the sender exists in the Registry and is connected to the OCN Node which has sent the
      * request. Asserts the receiver is connected to this OCN Node.
      */
-    private fun validateOcnMessage(signature: String): OcpiRequestHandler<T> {
+    private fun validateOcnMessage(
+        signature: String,
+        requireLocalReceiver: Boolean = true
+    ): OcpiRequestHandler<T> {
         if (!registryService.isRoleKnown(request.headers.sender, belongsToMe = false)) {
             throw OcpiHubUnknownReceiverException(
                     "Sending party not registered on Open Charging Network",
@@ -759,7 +780,7 @@ class OcpiRequestHandler<T : Any>(
             )
         }
 
-        if (!routingService.isRoleKnown(request.headers.receiver)) {
+        if (requireLocalReceiver && !routingService.isRoleKnown(request.headers.receiver)) {
             throw OcpiHubUnknownReceiverException(
                     "Recipient unknown to OCN Node entered in Registry",
                     HttpStatus.OK,

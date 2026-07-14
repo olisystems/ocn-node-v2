@@ -31,6 +31,7 @@ import snc.openchargingnetwork.node.models.exceptions.OcpiClientInvalidParameter
 import snc.openchargingnetwork.node.models.exceptions.OcpiClientUnknownLocationException
 import snc.openchargingnetwork.node.models.exceptions.OcpiHubUnknownReceiverException
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
+import snc.openchargingnetwork.node.models.ocpi.ConnectionStatus
 import snc.openchargingnetwork.node.models.ocpi.InterfaceRole
 import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
 import snc.openchargingnetwork.node.repositories.EndpointRepository
@@ -58,6 +59,13 @@ class RoutingService(
     /** check database to see if basic role is connected to the node */
     fun isRoleKnown(role: BasicRole) =
             roleRepo.existsByCountryCodeAndPartyIDAllIgnoreCase(role.country, role.id)
+
+    /** Check whether a role belongs to a platform with a completed, active handshake. */
+    fun isRoleConnected(role: BasicRole): Boolean {
+        return roleRepo.findAllByCountryCodeAndPartyIDAllIgnoreCase(role.country, role.id).any {
+            platformRepo.findByIdOrNull(it.platformID)?.status == ConnectionStatus.CONNECTED
+        }
+    }
 
     /** get platform by role  */
     fun getPlatform(role: BasicRole): PlatformEntity {

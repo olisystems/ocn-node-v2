@@ -1,0 +1,141 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "url": "../../ktor-serialization/3.1.3/ktor-serialization-3.1.3.module",
+    "group": "io.ktor",
+    "module": "ktor-serialization",
+    "version": "3.1.3",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "8.13"
+    }
+  },
+  "variants": [
+    {
+      "name": "jvmApiElements-published",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.jvm.environment": "standard-jvm",
+        "org.gradle.usage": "java-api",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "dependencies": [
+        {
+          "group": "org.slf4j",
+          "module": "slf4j-api",
+          "version": {
+            "requires": "2.0.16"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlinx",
+          "module": "kotlinx-coroutines-core",
+          "version": {
+            "requires": "1.10.2"
+          }
+        },
+        {
+          "group": "io.ktor",
+          "module": "ktor-websockets",
+          "version": {
+            "requires": "3.1.3"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.1.20"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "ktor-serialization-jvm-3.1.3.jar",
+          "url": "ktor-serialization-jvm-3.1.3.jar",
+          "size": 22028,
+          "sha512": "91697a08a1841cb1ebd3e443c5d528957213012010024f5aefeeca3e07dbf1f18a0f1fca80cd373cf2977e38d3070fce0a1ad1f19136dd1d76af6c880e2a2b5f",
+          "sha256": "0d704bc1148a8fd9a1f2005e0b5189cdaed3030efe24b8236459c41c356f5620",
+          "sha1": "ecdbdd352b01b9bf7ff37d2b41d3c32ee470b58d",
+          "md5": "84e859a37d3dde12fea64f2be1c8ec63"
+        }
+      ]
+    },
+    {
+      "name": "jvmRuntimeElements-published",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.jvm.environment": "standard-jvm",
+        "org.gradle.usage": "java-runtime",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "dependencies": [
+        {
+          "group": "org.slf4j",
+          "module": "slf4j-api",
+          "version": {
+            "requires": "2.0.16"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlinx",
+          "module": "kotlinx-coroutines-core",
+          "version": {
+            "requires": "1.10.2"
+          }
+        },
+        {
+          "group": "io.ktor",
+          "module": "ktor-websockets",
+          "version": {
+            "requires": "3.1.3"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.1.20"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "ktor-serialization-jvm-3.1.3.jar",
+          "url": "ktor-serialization-jvm-3.1.3.jar",
+          "size": 22028,
+          "sha512": "91697a08a1841cb1ebd3e443c5d528957213012010024f5aefeeca3e07dbf1f18a0f1fca80cd373cf2977e38d3070fce0a1ad1f19136dd1d76af6c880e2a2b5f",
+          "sha256": "0d704bc1148a8fd9a1f2005e0b5189cdaed3030efe24b8236459c41c356f5620",
+          "sha1": "ecdbdd352b01b9bf7ff37d2b41d3c32ee470b58d",
+          "md5": "84e859a37d3dde12fea64f2be1c8ec63"
+        }
+      ]
+    },
+    {
+      "name": "jvmSourcesElements-published",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.jvm.environment": "standard-jvm",
+        "org.gradle.usage": "java-runtime",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "files": [
+        {
+          "name": "ktor-serialization-jvm-3.1.3-sources.jar",
+          "url": "ktor-serialization-jvm-3.1.3-sources.jar",
+          "size": 3585,
+          "sha512": "b4f3ee4444748661cb4af8adb4119570d4b06abb622e7f3926156684e8d70610a7e2422b46dec88ee6d27dbb72f2950d8d6991132d6122042057477ba4b7a098",
+          "sha256": "ddc84dd1f279b1c7cd2e476a2b214c1960577116e7abe15c469f8b37fbb46483",
+          "sha1": "9947206077a04db4904641c7324fcdc5e5b49ca8",
+          "md5": "38a4b496744ca0e47c3a656adb7c0580"
+        }
+      ]
+    }
+  ]
+}
