@@ -28,15 +28,32 @@ class OcpiPlatformAuthService(private val platformRepository: PlatformRepository
     /**
      * Accept Token A/B/C. Tokens may arrive as plain or Base64 (OCPI common practice); match develop's
      * InternalVersionsController validation.
+     *
+     * Look up the raw token first so a plain token that happens to be valid Base64 is not rewritten
+     * before matching. Only then try Base64 decoding; decode failures are treated as invalid auth.
      */
     fun assertTokenAOrC(authorization: String) {
-        val token = authorization.extractToken().fromBs64String()
-        val valid =
-                platformRepository.existsByAuth_TokenA(token) ||
-                        platformRepository.existsByAuth_TokenB(token) ||
-                        platformRepository.existsByAuth_TokenC(token)
-        if (!valid) {
-            throw OcpiClientInvalidParametersException("Invalid authorization token")
+        val rawToken = authorization.extractToken()
+        if (matchesAnyAuthToken(rawToken)) {
+            return
         }
+
+        val decodedToken =
+                try {
+                    rawToken.fromBs64String()
+                } catch (_: IllegalArgumentException) {
+                    throw OcpiClientInvalidParametersException("Invalid authorization token")
+                }
+
+        if (decodedToken != rawToken && matchesAnyAuthToken(decodedToken)) {
+            return
+        }
+
+        throw OcpiClientInvalidParametersException("Invalid authorization token")
     }
+
+    private fun matchesAnyAuthToken(token: String): Boolean =
+            platformRepository.existsByAuth_TokenA(token) ||
+                    platformRepository.existsByAuth_TokenB(token) ||
+                    platformRepository.existsByAuth_TokenC(token)
 }

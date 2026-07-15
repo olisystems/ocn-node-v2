@@ -58,4 +58,4 @@ fetch_plugins() {
 
 fetch_plugins
 
-exec java -Dloader.path="${PLUGINS_DIR}" -jar app.jar
+exec java -Dloader.path="${PLUGINS_DIR}" -jar app.jar "$@"

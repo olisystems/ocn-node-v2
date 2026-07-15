@@ -63,6 +63,9 @@ data class OcnHeaders(
         map["OCN-Verification-Status"] = verificationStatus ?: SignatureVerificationStatus.NOT_PRESENTED.name
         map["X-Request-ID"] = requestID
         map["X-Correlation-ID"] = correlationID
+        if (testToolOrigin != null) {
+            map["test-tool-origin"] = testToolOrigin.toString()
+        }
         if (routingHeaders) {
             map["OCPI-from-country-code"] = sender.country
             map["OCPI-from-party-id"] = sender.id

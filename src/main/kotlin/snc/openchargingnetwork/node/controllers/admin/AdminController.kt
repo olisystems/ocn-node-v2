@@ -156,11 +156,18 @@ class AdminController(
             val versionDetail =
                     httpClientComponent.getVersionDetail(targetVersion.url, tokenA)
 
-            // Step 4: Extract credentials module URL
+            // Step 4: Extract credentials module URL (RECEIVER, same as update/verify flows)
             val credentialsEndpoint =
-                    versionDetail.endpoints.find { it.identifier == "credentials" }
+                    versionDetail.endpoints.find {
+                        it.identifier == "credentials" && it.role == InterfaceRole.RECEIVER
+                    }
                             ?: return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                    .body(mapOf("error" to "No credentials endpoint found"))
+                                    .body(
+                                            mapOf(
+                                                    "error" to
+                                                            "No credentials RECEIVER endpoint found"
+                                            )
+                                    )
 
             // Step 5: Get existing tokenB (self_credentials_token)
             val tokenB =
@@ -229,6 +236,7 @@ class AdminController(
                         role.role
                 )
             }
+            roleRepo.flush()
 
             val roles =
                     receivedCredentials.roles.map { role: CredentialsRole ->
@@ -448,7 +456,7 @@ class AdminController(
             }
         }
 
-        val adapterRole = body.firstOrNull()
+        val adapterRole = body.find { it.credentialsRole != null || it.interfaceRole != null }
         if (adapterRole?.credentialsRole != null && adapterRole.interfaceRole == null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(
@@ -674,34 +682,20 @@ class AdminController(
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid admin / api key")
         }
 
-        var responseMessage = "No role found for party $partyID in country $countryCode"
         val role =
                 roleRepo.findAllByCountryCodeAndPartyIDAllIgnoreCase(countryCode, partyID)
                         .firstOrNull()
-        if (role != null) {
-            // resolve platform before deletions
-            val platform = platformRepo.findByIdOrNull(role.platformID)
+                        ?: return ResponseEntity.ok()
+                                .body("No role found for party $partyID in country $countryCode")
 
-            // 1) delete endpoints (depend on platform)
-            if (platform != null) {
-                endpointRepo.deleteByPlatformID(platform.id)
-                responseMessage = "Endpoints deleted successfully"
-            }
+        val platform =
+                platformRepo.findByIdOrNull(role.platformID)
+                        ?: return ResponseEntity.ok()
+                                .body(
+                                        "No platform found for party $partyID in country $countryCode"
+                                )
 
-            // 2) delete ALL roles for this platform (not just the matched one)
-            roleRepo.deleteByPlatformID(role.platformID)
-            responseMessage =
-                    if (responseMessage.isBlank()) "Roles deleted successfully"
-                    else "$responseMessage | Roles deleted successfully"
-
-            // 3) delete platform (after all dependents removed)
-            if (platform != null) {
-                platformRepo.delete(platform)
-                responseMessage += " | Platform deleted successfully"
-            }
-        }
-
-        return ResponseEntity.ok().body(responseMessage)
+        return ResponseEntity.ok().body(deletePlatformWithDependents(platform))
     }
 
     @GetMapping("/platform/{platformId}")

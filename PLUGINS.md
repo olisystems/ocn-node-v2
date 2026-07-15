@@ -132,7 +132,7 @@ There is no runtime reload: change JARs in the bucket (or under `plugins/` local
 
 ### Cluster
 
-The Docker entrypoint fetches each key in `OCN_PLUGINS` from OTC OBS into `/app/plugins`, then starts the JVM. No plugins PVC is required — upload JARs to the bucket manually and rollout-restart the deployment.
+The Docker entrypoint fetches each key in `OCN_PLUGINS` from OTC OBS into `/app/plugins`, then starts the JVM. No plugins PVC is required — upload JARs to the bucket manually and trigger a rollout restart of the deployment.
 
 ## Operations and troubleshooting
 
