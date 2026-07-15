@@ -28,6 +28,7 @@ import snc.openchargingnetwork.node.components.OcnRegistryComponent
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.entities.Auth
 import snc.openchargingnetwork.node.models.entities.EndpointEntity
+import snc.openchargingnetwork.node.models.entities.Ocpi211AdapterConfigEntity
 import snc.openchargingnetwork.node.models.entities.PlatformEntity
 import snc.openchargingnetwork.node.models.entities.RoleEntity
 import snc.openchargingnetwork.node.models.ocpi.ConnectionStatus
@@ -37,7 +38,9 @@ import snc.openchargingnetwork.node.models.ocpi.InterfaceRole
 import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
 import snc.openchargingnetwork.node.models.ocpi.OcpiStatus
 import snc.openchargingnetwork.node.models.ocpi.RegistrationInfo
+import snc.openchargingnetwork.node.models.ocpi.RegistrationRoleRequest
 import snc.openchargingnetwork.node.repositories.EndpointRepository
+import snc.openchargingnetwork.node.repositories.Ocpi211AdapterConfigRepository
 import snc.openchargingnetwork.node.repositories.PlatformRepository
 import snc.openchargingnetwork.node.repositories.RoleRepository
 import snc.openchargingnetwork.node.services.CredentialsService
@@ -88,6 +91,7 @@ class AdminController(
         private val platformRepo: PlatformRepository,
         private val roleRepo: RoleRepository,
         private val endpointRepo: EndpointRepository,
+        private val adapterConfigRepo: Ocpi211AdapterConfigRepository,
         private val properties: NodeProperties,
         private val ocnRegistryComponent: OcnRegistryComponent,
         private val httpClientComponent: HttpClientComponent,
@@ -152,11 +156,18 @@ class AdminController(
             val versionDetail =
                     httpClientComponent.getVersionDetail(targetVersion.url, tokenA)
 
-            // Step 4: Extract credentials module URL
+            // Step 4: Extract credentials module URL (RECEIVER, same as update/verify flows)
             val credentialsEndpoint =
-                    versionDetail.endpoints.find { it.identifier == "credentials" }
+                    versionDetail.endpoints.find {
+                        it.identifier == "credentials" && it.role == InterfaceRole.RECEIVER
+                    }
                             ?: return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                    .body(mapOf("error" to "No credentials endpoint found"))
+                                    .body(
+                                            mapOf(
+                                                    "error" to
+                                                            "No credentials RECEIVER endpoint found"
+                                            )
+                                    )
 
             // Step 5: Get existing tokenB (self_credentials_token)
             val tokenB =
@@ -225,6 +236,7 @@ class AdminController(
                         role.role
                 )
             }
+            roleRepo.flush()
 
             val roles =
                     receivedCredentials.roles.map { role: CredentialsRole ->
@@ -423,6 +435,73 @@ class AdminController(
         return ResponseEntity.ok().body(platform.status.toString())
     }
 
+    /**
+     * Legacy registration-token flow used by OCPI 2.1.1 adapter onboarding. Prefer
+     * [createPlatform] for new platform provisioning.
+     */
+    @PostMapping("/generate-registration-token")
+    @Transactional
+    fun generateRegistrationToken(
+            @RequestHeader("Authorization") authorization: String,
+            @RequestBody body: Array<RegistrationRoleRequest>
+    ): ResponseEntity<Any> {
+        if (!isAuthorized(authorization)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid admin / api key")
+        }
+
+        for (role in body) {
+            if (roleRepo.existsByCountryCodeAndPartyIDAllIgnoreCase(role.country, role.id)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body("Role ${role.country}-${role.id} already exists")
+            }
+        }
+
+        val adapterRole = body.find { it.credentialsRole != null || it.interfaceRole != null }
+        if (adapterRole?.credentialsRole != null && adapterRole.interfaceRole == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(
+                            "interface_role is required when credentials_role is set for OCPI 2.1.1 adapter onboarding"
+                    )
+        }
+        if (adapterRole?.interfaceRole != null && adapterRole.credentialsRole == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(
+                            "credentials_role is required when interface_role is set for OCPI 2.1.1 adapter onboarding"
+                    )
+        }
+
+        val tokenA = generateUUIDv4Token()
+        val platform =
+                platformRepo.save(
+                        PlatformEntity(
+                                auth =
+                                        Auth(
+                                                tokenA = tokenA,
+                                                selfCredentialsToken = tokenA,
+                                                handshakeSelfInitiated = false
+                                        )
+                        )
+                )
+
+        if (adapterRole?.credentialsRole != null && adapterRole.interfaceRole != null) {
+            adapterConfigRepo.save(
+                    Ocpi211AdapterConfigEntity(
+                            platformId = platform.id!!,
+                            credentialsRole = adapterRole.credentialsRole!!.name,
+                            interfaceRole = adapterRole.interfaceRole!!.name
+                    )
+            )
+        }
+
+        val responseBody =
+                RegistrationInfo(
+                        id = platform.id!!,
+                        token = tokenA,
+                        versions = urlJoin(properties.url, properties.apiPrefix, "/ocpi/versions")
+                )
+        return ResponseEntity.ok().body(responseBody)
+    }
+
     @PostMapping("/platform")
     @Transactional
     fun createPlatform(
@@ -603,34 +682,20 @@ class AdminController(
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid admin / api key")
         }
 
-        var responseMessage = "No role found for party $partyID in country $countryCode"
         val role =
                 roleRepo.findAllByCountryCodeAndPartyIDAllIgnoreCase(countryCode, partyID)
                         .firstOrNull()
-        if (role != null) {
-            // resolve platform before deletions
-            val platform = platformRepo.findByIdOrNull(role.platformID)
+                        ?: return ResponseEntity.ok()
+                                .body("No role found for party $partyID in country $countryCode")
 
-            // 1) delete endpoints (depend on platform)
-            if (platform != null) {
-                endpointRepo.deleteByPlatformID(platform.id)
-                responseMessage = "Endpoints deleted successfully"
-            }
+        val platform =
+                platformRepo.findByIdOrNull(role.platformID)
+                        ?: return ResponseEntity.ok()
+                                .body(
+                                        "No platform found for party $partyID in country $countryCode"
+                                )
 
-            // 2) delete ALL roles for this platform (not just the matched one)
-            roleRepo.deleteByPlatformID(role.platformID)
-            responseMessage =
-                    if (responseMessage.isBlank()) "Roles deleted successfully"
-                    else "$responseMessage | Roles deleted successfully"
-
-            // 3) delete platform (after all dependents removed)
-            if (platform != null) {
-                platformRepo.delete(platform)
-                responseMessage += " | Platform deleted successfully"
-            }
-        }
-
-        return ResponseEntity.ok().body(responseMessage)
+        return ResponseEntity.ok().body(deletePlatformWithDependents(platform))
     }
 
     @GetMapping("/platform/{platformId}")
@@ -783,16 +848,22 @@ class AdminController(
     }
 
     private fun deletePlatformWithDependents(platform: PlatformEntity): String {
+        val platformId = platform.id
         // 1) delete endpoints (depend on platform)
-        endpointRepo.deleteByPlatformID(platform.id)
+        endpointRepo.deleteByPlatformID(platformId)
 
-        // 2) delete all roles for this platform
-        roleRepo.deleteByPlatformID(platform.id)
+        // 2) delete adapter config if present (OCPI 2.1.1 plugin onboarding)
+        if (platformId != null) {
+            adapterConfigRepo.deleteByPlatformId(platformId)
+        }
 
-        // 3) delete platform (after all dependents removed)
+        // 3) delete all roles for this platform
+        roleRepo.deleteByPlatformID(platformId)
+
+        // 4) delete platform (after all dependents removed)
         platformRepo.delete(platform)
 
-        return "Platform ${platform.id} deleted (endpoints + roles removed)"
+        return "Platform $platformId deleted (endpoints + roles + adapter config removed)"
     }
 
     @GetMapping("/platforms")

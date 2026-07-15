@@ -55,6 +55,7 @@ class MockRegistryConfig {
       logCurlCommands = false
       privateKey = "1111111111111111111111111111111111111111111111111111111111111111"
       url = "http://localhost:8080"
+      apiPrefix = "ocn-v2"
     }
   }
 

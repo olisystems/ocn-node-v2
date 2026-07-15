@@ -53,7 +53,8 @@ class TestOcnRegistryComponent {
     return NodeProperties().apply {
       logCurlCommands = false
       privateKey = "1111111111111111111111111111111111111111111111111111111111111111"
-      url = "http://localhost:8080"
+      url = "http://localhost:9999"
+      apiPrefix = "ocn-v2"
     }
   }
 

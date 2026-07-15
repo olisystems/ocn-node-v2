@@ -29,6 +29,9 @@ import snc.openchargingnetwork.node.models.exceptions.OcpiServerGenericException
 import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
 import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
 import snc.openchargingnetwork.node.models.ocpi.SignatureVerificationStatus
+import org.springframework.context.ApplicationEventPublisher
+import snc.openchargingnetwork.node.plugins.core.OcpiObjectEvent
+import snc.openchargingnetwork.node.plugins.core.OcpiObjectEventPhase
 import snc.openchargingnetwork.node.services.HubClientInfoService
 import snc.openchargingnetwork.node.services.RegistryService
 import snc.openchargingnetwork.node.services.RoutingService
@@ -46,6 +49,7 @@ class OcpiResponseHandlerBuilder(
     private val hubClientInfoService: HubClientInfoService,
     private val properties: NodeProperties,
     private val haasProperties: HaasProperties,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
 
     /**
@@ -64,7 +68,7 @@ class OcpiResponseHandlerBuilder(
     ): OcpiResponseHandler<T> {
         return OcpiResponseHandler(
             request, response, knownSender, requestVerificationStatus, routingService, registryService,
-            properties, haasProperties, hubClientInfoService
+            properties, haasProperties, hubClientInfoService, eventPublisher
         )
     }
 
@@ -84,7 +88,8 @@ class OcpiResponseHandler<T : Any>(
     registryService: RegistryService,
     properties: NodeProperties,
     haasProperties: HaasProperties,
-    hubClientInfoService: HubClientInfoService
+    hubClientInfoService: HubClientInfoService,
+    private val eventPublisher: ApplicationEventPublisher
 ) :
     OcpiMessageHandler(request, properties, haasProperties, routingService, registryService) {
 
@@ -98,6 +103,11 @@ class OcpiResponseHandler<T : Any>(
         stripOcnFieldsIfSigningDisabled()
         if (isOcpiSuccess() && routingService.isRoleKnown(request.headers.receiver)) { // only renew connection of known recipients
             hubClientInfoService.renewClientConnection(request.headers.receiver)
+        }
+        try {
+            publishResponseDataEvent()
+        } catch (e: Exception) {
+            logger.warn("Failed to publish response data OcpiObjectEvent: ${e.message}")
         }
     }
 
@@ -224,6 +234,39 @@ class OcpiResponseHandler<T : Any>(
             response.body?.verificationStatus = statusName
         }
     }
+
+    private fun publishResponseDataEvent() {
+        val data = response.body?.data ?: return
+        objectEventPayloads(data).forEach { (index, item) ->
+            eventPublisher.publishEvent(
+                OcpiObjectEvent(
+                    phase = OcpiObjectEventPhase.RESPONSE_DATA,
+                    module = request.module,
+                    interfaceRole = request.interfaceRole,
+                    method = request.method,
+                    urlPath = request.urlPath,
+                    customModuleId = request.customModuleId,
+                    queryParams = request.queryParams ?: emptyMap(),
+                    payload = item,
+                    payloadIndex = index,
+                    fromPartyId = request.headers.sender.id,
+                    fromCountryCode = request.headers.sender.country,
+                    toPartyId = request.headers.receiver.id,
+                    toCountryCode = request.headers.receiver.country,
+                    headers = request.headers.toPluginEventHeaders(),
+                    responseStatusCode = response.statusCode,
+                    ocpiStatusCode = response.body?.statusCode
+                )
+            )
+        }
+    }
+
+    private fun objectEventPayloads(payload: Any): List<Pair<Int?, Any>> =
+        when (payload) {
+            is Array<*> -> payload.mapIndexedNotNull { index, item -> item?.let { index to it } }
+            is Iterable<*> -> payload.mapIndexedNotNull { index, item -> item?.let { index to it } }
+            else -> listOf(null to payload)
+        }
 
     /**
      * Strip OCN-specific fields from response when signing is disabled.

@@ -29,6 +29,9 @@ import snc.openchargingnetwork.node.models.Receiver
 import snc.openchargingnetwork.node.models.exceptions.OcpiHubUnknownReceiverException
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
 import snc.openchargingnetwork.node.models.ocpi.ModuleID
+import org.springframework.context.ApplicationEventPublisher
+import snc.openchargingnetwork.node.plugins.core.OcpiObjectEvent
+import snc.openchargingnetwork.node.plugins.core.OcpiObjectEventPhase
 import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
 import snc.openchargingnetwork.node.models.ocpi.OcpiStatus
 import snc.openchargingnetwork.node.services.*
@@ -46,8 +49,10 @@ class OcpiRequestHandlerBuilder(
         private val asyncTaskService: AsyncTaskService,
         private val responseHandlerBuilder: OcpiResponseHandlerBuilder,
         private val integrationsRoutingService: IntegrationsRoutingService,
+        private val protocolTransformService: OcpiProtocolTransformService,
         private val properties: NodeProperties,
         private val haasProperties: HaasProperties,
+        private val eventPublisher: ApplicationEventPublisher,
         private val coroutineScope: CoroutineScope
 ) {
 
@@ -63,8 +68,10 @@ class OcpiRequestHandlerBuilder(
                 asyncTaskService,
                 responseHandlerBuilder,
                 integrationsRoutingService,
+                protocolTransformService,
                 properties,
                 haasProperties,
+                eventPublisher,
                 coroutineScope
         )
     }
@@ -85,8 +92,10 @@ class OcpiRequestHandlerBuilder(
                 asyncTaskService,
                 responseHandlerBuilder,
                 integrationsRoutingService,
+                protocolTransformService,
                 properties,
                 haasProperties,
+                eventPublisher,
                 coroutineScope
         )
     }
@@ -121,13 +130,35 @@ class OcpiRequestHandler<T : Any>(
         private val asyncTaskService: AsyncTaskService,
         private val responseHandlerBuilder: OcpiResponseHandlerBuilder,
         private val integrationsRoutingService: IntegrationsRoutingService,
+        private val protocolTransformService: OcpiProtocolTransformService,
         properties: NodeProperties,
         haasProperties: HaasProperties,
+        private val eventPublisher: ApplicationEventPublisher,
         private val coroutineScope: CoroutineScope
 ) : OcpiMessageHandler(request, properties, haasProperties, routingService, registryService) {
 
     companion object {
         private var logger: Logger = LoggerFactory.getLogger(OcpiRequestHandler::class.java)
+    }
+
+    /**
+     * Validate sender auth, whitelist (local receivers), and OCN signature without forwarding.
+     * Used when a plugin handles a custom OCPI module locally.
+     */
+    fun validateIncoming(fromLocalPlatform: Boolean = true): OcpiRequestHandler<T> {
+        if (fromLocalPlatform) {
+            assertSenderValid()
+        }
+        when (routingService.getReceiverType(request.headers.receiver)) {
+            Receiver.LOCAL -> {
+                assertWhitelisted()
+                assertValidSignature()
+            }
+            Receiver.REMOTE -> {
+                assertValidSignature(false)
+            }
+        }
+        return this
     }
 
     /**
@@ -171,7 +202,15 @@ class OcpiRequestHandler<T : Any>(
                                                 else statusName
                                 )
                         try {
-                            httpClientComponent.makeOcpiRequest(url, localHeaders, request)
+                            val outboundRequest =
+                                    protocolTransformService.adaptOutboundRequest(request)
+                            val localResponse: OcpiHttpResponse<T> =
+                                    httpClientComponent.makeOcpiRequest(
+                                            url,
+                                            localHeaders,
+                                            outboundRequest
+                                    )
+                            protocolTransformService.adaptInboundResponse(request, localResponse)
                         } catch (e: Exception) {
                             logger.error(
                                 "[Forward] FAILED — {} {} to {} | endpoint: {} | error: {}",
@@ -207,6 +246,7 @@ class OcpiRequestHandler<T : Any>(
             )
         }
 
+        publishRequestBodyEvent(response)
         return responseHandlerBuilder.build(
                 request,
                 response,
@@ -452,6 +492,7 @@ class OcpiRequestHandler<T : Any>(
                     throw e
                 }
 
+        publishRequestBodyEvent(response)
         return responseHandlerBuilder.build(
                 request,
                 response,
@@ -508,6 +549,52 @@ class OcpiRequestHandler<T : Any>(
 
         return responseHandlerBuilder.build(modifiedRequest, response)
     }
+
+    private fun publishRequestBodyEvent(response: OcpiHttpResponse<T>) {
+        try {
+            val body = request.body ?: return
+            publishObjectEvents(body, response, OcpiObjectEventPhase.REQUEST_BODY)
+        } catch (e: Exception) {
+            logger.warn("Failed to publish request body OcpiObjectEvent: ${e.message}")
+        }
+    }
+
+    private fun publishObjectEvents(
+            payload: Any,
+            response: OcpiHttpResponse<T>,
+            phase: OcpiObjectEventPhase
+    ) {
+        objectEventPayloads(payload).forEach { (index, item) ->
+            eventPublisher.publishEvent(
+                    OcpiObjectEvent(
+                            phase = phase,
+                            module = request.module,
+                            interfaceRole = request.interfaceRole,
+                            method = request.method,
+                            urlPath = request.urlPath,
+                            customModuleId = request.customModuleId,
+                            queryParams = request.queryParams ?: emptyMap(),
+                            payload = item,
+                            payloadIndex = index,
+                            fromPartyId = request.headers.sender.id,
+                            fromCountryCode = request.headers.sender.country,
+                            toPartyId = request.headers.receiver.id,
+                            toCountryCode = request.headers.receiver.country,
+                            headers = request.headers.toPluginEventHeaders(),
+                            responseStatusCode = response.statusCode,
+                            ocpiStatusCode = response.body?.statusCode
+                    )
+            )
+        }
+    }
+
+    private fun objectEventPayloads(payload: Any): List<Pair<Int?, Any>> =
+            when (payload) {
+                is Array<*> -> payload.mapIndexedNotNull { index, item -> item?.let { index to it } }
+                is Iterable<*> ->
+                        payload.mapIndexedNotNull { index, item -> item?.let { index to it } }
+                else -> listOf(null to payload)
+            }
 
     /** Log full headers of the received request when logFullHeaders is enabled. */
     private fun logFullHeaders() {

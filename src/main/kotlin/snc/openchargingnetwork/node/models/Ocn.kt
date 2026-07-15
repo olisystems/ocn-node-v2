@@ -63,6 +63,9 @@ data class OcnHeaders(
         map["OCN-Verification-Status"] = verificationStatus ?: SignatureVerificationStatus.NOT_PRESENTED.name
         map["X-Request-ID"] = requestID
         map["X-Correlation-ID"] = correlationID
+        if (testToolOrigin != null) {
+            map["test-tool-origin"] = testToolOrigin.toString()
+        }
         if (routingHeaders) {
             map["OCPI-from-country-code"] = sender.country
             map["OCPI-from-party-id"] = sender.id
@@ -70,6 +73,14 @@ data class OcnHeaders(
             map["OCPI-to-party-id"] = receiver.id
         }
         return map
+    }
+
+    /** Headers safe to expose to plugin event listeners (excludes Authorization / tokens). */
+    fun toPluginEventHeaders(routingHeaders: Boolean = true): Map<String, String> {
+        return toMap(routingHeaders)
+                .filterKeys { !it.equals("Authorization", ignoreCase = true) }
+                .filterValues { it != null }
+                .mapValues { it.value!! }
     }
 
     fun toSignedHeaders(): SignableHeaders {

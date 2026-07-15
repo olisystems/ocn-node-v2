@@ -4,6 +4,21 @@ oli-app:
   image:
     tag: "main"
 
+  # EDX plugin (int only): pull edx-v1 from OBS. Plugin props via SPRING_APPLICATION_JSON (base values).
+  env:
+    OCN_PLUGINS: "edx-v1"
+    OTC_ENDPOINT_URL: "https://obs.eu-de.otc.t-systems.com"
+    OTC_DEFAULT_REGION: "eu-de"
+    OTC_BUCKET_NAME: "ocn-node-plugins"
+    OTC_ACCESS_KEY_ID:
+      secretKeyRef:
+        name: otc-obs-credentials
+        key: access_key_id
+    OTC_SECRET_ACCESS_KEY:
+      secretKeyRef:
+        name: otc-obs-credentials
+        key: secret_access_key
+
   ingress:
     hosts:
       - host: banula-int.oli-system.com

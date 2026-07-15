@@ -57,6 +57,17 @@ oli-app:
     OCN_NODE_HUB_CLIENT_INFO_SYNC_RATE: "3600000"
     OCN_FF_BANULA_VALIDATION: "true"
 
+    # Comma-separated plugin ids to fetch from OBS before start (e.g. "edx_v1,other_v2").
+    # Each id maps to object key <id>.jar. Override per env; empty = skip fetch.
+    OCN_PLUGINS: ""
+
+    # Optional plugin settings JSON (binds to Spring props, e.g. edx.*). Missing key is fine.
+    SPRING_APPLICATION_JSON:
+      secretKeyRef:
+        name: ocn-node-v2-secret
+        key: application_plugins_json
+        optional: true
+
     ENVIRONMENT:
       configMapKeyRef:
         name: ocn-node-v2-config
@@ -97,10 +108,6 @@ oli-app:
       configMapKeyRef:
         name: ocn-node-v2-config
         key: JAVA_TOOL_OPTIONS
-    EDX_CDR_SERVICE_BASE_URL:
-      configMapKeyRef:
-        name: ocn-node-v2-config
-        key: EDX_CDR_SERVICE_BASE_URL
     OCN_NODE_ADMIN_KEY:
       secretKeyRef:
         name: ocn-node-v2-secret
@@ -125,10 +132,6 @@ oli-app:
       secretKeyRef:
         name: postgres-secret
         key: ocn_node_v2_postgres_password
-    EDX_CDR_SERVICE_API_KEY:
-      secretKeyRef:
-        name: ocn-node-v2-secret
-        key: edx_cdr_service_api_key
 
   resources:
     requests:

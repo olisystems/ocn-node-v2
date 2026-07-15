@@ -20,12 +20,19 @@ import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import org.web3j.crypto.Credentials
-
+import java.io.File
+import snc.openchargingnetwork.node.plugins.core.CustomModule
+import snc.openchargingnetwork.node.plugins.core.OcpiProtocolAdapter
+import snc.openchargingnetwork.node.plugins.core.OcpiVersionContributor
 @Component
 class NodeInfoLogger(
         private val properties: NodeProperties,
         private val dataSourceProperties: DataSourceProperties,
-        private val registryIndexerProperties: RegistryIndexerProperties
+        private val registryIndexerProperties: RegistryIndexerProperties,
+        private val pluginProperties: PluginProperties,
+        private val customModules: List<CustomModule>,
+        private val protocolAdapters: List<OcpiProtocolAdapter>,
+        private val versionContributors: List<OcpiVersionContributor>,
 ) {
 
     val hasPrivateKey = properties.privateKey != null
@@ -44,6 +51,7 @@ class NodeInfoLogger(
         val addressText = getAddressText()
         val stillAliveText = getStillAliveText()
         val hubClientInfoSyncText = getHubClientInfoSyncText()
+        val pluginsText = getPluginsText()
 
         println(
                 "\n${border.substring(0, 3)} NODE INFO ${border.substring(17)}\n" +
@@ -67,6 +75,12 @@ class NodeInfoLogger(
                         " HUB CLIENT INFO SYNC | $hubClientInfoSyncText\n" +
                         " LOG CURL COMMANDS    | ${properties.logCurlCommands}\n" +
                         " LOG FULL HEADERS     | ${properties.logFullHeaders}\n"
+        )
+
+        println(
+                "${border.substring(0, 3)} PLUGINS ${border.substring(15)}\n" +
+                        " LOADER PATH | ${pluginProperties.loaderPath}\n" +
+                        " $pluginsText\n"
         )
 
         println(
@@ -113,4 +127,44 @@ class NodeInfoLogger(
             } else {
                 "false"
             }
+
+    private fun getPluginsText(): String {
+        val modules = customModules.map { it.moduleId() }
+        val adapters = protocolAdapters.map { it.protocolVersion }
+        val versions = versionContributors.flatMap { it.versions() }.map { it.version }
+        val jars = listPluginJarNames(pluginProperties.loaderPath)
+        return buildString {
+            append("PLUGIN JARS | ${if (jars.isEmpty()) "none" else jars.joinToString(", ")}\n")
+            append(" CUSTOM MODULES | ${if (modules.isEmpty()) "none" else modules.joinToString(", ")}\n")
+            append(" PROTOCOL ADAPTERS | ${if (adapters.isEmpty()) "none" else adapters.joinToString(", ")}\n")
+            append(" EXTRA VERSIONS | ${if (versions.isEmpty()) "none" else versions.joinToString(", ")}")
+        }
+    }
+
+    /**
+     * Spring Boot `loader.path` may be a comma-separated list of directories and archives.
+     * List JAR names from each existing directory entry (and bare `.jar` path entries).
+     */
+    private fun listPluginJarNames(loaderPath: String): List<String> =
+            loaderPath
+                    .split(",")
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                    .flatMap { entry ->
+                        val file = File(entry)
+                        when {
+                            file.isFile && file.name.endsWith(".jar", ignoreCase = true) ->
+                                    listOf(file.name)
+                            file.isDirectory ->
+                                    file.listFiles()
+                                            ?.filter {
+                                                it.isFile && it.name.endsWith(".jar", ignoreCase = true)
+                                            }
+                                            ?.map { it.name }
+                                            .orEmpty()
+                            else -> emptyList()
+                        }
+                    }
+                    .distinct()
+                    .sorted()
 }
