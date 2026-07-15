@@ -5,7 +5,7 @@ oli-app:
   # Per-env plugin list only. OBS bucket/credentials live in values.yaml.
   # Plugin-specific runtime env (e.g. EDX) stays here too.
   env:
-    OCN_PLUGINS: "ocn-node-edx-plugin"
+    OCN_PLUGINS: "edx-v1"
     EDX_CDR_SERVICE_BASE_URL:
       configMapKeyRef:
         name: ocn-node-v2-config
