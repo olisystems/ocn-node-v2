@@ -61,6 +61,13 @@ oli-app:
     # Each id maps to object key <id>.jar. Override per env; empty = skip fetch.
     OCN_PLUGINS: ""
 
+    # Optional plugin settings JSON (binds to Spring props, e.g. edx.*). Missing key is fine.
+    SPRING_APPLICATION_JSON:
+      secretKeyRef:
+        name: ocn-node-v2-secret
+        key: application_plugins_json
+        optional: true
+
     ENVIRONMENT:
       configMapKeyRef:
         name: ocn-node-v2-config

@@ -4,8 +4,7 @@ oli-app:
   image:
     tag: "main"
 
-  # EDX plugin (int only): OBS pull + plugin settings via Spring Boot JSON.
-  # ocn-node-v2-secret key `application_plugins_json` holds nested or flat JSON for plugin props.
+  # EDX plugin (int only): pull edx-v1 from OBS. Plugin props via SPRING_APPLICATION_JSON (base values).
   env:
     OCN_PLUGINS: "edx-v1"
     OTC_ENDPOINT_URL: "https://obs.eu-de.otc.t-systems.com"
@@ -19,11 +18,6 @@ oli-app:
       secretKeyRef:
         name: otc-obs-credentials
         key: secret_access_key
-    SPRING_APPLICATION_JSON:
-      secretKeyRef:
-        name: ocn-node-v2-secret
-        key: application_plugins_json
-        optional: true
 
   ingress:
     hosts:
