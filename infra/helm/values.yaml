@@ -58,20 +58,8 @@ oli-app:
     OCN_FF_BANULA_VALIDATION: "true"
 
     # Comma-separated plugin ids to fetch from OBS before start (e.g. "edx_v1,other_v2").
-    # Each id maps to object key <id>.jar in OTC_BUCKET_NAME. Override per env; empty = skip.
+    # Each id maps to object key <id>.jar. Override per env; empty = skip fetch.
     OCN_PLUGINS: ""
-
-    OTC_ENDPOINT_URL: "https://obs.eu-de.otc.t-systems.com"
-    OTC_DEFAULT_REGION: "eu-de"
-    OTC_BUCKET_NAME: "ocn-node-plugins"
-    OTC_ACCESS_KEY_ID:
-      secretKeyRef:
-        name: otc-obs-credentials
-        key: access_key_id
-    OTC_SECRET_ACCESS_KEY:
-      secretKeyRef:
-        name: otc-obs-credentials
-        key: secret_access_key
 
     ENVIRONMENT:
       configMapKeyRef:

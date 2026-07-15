@@ -2,18 +2,6 @@ oli-app:
   fullnameOverride: "ocn-node-v2-dev"
   image:
     tag: "develop-0f0965e"
-  # Per-env plugin list only. OBS bucket/credentials live in values.yaml.
-  # Plugin-specific runtime env (e.g. EDX) stays here too.
-  env:
-    OCN_PLUGINS: "edx-v1"
-    EDX_CDR_SERVICE_BASE_URL:
-      configMapKeyRef:
-        name: ocn-node-v2-config
-        key: EDX_CDR_SERVICE_BASE_URL
-    EDX_CDR_SERVICE_API_KEY:
-      secretKeyRef:
-        name: ocn-node-v2-secret
-        key: edx_cdr_service_api_key
   ingress:
     hosts:
       - host: banula-dev.oli-system.com

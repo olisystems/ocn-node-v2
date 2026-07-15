@@ -4,15 +4,27 @@ oli-app:
   image:
     tag: "main"
 
+  # EDX plugin: pull from OBS + runtime API key (int only).
   env:
     OCN_PLUGINS: "edx-v1"
+    OTC_ENDPOINT_URL: "https://obs.eu-de.otc.t-systems.com"
+    OTC_DEFAULT_REGION: "eu-de"
+    OTC_BUCKET_NAME: "ocn-node-plugins"
+    OTC_ACCESS_KEY_ID:
+      secretKeyRef:
+        name: otc-obs-credentials
+        key: access_key_id
+    OTC_SECRET_ACCESS_KEY:
+      secretKeyRef:
+        name: otc-obs-credentials
+        key: secret_access_key
     EDX_CDR_SERVICE_BASE_URL:
-      configMapKeyRef:
-        name: ocn-node-v2-config
-        key: EDX_CDR_SERVICE_BASE_URL
+      secretKeyRef:
+        name: ocn-node-edx-secret
+        key: edx_cdr_service_base_url
     EDX_CDR_SERVICE_API_KEY:
       secretKeyRef:
-        name: ocn-node-v2-secret
+        name: ocn-node-edx-secret
         key: edx_cdr_service_api_key
 
   ingress:
