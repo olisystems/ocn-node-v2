@@ -134,6 +134,8 @@ There is no runtime reload: change JARs in the bucket (or under `plugins/` local
 
 The Docker entrypoint fetches each key in `OCN_PLUGINS` from OTC OBS into `/app/plugins`, then starts the JVM. No plugins PVC is required — upload JARs to the bucket manually and trigger a rollout restart of the deployment.
 
+Plugin-specific settings should not be hardcoded in the node Helm chart. Prefer a single `SPRING_APPLICATION_JSON` env (from a plugin secret) so Spring binds JSON into properties such as `edx.cdr.service.baseUrl`.
+
 ## Operations and troubleshooting
 
 ### Class not found
