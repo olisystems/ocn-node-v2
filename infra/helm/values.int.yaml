@@ -5,7 +5,7 @@ oli-app:
     tag: "main"
 
   env:
-    OCN_PLUGINS: "ocn-node-edx-plugin"
+    OCN_PLUGINS: "edx-v1"
     EDX_CDR_SERVICE_BASE_URL:
       configMapKeyRef:
         name: ocn-node-v2-config
