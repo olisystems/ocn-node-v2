@@ -13,7 +13,12 @@ import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
 import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
 import snc.openchargingnetwork.node.models.ocpi.OcpiStatus
 
-/** Routes object pushes addressed to the node identity. */
+/**
+ * Routes object pushes addressed to the hub identity (e.g. DE/BAN).
+ *
+ * Messages to the hub are broadcast to parties with the module RECEIVER enabled. When a same-identity
+ * handler is connected, inbound pushes from other parties are also forwarded there for storage.
+ */
 @Service
 class NodeObjectRoutingService(
     private val requestHandlerBuilder: OcpiRequestHandlerBuilder,
@@ -37,7 +42,9 @@ class NodeObjectRoutingService(
         sendingNodeSignature: String? = null
     ): ResponseEntity<OcpiResponse<T>> {
         val receiver = request.headers.receiver
-        if (!isNodeIdentity(receiver) || routingService.isRoleConnected(receiver)) {
+
+        // Not addressed to the hub → normal single-receiver routing
+        if (!isNodeIdentity(receiver)) {
             val handler = requestHandlerBuilder.build<T>(request)
             return if (sendingNodeSignature == null) {
                 handler.forwardDefault().getResponse()
@@ -52,12 +59,29 @@ class NodeObjectRoutingService(
         } else {
             handler.validateIncomingFromOcnForBroadcast(sendingNodeSignature)
         }
+
+        // Inbound from another party while a hub backend is connected → store there first
+        if (routingService.isRoleConnected(receiver) && !isNodeIdentity(request.headers.sender)) {
+            logger.info(
+                "[NodeObjectRoute] Forwarding {} {} to connected hub handler {}/{} before broadcast",
+                request.method,
+                request.module,
+                receiver.country,
+                receiver.id
+            )
+            if (sendingNodeSignature == null) {
+                handler.forwardDefault()
+            } else {
+                handler.forwardFromOcn(sendingNodeSignature)
+            }
+        }
+
         logger.info(
-            "[NodeObjectRoute] No connected handler for {}/{}; broadcasting {} {}",
-            receiver.country,
-            receiver.id,
+            "[NodeObjectRoute] Broadcasting {} {} addressed to hub {}/{}",
             request.method,
-            request.module
+            request.module,
+            receiver.country,
+            receiver.id
         )
         moduleNotificationService.broadcastObjectRequestAsync(request)
 

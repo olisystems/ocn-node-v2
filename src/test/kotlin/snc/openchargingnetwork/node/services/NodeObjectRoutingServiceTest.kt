@@ -46,30 +46,44 @@ class NodeObjectRoutingServiceTest {
                 }
             )
 
-        whenever(requestHandlerBuilder.build<Unit>(any())).thenReturn(requestHandler)
+        whenever(requestHandlerBuilder.build<Unit>(any<OcpiRequestVariables>())).thenReturn(requestHandler)
         whenever(requestHandler.validateIncomingForBroadcast()).thenReturn(requestHandler)
         whenever(requestHandler.validateIncomingFromOcnForBroadcast(any())).thenReturn(requestHandler)
         whenever(requestHandler.forwardDefault()).thenReturn(responseHandler)
+        whenever(requestHandler.forwardFromOcn(any())).thenReturn(responseHandler)
         whenever(responseHandler.getResponse()).thenReturn(successResponse())
         whenever(responseHandler.getResponseWithAllHeaders()).thenReturn(successResponse())
     }
 
     @Test
-    fun `forwards node-addressed objects to a connected same-identity party`() {
-        val request = objectRequest(BasicRole("BAN", "DE"))
+    fun `broadcasts hub-addressed objects and forwards to connected handler when sender is another party`() {
+        val request = objectRequest(receiver = BasicRole("BAN", "DE"), sender = BasicRole("CPO", "DE"))
         whenever(routingService.isRoleConnected(request.headers.receiver)).thenReturn(true)
 
         val response = service.route<Unit>(request)
 
         assertThat(response.body?.statusCode).isEqualTo(OcpiStatus.SUCCESS.code)
+        verify(requestHandler).validateIncomingForBroadcast()
         verify(requestHandler).forwardDefault()
-        verify(requestHandler, never()).validateIncomingForBroadcast()
-        verify(moduleNotificationService, never()).broadcastObjectRequestAsync(any())
+        verify(moduleNotificationService).broadcastObjectRequestAsync(request)
     }
 
     @Test
-    fun `broadcasts node-addressed objects when no same-identity party is connected`() {
-        val request = objectRequest(BasicRole("BAN", "DE"))
+    fun `broadcasts hub-addressed objects without forwarding when sender is the hub itself`() {
+        val request = objectRequest(receiver = BasicRole("BAN", "DE"), sender = BasicRole("BAN", "DE"))
+        whenever(routingService.isRoleConnected(request.headers.receiver)).thenReturn(true)
+
+        val response = service.route<Unit>(request)
+
+        assertThat(response.body?.statusCode).isEqualTo(OcpiStatus.SUCCESS.code)
+        verify(requestHandler).validateIncomingForBroadcast()
+        verify(requestHandler, never()).forwardDefault()
+        verify(moduleNotificationService).broadcastObjectRequestAsync(request)
+    }
+
+    @Test
+    fun `broadcasts hub-addressed objects when no same-identity party is connected`() {
+        val request = objectRequest(receiver = BasicRole("BAN", "DE"), sender = BasicRole("CPO", "DE"))
         whenever(routingService.isRoleConnected(request.headers.receiver)).thenReturn(false)
 
         val response = service.route<Unit>(request)
@@ -82,7 +96,7 @@ class NodeObjectRoutingServiceTest {
 
     @Test
     fun `keeps normal routing for objects addressed to another party`() {
-        val request = objectRequest(BasicRole("MSP", "NL"))
+        val request = objectRequest(receiver = BasicRole("MSP", "NL"), sender = BasicRole("CPO", "DE"))
 
         service.route<Unit>(request)
 
@@ -93,7 +107,7 @@ class NodeObjectRoutingServiceTest {
 
     @Test
     fun `validates the sending node before broadcasting an inter-node object`() {
-        val request = objectRequest(BasicRole("BAN", "DE"))
+        val request = objectRequest(receiver = BasicRole("BAN", "DE"), sender = BasicRole("CPO", "DE"))
         whenever(routingService.isRoleConnected(request.headers.receiver)).thenReturn(false)
 
         service.route<Unit>(request, sendingNodeSignature = "node-signature")
@@ -103,7 +117,7 @@ class NodeObjectRoutingServiceTest {
         verify(moduleNotificationService).broadcastObjectRequestAsync(request)
     }
 
-    private fun objectRequest(receiver: BasicRole): OcpiRequestVariables {
+    private fun objectRequest(receiver: BasicRole, sender: BasicRole): OcpiRequestVariables {
         return OcpiRequestVariables(
             module = ModuleID.LOCATIONS,
             interfaceRole = InterfaceRole.RECEIVER,
@@ -113,7 +127,7 @@ class NodeObjectRoutingServiceTest {
                     authorization = "Token test",
                     requestID = "request",
                     correlationID = "correlation",
-                    sender = BasicRole("CPO", "DE"),
+                    sender = sender,
                     receiver = receiver
                 ),
             urlPath = "/DE/CPO/location-1",
