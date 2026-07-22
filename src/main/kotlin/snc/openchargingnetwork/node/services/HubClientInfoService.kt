@@ -23,6 +23,7 @@ import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 import snc.openchargingnetwork.node.components.HttpClientComponent
 import snc.openchargingnetwork.node.components.OcnRegistryComponent
+import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.config.RegistryIndexerProperties
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.entities.NetworkClientInfoEntity
@@ -55,7 +56,8 @@ class HubClientInfoService(
         private val routingService: RoutingService,
         private val walletService: WalletService,
         private val ocnRulesService: OcnRulesService,
-        private val registryService: RegistryService
+        private val registryService: RegistryService,
+        private val nodeProperties: NodeProperties
 ) {
 
     companion object {
@@ -234,10 +236,9 @@ class HubClientInfoService(
     ) {
         val sender =
                 BasicRole(
-                        id = "OCN",
-                        country = "CH"
-                ) // TODO: put node platformID and countryCode in a shared, configurable
-        // location
+                        id = nodeProperties.partyId ?: "BAN",
+                        country = nodeProperties.countryCode ?: "DE"
+                )
         val receiver = BasicRole(partyId, countryCode)
         val requestVariables =
                 OcpiRequestVariables(
