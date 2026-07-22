@@ -85,6 +85,10 @@ class ModuleNotificationService(
 
                 if (modulePutEndpoint != null) {
                     for (clientRole in roleRepo.findAllByPlatformID(platform.id)) {
+                        // Never notify the object/module owner back to itself
+                        if (isSameParty(clientRole.countryCode, clientRole.partyID, countryCode, partyId)) {
+                            continue
+                        }
                         // Only push the update if the role has whitelisted the module owner
                         val counterParty = BasicRole(id = partyId, country = countryCode)
                         if (ocnRulesService.isWhitelisted(platform, counterParty)) {
@@ -159,12 +163,34 @@ class ModuleNotificationService(
     @Async
     fun broadcastObjectRequestAsync(request: OcpiRequestVariables) {
         val sender = request.headers.sender
+        val objectOwner = resolveObjectOwner(request)
+        // Prefer object owner (path/body country_code + party_id) so a hub re-broadcast
+        // (OCPI-from DE/BAN) does not bounce the object back to the owning CPO/eMSP.
+        val ownerCountry = objectOwner?.country ?: sender.country
+        val ownerPartyId = objectOwner?.id ?: sender.id
+
         val parties =
             getPartiesToNotifyOfModuleChange(
-                moduleId = request.module,
-                partyId = sender.id,
-                countryCode = sender.country
+                    moduleId = request.module,
+                    partyId = ownerPartyId,
+                    countryCode = ownerCountry
+                )
+                .filterNot { party ->
+                    isSameParty(party.countryCode, party.partyID, ownerCountry, ownerPartyId)
+                }
+
+        if (objectOwner != null &&
+            !isSameParty(objectOwner.country, objectOwner.id, sender.country, sender.id)
+        ) {
+            logger.info(
+                "Broadcasting {} excluding object owner {}/{} (request sender {}/{})",
+                request.module.id,
+                objectOwner.country,
+                objectOwner.id,
+                sender.country,
+                sender.id
             )
+        }
 
         notifyPartiesOfModuleChange(
             moduleId = request.module,
@@ -175,6 +201,67 @@ class ModuleNotificationService(
             method = request.method,
             queryParams = request.queryParams
         )
+    }
+
+    /**
+     * Resolve the OCPI object owner from the request path (`/{country_code}/{party_id}/...`) or
+     * body (`country_code` / `party_id`).
+     */
+    internal fun resolveObjectOwner(request: OcpiRequestVariables): BasicRole? {
+        resolveObjectOwnerFromUrlPath(request.urlPath)?.let {
+            return it
+        }
+        return resolveObjectOwnerFromBody(request.body)
+    }
+
+    private fun resolveObjectOwnerFromUrlPath(urlPath: String?): BasicRole? {
+        if (urlPath.isNullOrBlank()) {
+            return null
+        }
+        val segments = urlPath.trim('/').split('/').filter { it.isNotBlank() }
+        if (segments.size < 2) {
+            return null
+        }
+        val countryCode = segments[0]
+        val partyId = segments[1]
+        if (!looksLikeOcpiParty(countryCode, partyId)) {
+            return null
+        }
+        return BasicRole(id = partyId, country = countryCode)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun resolveObjectOwnerFromBody(body: Any?): BasicRole? {
+        val map =
+            when (body) {
+                is Map<*, *> -> body as Map<*, *>
+                else -> return null
+            }
+        val countryCode = (map["country_code"] ?: map["countryCode"])?.toString()?.trim()
+        val partyId = (map["party_id"] ?: map["partyId"])?.toString()?.trim()
+        if (countryCode.isNullOrBlank() || partyId.isNullOrBlank()) {
+            return null
+        }
+        if (!looksLikeOcpiParty(countryCode, partyId)) {
+            return null
+        }
+        return BasicRole(id = partyId, country = countryCode)
+    }
+
+    private fun looksLikeOcpiParty(countryCode: String, partyId: String): Boolean {
+        return countryCode.length == 2 && partyId.length == 3
+    }
+
+    private fun isSameParty(
+        countryA: String?,
+        partyA: String?,
+        countryB: String?,
+        partyB: String?
+    ): Boolean {
+        return !countryA.isNullOrBlank() &&
+            !partyA.isNullOrBlank() &&
+            countryA.equals(countryB, ignoreCase = true) &&
+            partyA.equals(partyB, ignoreCase = true)
     }
 
     fun notifyPartyOfModuleChange(
