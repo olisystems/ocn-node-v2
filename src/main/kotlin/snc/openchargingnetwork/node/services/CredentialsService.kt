@@ -47,7 +47,8 @@ class CredentialsService(
                                         role = Role.HUB,
                                         businessDetails =
                                                 BusinessDetails(
-                                                        name = "OCN Node Managed by DE BAN"
+                                                        name =
+                                                                "OCN Node Managed by $nodeCountryCode $nodePartyId"
                                                 ),
                                         partyID = nodePartyId,
                                         countryCode = nodeCountryCode

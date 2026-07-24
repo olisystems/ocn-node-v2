@@ -60,12 +60,23 @@ class RoutingService(
     fun isRoleKnown(role: BasicRole) =
             roleRepo.existsByCountryCodeAndPartyIDAllIgnoreCase(role.country, role.id)
 
-    /** Check whether a role belongs to a platform with a completed, active handshake. */
-    fun isRoleConnected(role: BasicRole): Boolean {
-        return roleRepo.findAllByCountryCodeAndPartyIDAllIgnoreCase(role.country, role.id).any {
-            platformRepo.findByIdOrNull(it.platformID)?.status == ConnectionStatus.CONNECTED
-        }
+    /**
+     * Platform ID of a CONNECTED role row for the given country/party, if any.
+     *
+     * When multiple RoleEntity rows exist for the same identity, connectivity and routing must use
+     * the same row — not an arbitrary first match.
+     */
+    fun findConnectedPlatformId(role: BasicRole): Long? {
+        return roleRepo
+                .findAllByCountryCodeAndPartyIDAllIgnoreCase(role.country, role.id)
+                .firstOrNull {
+                    platformRepo.findByIdOrNull(it.platformID)?.status == ConnectionStatus.CONNECTED
+                }
+                ?.platformID
     }
+
+    /** Check whether a role belongs to a platform with a completed, active handshake. */
+    fun isRoleConnected(role: BasicRole): Boolean = findConnectedPlatformId(role) != null
 
     /** get platform by role  */
     fun getPlatform(role: BasicRole): PlatformEntity {
@@ -78,9 +89,11 @@ class RoutingService(
 
     /** get platform ID - used as foreign key in endpoint and roles repositories */
     fun getPlatformID(role: BasicRole): Long {
-        return roleRepo.findAllByCountryCodeAndPartyIDAllIgnoreCase(role.country, role.id)
-                .firstOrNull()
-                ?.platformID
+        return findConnectedPlatformId(role)
+                ?: roleRepo
+                        .findAllByCountryCodeAndPartyIDAllIgnoreCase(role.country, role.id)
+                        .firstOrNull()
+                        ?.platformID
                 ?: throw OcpiHubUnknownReceiverException("Could not find platform ID of $role")
     }
 

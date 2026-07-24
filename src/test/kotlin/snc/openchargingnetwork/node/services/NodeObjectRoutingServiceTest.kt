@@ -117,6 +117,31 @@ class NodeObjectRoutingServiceTest {
         verify(moduleNotificationService).broadcastObjectRequestAsync(request)
     }
 
+    @Test
+    fun `forwards inter-node object to connected handler with signature before broadcasting`() {
+        val request = objectRequest(receiver = BasicRole("BAN", "DE"), sender = BasicRole("CPO", "DE"))
+        whenever(routingService.isRoleConnected(request.headers.receiver)).thenReturn(true)
+
+        service.route<Unit>(request, sendingNodeSignature = "node-signature")
+
+        verify(requestHandler).validateIncomingFromOcnForBroadcast("node-signature")
+        verify(requestHandler).forwardFromOcn("node-signature")
+        verify(requestHandler, never()).forwardDefault()
+        verify(moduleNotificationService).broadcastObjectRequestAsync(request)
+    }
+
+    @Test
+    fun `forwards non-hub-addressed inter-node object with signature`() {
+        val request = objectRequest(receiver = BasicRole("MSP", "NL"), sender = BasicRole("CPO", "DE"))
+
+        service.route<Unit>(request, sendingNodeSignature = "node-signature")
+
+        verify(requestHandler).forwardFromOcn("node-signature")
+        verify(responseHandler).getResponseWithAllHeaders()
+        verify(routingService, never()).isRoleConnected(any())
+        verify(moduleNotificationService, never()).broadcastObjectRequestAsync(any())
+    }
+
     private fun objectRequest(receiver: BasicRole, sender: BasicRole): OcpiRequestVariables {
         return OcpiRequestVariables(
             module = ModuleID.LOCATIONS,
