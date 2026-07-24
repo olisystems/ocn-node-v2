@@ -234,11 +234,13 @@ class HubClientInfoService(
             authToken: String,
             changedClientInfo: ClientInfo
     ) {
-        val sender =
-                BasicRole(
-                        id = nodeProperties.partyId ?: "BAN",
-                        country = nodeProperties.countryCode ?: "DE"
-                )
+        val hubCountryCode =
+                nodeProperties.countryCode
+                        ?: throw IllegalStateException("ocn.node.countryCode must be configured")
+        val hubPartyId =
+                nodeProperties.partyId
+                        ?: throw IllegalStateException("ocn.node.partyId must be configured")
+        val sender = BasicRole(id = hubPartyId, country = hubCountryCode)
         val receiver = BasicRole(partyId, countryCode)
         val requestVariables =
                 OcpiRequestVariables(

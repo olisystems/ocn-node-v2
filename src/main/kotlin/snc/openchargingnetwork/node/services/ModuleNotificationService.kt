@@ -21,7 +21,7 @@ import org.springframework.http.HttpMethod
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 import snc.openchargingnetwork.node.components.HttpClientComponent
-import snc.openchargingnetwork.node.config.HCIProperties
+import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.entities.PlatformEntity
 import snc.openchargingnetwork.node.models.entities.RoleEntity
@@ -30,6 +30,7 @@ import snc.openchargingnetwork.node.repositories.EndpointRepository
 import snc.openchargingnetwork.node.repositories.PlatformRepository
 import snc.openchargingnetwork.node.repositories.RoleRepository
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
+import snc.openchargingnetwork.node.tools.toBs64String
 
 /**
  * Generic service for handling module notifications to connected parties This service manages OCPI
@@ -43,7 +44,8 @@ class ModuleNotificationService(
     private val endpointRepo: EndpointRepository,
     private val httpClientComponent: HttpClientComponent,
     private val routingService: RoutingService,
-    private val ocnRulesService: OcnRulesService
+    private val ocnRulesService: OcnRulesService,
+    private val nodeProperties: NodeProperties
 ) {
 
     companion object {
@@ -90,8 +92,12 @@ class ModuleNotificationService(
                             continue
                         }
                         // Only push the update if the role has whitelisted the module owner
+                        // and is an applicable counterpart for this module (not every role).
                         val counterParty = BasicRole(id = partyId, country = countryCode)
-                        if (ocnRulesService.isWhitelisted(platform, counterParty)) {
+                        if (
+                            ocnRulesService.isWhitelisted(platform, counterParty) &&
+                                isCounterpartRole(moduleId, clientRole.role)
+                        ) {
                             clientsToNotify.add(clientRole)
                         }
                     }
@@ -100,6 +106,20 @@ class ModuleNotificationService(
         }
 
         return clientsToNotify
+    }
+
+    /**
+     * OCPI Broadcast Push targets applicable opposite roles, not every role on a platform.
+     * Locations/tariffs originate from CPOs; tokens from eMSPs.
+     */
+    private fun isCounterpartRole(moduleId: ModuleID, recipientRole: Role): Boolean {
+        return when (moduleId) {
+            ModuleID.LOCATIONS,
+            ModuleID.TARIFFS ->
+                recipientRole in setOf(Role.EMSP, Role.NSP, Role.NAP, Role.HUB, Role.SCSP)
+            ModuleID.TOKENS -> recipientRole in setOf(Role.CPO, Role.HUB)
+            else -> true
+        }
     }
 
     /** Send a notification of a module change to a list of parties with a custom sender */
@@ -162,12 +182,12 @@ class ModuleNotificationService(
     /** Broadcast an object push while preserving its HTTP method, path and query parameters. */
     @Async
     fun broadcastObjectRequestAsync(request: OcpiRequestVariables) {
-        val sender = request.headers.sender
+        val requestSender = request.headers.sender
         val objectOwner = resolveObjectOwner(request)
         // Prefer object owner (path/body country_code + party_id) so a hub re-broadcast
-        // (OCPI-from DE/BAN) does not bounce the object back to the owning CPO/eMSP.
-        val ownerCountry = objectOwner?.country ?: sender.country
-        val ownerPartyId = objectOwner?.id ?: sender.id
+        // does not bounce the object back to the owning CPO/eMSP.
+        val ownerCountry = objectOwner?.country ?: requestSender.country
+        val ownerPartyId = objectOwner?.id ?: requestSender.id
 
         val parties =
             getPartiesToNotifyOfModuleChange(
@@ -180,24 +200,33 @@ class ModuleNotificationService(
                 }
 
         if (objectOwner != null &&
-            !isSameParty(objectOwner.country, objectOwner.id, sender.country, sender.id)
+            !isSameParty(objectOwner.country, objectOwner.id, requestSender.country, requestSender.id)
         ) {
             logger.info(
                 "Broadcasting {} excluding object owner {}/{} (request sender {}/{})",
                 request.module.id,
                 objectOwner.country,
                 objectOwner.id,
-                sender.country,
-                sender.id
+                requestSender.country,
+                requestSender.id
             )
         }
+
+        // Hub Broadcast Push must advertise the hub identity in OCPI-from-* headers.
+        val hubCountryCode =
+            nodeProperties.countryCode
+                ?: throw IllegalStateException("ocn.node.countryCode must be configured")
+        val hubPartyId =
+            nodeProperties.partyId
+                ?: throw IllegalStateException("ocn.node.partyId must be configured")
+        val hubSender = BasicRole(id = hubPartyId, country = hubCountryCode)
 
         notifyPartiesOfModuleChange(
             moduleId = request.module,
             parties = parties,
             changedData = request.body,
             urlPath = request.urlPath?.removePrefix("/") ?: "",
-            sender = sender,
+            sender = hubSender,
             method = request.method,
             queryParams = request.queryParams
         )
@@ -283,7 +312,7 @@ class ModuleNotificationService(
                 method = method,
                 headers =
                     OcnHeaders(
-                        authorization = "Token $authToken",
+                        authorization = "Token ${authToken.toBs64String()}",
                         requestID = generateUUIDv4Token(),
                         correlationID = generateUUIDv4Token(),
                         sender = sender,

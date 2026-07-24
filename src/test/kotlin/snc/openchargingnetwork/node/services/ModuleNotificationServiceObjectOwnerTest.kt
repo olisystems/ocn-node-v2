@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test
 import org.mockito.Mockito
 import org.springframework.http.HttpMethod
 import snc.openchargingnetwork.node.components.HttpClientComponent
+import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
 import snc.openchargingnetwork.node.models.ocpi.InterfaceRole
@@ -28,7 +29,12 @@ class ModuleNotificationServiceObjectOwnerTest {
                 endpointRepo = Mockito.mock(EndpointRepository::class.java),
                 httpClientComponent = Mockito.mock(HttpClientComponent::class.java),
                 routingService = Mockito.mock(RoutingService::class.java),
-                ocnRulesService = Mockito.mock(OcnRulesService::class.java)
+                ocnRulesService = Mockito.mock(OcnRulesService::class.java),
+                nodeProperties =
+                    NodeProperties().apply {
+                        countryCode = "DE"
+                        partyId = "BAN"
+                    }
             )
     }
 

@@ -4,6 +4,8 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito
+import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -25,7 +27,7 @@ class LocationsControllerTest {
         requestHandlerBuilder = Mockito.mock(OcpiRequestHandlerBuilder::class.java)
         nodeObjectRoutingService = Mockito.mock(NodeObjectRoutingService::class.java)
         controller = LocationsController(requestHandlerBuilder, nodeObjectRoutingService)
-        whenever(nodeObjectRoutingService.route<Unit>(org.mockito.kotlin.any()))
+        whenever(nodeObjectRoutingService.route<Unit>(any(), anyOrNull()))
             .thenReturn(successResponse())
     }
 
@@ -92,7 +94,7 @@ class LocationsControllerTest {
 
     private fun captureRequest(): OcpiRequestVariables {
         val captor = argumentCaptor<OcpiRequestVariables>()
-        verify(nodeObjectRoutingService).route<Unit>(captor.capture())
+        verify(nodeObjectRoutingService).route<Unit>(captor.capture(), anyOrNull())
         return captor.firstValue
     }
 

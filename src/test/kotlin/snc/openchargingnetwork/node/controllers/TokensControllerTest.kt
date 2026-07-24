@@ -3,6 +3,8 @@ package snc.openchargingnetwork.node.controllers
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito
+import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -20,7 +22,7 @@ class TokensControllerTest {
         val requestHandlerBuilder = Mockito.mock(OcpiRequestHandlerBuilder::class.java)
         val nodeObjectRoutingService = Mockito.mock(NodeObjectRoutingService::class.java)
         val controller = TokensController(requestHandlerBuilder, nodeObjectRoutingService)
-        whenever(nodeObjectRoutingService.route<Unit>(org.mockito.kotlin.any()))
+        whenever(nodeObjectRoutingService.route<Unit>(any(), anyOrNull()))
             .thenReturn(ResponseEntity.ok(OcpiResponse(statusCode = OcpiStatus.SUCCESS.code)))
         val token =
             Token(
@@ -51,7 +53,7 @@ class TokensControllerTest {
         )
 
         val captor = argumentCaptor<OcpiRequestVariables>()
-        verify(nodeObjectRoutingService).route<Unit>(captor.capture())
+        verify(nodeObjectRoutingService).route<Unit>(captor.capture(), anyOrNull())
         assertThat(captor.firstValue.module).isEqualTo(ModuleID.TOKENS)
         assertThat(captor.firstValue.method).isEqualTo(HttpMethod.PUT)
         assertThat(captor.firstValue.urlPath).isEqualTo("/DE/MSP/token-1")
