@@ -14,10 +14,20 @@ import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
 import snc.openchargingnetwork.node.models.ocpi.OcpiStatus
 
 /**
- * Routes object pushes addressed to the hub identity (e.g. DE/BAN).
+ * Primary router for Locations / Tariffs / Tokens RECEIVER object pushes (PUT/PATCH/DELETE).
  *
- * Messages to the hub are broadcast to parties with the module RECEIVER enabled. When a same-identity
- * handler is connected, inbound pushes from other parties are also forwarded there for storage.
+ * Replaces the old controller pattern of only:
+ *   build().forwardDefault().getResponse()
+ * for those mutations, because hub-addressed traffic must fan out, not go to a single peer.
+ *
+ * Decision tree for [route]:
+ * 1. OCPI-to is a normal party → behave like before (forwardDefault / forwardFromOcn).
+ * 2. OCPI-to is this node's hub identity (e.g. DE/BAN):
+ *    a. Validate the inbound request for broadcast.
+ *    b. If a same-identity hub backend is connected and the sender is another party,
+ *       forward once to that backend so it can persist the object.
+ *    c. Async-broadcast to all parties with the module RECEIVER enabled.
+ *    d. Return OCPI success to the caller (broadcast continues in the background).
  */
 @Service
 class NodeObjectRoutingService(
@@ -31,19 +41,26 @@ class NodeObjectRoutingService(
         private val logger = LoggerFactory.getLogger(NodeObjectRoutingService::class.java)
     }
 
+    /** True for the mutation verbs/modules that may need hub broadcast instead of single forward. */
     fun handles(request: OcpiRequestVariables): Boolean {
         return request.interfaceRole == InterfaceRole.RECEIVER &&
             request.module in setOf(ModuleID.LOCATIONS, ModuleID.TARIFFS, ModuleID.TOKENS) &&
             request.method in setOf(HttpMethod.PUT, HttpMethod.PATCH, HttpMethod.DELETE)
     }
 
+    /**
+     * @param sendingNodeSignature when set, request arrived via OCN inter-node message path;
+     * otherwise it is a direct OCPI client call to this node.
+     */
     fun <T : Any> route(
         request: OcpiRequestVariables,
         sendingNodeSignature: String? = null
     ): ResponseEntity<OcpiResponse<T>> {
         val receiver = request.headers.receiver
 
-        // Not addressed to the hub → normal single-receiver routing
+        // Path A — not hub-addressed: keep legacy single-receiver semantics.
+        // Controllers call this for Tokens/Locations/Tariffs mutations even when OCPI-to is a CPO/MSP,
+        // so non-hub traffic still works like build().forwardDefault().getResponse().
         if (!isNodeIdentity(receiver)) {
             val handler = requestHandlerBuilder.build<T>(request)
             return if (sendingNodeSignature == null) {
@@ -53,6 +70,7 @@ class NodeObjectRoutingService(
             }
         }
 
+        // Path B — hub-addressed (OCPI-to matches this node's configured country/party).
         val handler = requestHandlerBuilder.build<T>(request)
         if (sendingNodeSignature == null) {
             handler.validateIncomingForBroadcast()
@@ -60,7 +78,9 @@ class NodeObjectRoutingService(
             handler.validateIncomingFromOcnForBroadcast(sendingNodeSignature)
         }
 
-        // Inbound from another party while a hub backend is connected → store there first
+        // Optional persist step: if a platform is registered as the hub identity itself
+        // (same country/party as the node), forward the object there before broadcast so
+        // NSP/TM/etc. can store it. Skip when the sender already is the hub identity.
         if (routingService.isRoleConnected(receiver) && !isNodeIdentity(request.headers.sender)) {
             logger.info(
                 "[NodeObjectRoute] Forwarding {} {} to connected hub handler {}/{} before broadcast",
@@ -76,6 +96,7 @@ class NodeObjectRoutingService(
             }
         }
 
+        // Fan-out to every connected party that has this module as RECEIVER.
         logger.info(
             "[NodeObjectRoute] Broadcasting {} {} addressed to hub {}/{}",
             request.method,
@@ -85,9 +106,11 @@ class NodeObjectRoutingService(
         )
         moduleNotificationService.broadcastObjectRequestAsync(request)
 
+        // Caller gets success once routing/broadcast is accepted; recipients are notified async.
         return ResponseEntity.ok(OcpiResponse<T>(statusCode = OcpiStatus.SUCCESS.code))
     }
 
+    /** Whether [role] is this OCN node's configured hub identity. */
     private fun isNodeIdentity(role: BasicRole): Boolean {
         return role.country.equals(nodeProperties.countryCode, ignoreCase = true) &&
             role.id.equals(nodeProperties.partyId, ignoreCase = true)
