@@ -4,6 +4,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito
+import org.mockito.Mockito.inOrder
 import org.mockito.kotlin.any
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
@@ -124,10 +125,11 @@ class NodeObjectRoutingServiceTest {
 
         service.route<Unit>(request, sendingNodeSignature = "node-signature")
 
-        verify(requestHandler).validateIncomingFromOcnForBroadcast("node-signature")
-        verify(requestHandler).forwardFromOcn("node-signature")
+        val ordered = inOrder(requestHandler, moduleNotificationService)
+        ordered.verify(requestHandler).validateIncomingFromOcnForBroadcast("node-signature")
+        ordered.verify(requestHandler).forwardFromOcn("node-signature")
+        ordered.verify(moduleNotificationService).broadcastObjectRequestAsync(request)
         verify(requestHandler, never()).forwardDefault()
-        verify(moduleNotificationService).broadcastObjectRequestAsync(request)
     }
 
     @Test

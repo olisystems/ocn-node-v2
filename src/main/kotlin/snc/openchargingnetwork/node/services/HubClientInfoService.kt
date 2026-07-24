@@ -198,6 +198,8 @@ class HubClientInfoService(
             parties: Iterable<RoleEntity>,
             changedClientInfo: ClientInfo
     ) {
+        // Fail once before fan-out if hub identity is not configured.
+        val hubSender = requireConfiguredHubSender()
         for (party in parties) {
             try {
                 val platform = platformRepo.findById(party.platformID).get()
@@ -206,7 +208,8 @@ class HubClientInfoService(
                         party.partyID,
                         party.countryCode,
                         authToken,
-                        changedClientInfo
+                        changedClientInfo,
+                        hubSender
                 )
             } catch (e: Exception) {
                 // Skip parties where handshake is not complete (token is missing)
@@ -232,15 +235,9 @@ class HubClientInfoService(
             partyId: String,
             countryCode: String,
             authToken: String,
-            changedClientInfo: ClientInfo
+            changedClientInfo: ClientInfo,
+            hubSender: BasicRole = requireConfiguredHubSender()
     ) {
-        val hubCountryCode =
-                nodeProperties.countryCode
-                        ?: throw IllegalStateException("ocn.node.countryCode must be configured")
-        val hubPartyId =
-                nodeProperties.partyId
-                        ?: throw IllegalStateException("ocn.node.partyId must be configured")
-        val sender = BasicRole(id = hubPartyId, country = hubCountryCode)
         val receiver = BasicRole(partyId, countryCode)
         val requestVariables =
                 OcpiRequestVariables(
@@ -252,7 +249,7 @@ class HubClientInfoService(
                                         authorization = "Token ${authToken.toBs64String()}",
                                         requestID = generateUUIDv4Token(),
                                         correlationID = generateUUIDv4Token(),
-                                        sender = sender,
+                                        sender = hubSender,
                                         receiver = receiver
                                 ),
                         body = changedClientInfo,
@@ -267,6 +264,16 @@ class HubClientInfoService(
         } catch (e: Exception) { // fire and forget; catch any error and log
             logger.warn("Error notifying $receiver of client info change: ${e.message}")
         }
+    }
+
+    private fun requireConfiguredHubSender(): BasicRole {
+        val hubCountryCode =
+                nodeProperties.countryCode
+                        ?: throw IllegalStateException("ocn.node.countryCode must be configured")
+        val hubPartyId =
+                nodeProperties.partyId
+                        ?: throw IllegalStateException("ocn.node.partyId must be configured")
+        return BasicRole(id = hubPartyId, country = hubCountryCode)
     }
 
     /** Send a notification of a ClientInfo change to other nodes on the network */
