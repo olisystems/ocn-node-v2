@@ -212,7 +212,16 @@ class TokensController(
             body = body
         )
 
-        // Fire-and-forget additional receiver (develop), then hub/object routing (hub role).
+        // Token PUT/PATCH used to be a single chain:
+        //   build().forwardToPartyAsync(...).forwardDefault().getResponse()
+        // That only forwards to one OCPI-to receiver (+ optional async extra party).
+        //
+        // Hub role needs different primary routing when OCPI-to is the node identity (e.g. DE/BAN):
+        // broadcast to Tokens RECEIVER parties (and optionally store on a connected hub backend).
+        // So the primary path is now NodeObjectRoutingService.route() instead of forwardDefault().
+        //
+        // Keep forwardToPartyAsync as a separate fire-and-forget side channel for the configurable
+        // additional receiver (e.g. DE_OLI). It does not produce the HTTP response.
         requestHandlerBuilder
             .build<Unit>(requestVariables)
             .forwardToPartyAsync(
@@ -220,6 +229,7 @@ class TokensController(
                 properties.tokensAdditionalReceiverPartyId
             )
 
+        // Primary path + HTTP response (hub broadcast or normal single-receiver forward).
         return nodeObjectRoutingService.route<Unit>(requestVariables)
     }
 
@@ -253,6 +263,7 @@ class TokensController(
             body = body
         )
 
+        // Same split as PUT: async additional-receiver side channel, then route() for the response.
         requestHandlerBuilder
             .build<Unit>(requestVariables)
             .forwardToPartyAsync(
