@@ -123,7 +123,14 @@ class HubClientInfoController(
         @PathVariable("party_id") partyID: String
     ): ResponseEntity<OcpiResponse<ClientInfo>> {
         if (isLocalHubReceiver(toCountryCode, toPartyID)) {
-            routingService.checkSenderKnown(authorization)
+            if (!fromCountryCode.isNullOrBlank() && !fromPartyID.isNullOrBlank()) {
+                routingService.checkSenderKnown(
+                    authorization,
+                    BasicRole(fromPartyID, fromCountryCode)
+                )
+            } else {
+                routingService.checkSenderKnown(authorization)
+            }
             val clientInfo =
                 hubClientInfoService.getList(authorization).firstOrNull {
                     it.countryCode.equals(countryCode, ignoreCase = true) &&
@@ -178,7 +185,9 @@ class HubClientInfoController(
 
         val clientInfo: ClientInfo = httpClientComponent.mapper.readValue(body)
 
-        if (hciProperties.countryCode != sender.country || hciProperties.partyId != sender.id) {
+        if (!hciProperties.countryCode.equals(sender.country, ignoreCase = true) ||
+            !hciProperties.partyId.equals(sender.id, ignoreCase = true)
+        ) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body("Invalid Hub Client Info publisher")
         }
