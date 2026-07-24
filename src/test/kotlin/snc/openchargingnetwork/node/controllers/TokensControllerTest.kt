@@ -10,7 +10,9 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.http.HttpMethod
 import org.springframework.http.ResponseEntity
+import snc.openchargingnetwork.node.components.OcpiRequestHandler
 import snc.openchargingnetwork.node.components.OcpiRequestHandlerBuilder
+import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.controllers.ocpi.v2_2.TokensController
 import snc.openchargingnetwork.node.models.ocpi.*
 import snc.openchargingnetwork.node.services.NodeObjectRoutingService
@@ -18,10 +20,15 @@ import snc.openchargingnetwork.node.services.NodeObjectRoutingService
 class TokensControllerTest {
 
     @Test
+    @Suppress("UNCHECKED_CAST")
     fun `put token delegates object routing with token type`() {
         val requestHandlerBuilder = Mockito.mock(OcpiRequestHandlerBuilder::class.java)
+        val requestHandler = Mockito.mock(OcpiRequestHandler::class.java) as OcpiRequestHandler<Unit>
         val nodeObjectRoutingService = Mockito.mock(NodeObjectRoutingService::class.java)
-        val controller = TokensController(requestHandlerBuilder, nodeObjectRoutingService)
+        val properties = NodeProperties()
+        whenever(requestHandlerBuilder.build<Unit>(any<OcpiRequestVariables>())).thenReturn(requestHandler)
+        whenever(requestHandler.forwardToPartyAsync(anyOrNull(), anyOrNull())).thenReturn(requestHandler)
+        val controller = TokensController(requestHandlerBuilder, nodeObjectRoutingService, properties)
         whenever(nodeObjectRoutingService.route<Unit>(any(), anyOrNull()))
             .thenReturn(ResponseEntity.ok(OcpiResponse(statusCode = OcpiStatus.SUCCESS.code)))
         val token =
