@@ -1,0 +1,66 @@
+name: Verify Env Vars Sync
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  verify-dev-required-vars:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - uses: olisystems/actions/helm/verify-required-values@main
+        with:
+          language: kotlin
+          application-yml: src/main/resources/application.properties
+          values-files: infra/helm/values.yaml,infra/helm/values.dev.yaml
+
+  verify-dev-unused-vars:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - uses: olisystems/actions/helm/verify-unused-values@main
+        with:
+          language: kotlin
+          application-yml: src/main/resources/application.properties
+          values-files: infra/helm/values.yaml,infra/helm/values.dev.yaml
+
+  # ocn-node-v2's per-environment config lives in the external common-infra-resources
+  # repo (ConfigMap manifests), not in infra/helm/values.dev.yaml/values.int.yaml/values.prod.yaml
+  # (those files carry no `env:` overrides for the configMapKeyRef'd keys), so the containment
+  # checks compare the ConfigMap files there instead of the local values files.
+  verify-int-in-dev:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout common-infra-resources
+        uses: actions/checkout@v4
+        with:
+          repository: olisystems/common-infra-resources
+          path: common-infra-resources
+      - uses: olisystems/actions/helm/verify-values-containment@main
+        with:
+          source-file: common-infra-resources/transit/dev/configmaps/ocn-node-v2-config.yaml
+          target-file: common-infra-resources/transit/int/configmaps/ocn-node-v2-config.yaml
+          env-key-path: .data
+
+  verify-prod-in-dev:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout common-infra-resources
+        uses: actions/checkout@v4
+        with:
+          repository: olisystems/common-infra-resources
+          path: common-infra-resources
+      - uses: olisystems/actions/helm/verify-values-containment@main
+        with:
+          source-file: common-infra-resources/transit/dev/configmaps/ocn-node-v2-config.yaml
+          target-file: common-infra-resources/transit/prod/configmaps/ocn-node-v2-config.yaml
+          env-key-path: .data
