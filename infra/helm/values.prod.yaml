@@ -4,10 +4,8 @@ oli-app:
   image:
     tag: "v1.4.5-rc"
 
-  ingress:
+  gateway:
+    parentRef:
+      namespace: banula-prod
     hosts:
-      - host: banula.oli-system.com
-    tls:
-      - secretName: banula-tls
-        hosts:
-          - banula.oli-system.com
+      - banula.oli-system.com
