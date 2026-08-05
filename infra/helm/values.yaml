@@ -88,14 +88,6 @@ oli-app:
       configMapKeyRef:
         name: ocn-node-v2-config
         key: OCN_NODE_PUBLIC_ADDRESS
-    OCN_NODE_COUNTRY_CODE:
-      configMapKeyRef:
-        name: ocn-node-v2-config
-        key: OCN_NODE_COUNTRY_CODE
-    OCN_NODE_PARTY_ID:
-      configMapKeyRef:
-        name: ocn-node-v2-config
-        key: OCN_NODE_PARTY_ID
     OCN_NODE_DEV_MODE:
       configMapKeyRef:
         name: ocn-node-v2-config
@@ -116,26 +108,6 @@ oli-app:
       configMapKeyRef:
         name: ocn-node-v2-config
         key: JAVA_TOOL_OPTIONS
-    EDX_CDR_SERVICE_BASE_URL:
-      configMapKeyRef:
-        name: ocn-node-v2-config
-        key: EDX_CDR_SERVICE_BASE_URL
-    OCN_NODE_TOKENS_ADDITIONAL_RECEIVER_COUNTRY_CODE:
-      configMapKeyRef:
-        name: ocn-node-v2-config
-        key: OCN_NODE_TOKENS_ADDITIONAL_RECEIVER_COUNTRY_CODE
-    OCN_NODE_TOKENS_ADDITIONAL_RECEIVER_PARTY_ID:
-      configMapKeyRef:
-        name: ocn-node-v2-config
-        key: OCN_NODE_TOKENS_ADDITIONAL_RECEIVER_PARTY_ID
-    OCN_NODE_SESSIONS_ADDITIONAL_RECEIVER_COUNTRY_CODE:
-      configMapKeyRef:
-        name: ocn-node-v2-config
-        key: OCN_NODE_SESSIONS_ADDITIONAL_RECEIVER_COUNTRY_CODE
-    OCN_NODE_SESSIONS_ADDITIONAL_RECEIVER_PARTY_ID:
-      configMapKeyRef:
-        name: ocn-node-v2-config
-        key: OCN_NODE_SESSIONS_ADDITIONAL_RECEIVER_PARTY_ID
     OCN_NODE_ADMIN_KEY:
       secretKeyRef:
         name: ocn-node-v2-secret
