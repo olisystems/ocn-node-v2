@@ -23,12 +23,14 @@ import snc.openchargingnetwork.node.components.OcpiRequestHandlerBuilder
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.ocpi.*
+import snc.openchargingnetwork.node.services.NodeObjectRoutingService
 import snc.openchargingnetwork.node.tools.filterNull
 
 @RestController
 @RequestMapping("\${ocn.node.apiPrefix}")
 class TokensController(
     private val requestHandlerBuilder: OcpiRequestHandlerBuilder,
+    private val nodeObjectRoutingService: NodeObjectRoutingService,
     private val properties: NodeProperties
 ) {
 
@@ -210,11 +212,25 @@ class TokensController(
             body = body
         )
 
-        return requestHandlerBuilder
+        // Token PUT/PATCH used to be a single chain:
+        //   build().forwardToPartyAsync(...).forwardDefault().getResponse()
+        // That only forwards to one OCPI-to receiver (+ optional async extra party).
+        //
+        // Hub role needs different primary routing when OCPI-to is the node identity (e.g. DE/BAN):
+        // broadcast to Tokens RECEIVER parties (and optionally store on a connected hub backend).
+        // So the primary path is now NodeObjectRoutingService.route() instead of forwardDefault().
+        //
+        // Keep forwardToPartyAsync as a separate fire-and-forget side channel for the configurable
+        // additional receiver (e.g. DE_OLI). It does not produce the HTTP response.
+        requestHandlerBuilder
             .build<Unit>(requestVariables)
-            .forwardToPartyAsync(properties.tokensAdditionalReceiverCountryCode, properties.tokensAdditionalReceiverPartyId)
-            .forwardDefault()
-            .getResponse()
+            .forwardToPartyAsync(
+                properties.tokensAdditionalReceiverCountryCode,
+                properties.tokensAdditionalReceiverPartyId
+            )
+
+        // Primary path + HTTP response (hub broadcast or normal single-receiver forward).
+        return nodeObjectRoutingService.route<Unit>(requestVariables)
     }
 
     @PatchMapping("/ocpi/receiver/2.2.1/tokens/{countryCode}/{partyID}/{tokenUID}")
@@ -247,11 +263,15 @@ class TokensController(
             body = body
         )
 
-        return requestHandlerBuilder
+        // Same split as PUT: async additional-receiver side channel, then route() for the response.
+        requestHandlerBuilder
             .build<Unit>(requestVariables)
-            .forwardToPartyAsync(properties.tokensAdditionalReceiverCountryCode, properties.tokensAdditionalReceiverPartyId)
-            .forwardDefault()
-            .getResponse()
+            .forwardToPartyAsync(
+                properties.tokensAdditionalReceiverCountryCode,
+                properties.tokensAdditionalReceiverPartyId
+            )
+
+        return nodeObjectRoutingService.route<Unit>(requestVariables)
     }
 
 }

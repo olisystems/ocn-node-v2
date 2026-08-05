@@ -1,5 +1,6 @@
 package snc.openchargingnetwork.node.services
 
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
@@ -7,6 +8,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.transaction.annotation.Transactional
 import snc.openchargingnetwork.node.Application
+import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.entities.Auth
 import snc.openchargingnetwork.node.models.entities.PlatformEntity
 import snc.openchargingnetwork.node.models.exceptions.OcpiClientInvalidParametersException
@@ -18,8 +20,19 @@ import snc.openchargingnetwork.node.repositories.PlatformRepository
 @Transactional
 class CredentialsServiceTest(
         @Autowired private val credentialsService: CredentialsService,
-        @Autowired private val platformRepository: PlatformRepository
+        @Autowired private val platformRepository: PlatformRepository,
+        @Autowired private val nodeProperties: NodeProperties
 ) {
+
+    @Test
+    fun `myCredentials advertises the configured node identity as HUB`() {
+        val credentials = credentialsService.myCredentials("test-token")
+
+        assertThat(credentials.roles).hasSize(1)
+        assertThat(credentials.roles.first().role).isEqualTo(snc.openchargingnetwork.node.models.ocpi.Role.HUB)
+        assertThat(credentials.roles.first().countryCode).isEqualTo(nodeProperties.countryCode)
+        assertThat(credentials.roles.first().partyID).isEqualTo(nodeProperties.partyId)
+    }
 
     @Test
     fun `postCredentials should reject already connected platform`() {

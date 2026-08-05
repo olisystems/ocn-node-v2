@@ -22,17 +22,15 @@ import org.springframework.web.bind.annotation.*
 import snc.openchargingnetwork.node.components.OcpiRequestHandlerBuilder
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.ocpi.*
+import snc.openchargingnetwork.node.services.NodeObjectRoutingService
 import snc.openchargingnetwork.node.tools.filterNull
-import snc.openchargingnetwork.node.config.NodeProperties
-import snc.openchargingnetwork.node.services.ModuleNotificationService
 
 
 @RestController
 @RequestMapping("\${ocn.node.apiPrefix}")
 class LocationsController(
     private val requestHandlerBuilder: OcpiRequestHandlerBuilder,
-    private val moduleNotificationService: ModuleNotificationService,
-    private val nodeProperties: NodeProperties
+    private val nodeObjectRoutingService: NodeObjectRoutingService
 ) {
 
 
@@ -301,28 +299,6 @@ class LocationsController(
         val sender = BasicRole(fromPartyID, fromCountryCode)
         val receiver = BasicRole(toPartyID, toCountryCode)
 
-        if (toCountryCode.equals(nodeProperties.countryCode, true) && toPartyID.equals(nodeProperties.partyId, true)) {
-            val parties = moduleNotificationService.getPartiesToNotifyOfModuleChange(
-                moduleId = ModuleID.LOCATIONS, partyId = fromPartyID, countryCode = fromCountryCode
-            )
-            if (parties.isNotEmpty()) {
-                val senderRole = BasicRole(fromPartyID, fromCountryCode)
-                moduleNotificationService.notifyPartiesOfModuleChangeAsync(
-                    moduleId = ModuleID.LOCATIONS,
-                    parties = parties,
-                    changedData = body,
-                    urlPath = "$countryCode/$partyID/$locationID",
-                    sender = senderRole
-                )
-            }
-
-            return ResponseEntity.status(200).body(
-                    OcpiResponse(
-                        OcpiStatus.SUCCESS.code
-                    )
-                )
-        }
-
         val requestVariables = OcpiRequestVariables(
             module = ModuleID.LOCATIONS,
             interfaceRole = InterfaceRole.RECEIVER,
@@ -332,7 +308,7 @@ class LocationsController(
             body = body
         )
 
-        return requestHandlerBuilder.build<Unit>(requestVariables).forwardDefault().getResponse()
+        return nodeObjectRoutingService.route<Unit>(requestVariables)
     }
 
     @PutMapping("/ocpi/receiver/2.2.1/locations/{countryCode}/{partyID}/{locationID}/{evseUID}")
@@ -355,28 +331,6 @@ class LocationsController(
         val sender = BasicRole(fromPartyID, fromCountryCode)
         val receiver = BasicRole(toPartyID, toCountryCode)
 
-        if (toCountryCode.equals(nodeProperties.countryCode, true) && toPartyID.equals(nodeProperties.partyId, true)) {
-            val parties = moduleNotificationService.getPartiesToNotifyOfModuleChange(
-                moduleId = ModuleID.LOCATIONS, partyId = fromPartyID, countryCode = fromCountryCode
-            )
-            if (parties.isNotEmpty()) {
-                val senderRole = BasicRole(fromPartyID, fromCountryCode)
-                moduleNotificationService.notifyPartiesOfModuleChangeAsync(
-                    moduleId = ModuleID.LOCATIONS,
-                    parties = parties,
-                    changedData = body,
-                    urlPath = "$countryCode/$partyID/$locationID/$evseUID",
-                    sender = senderRole
-                )
-            }
-
-            return ResponseEntity.status(200).body(
-                    OcpiResponse(
-                        OcpiStatus.SUCCESS.code
-                    )
-                )
-        }
-
         val requestVariables = OcpiRequestVariables(
             module = ModuleID.LOCATIONS,
             interfaceRole = InterfaceRole.RECEIVER,
@@ -386,7 +340,7 @@ class LocationsController(
             body = body
         )
 
-        return requestHandlerBuilder.build<Unit>(requestVariables).forwardDefault().getResponse()
+        return nodeObjectRoutingService.route<Unit>(requestVariables)
     }
 
     @PutMapping("/ocpi/receiver/2.2.1/locations/{countryCode}/{partyID}/{locationID}/{evseUID}/{connectorID}")
@@ -410,28 +364,6 @@ class LocationsController(
         val sender = BasicRole(fromPartyID, fromCountryCode)
         val receiver = BasicRole(toPartyID, toCountryCode)
 
-        if (toCountryCode.equals(nodeProperties.countryCode, true) && toPartyID.equals(nodeProperties.partyId, true)) {
-            val parties = moduleNotificationService.getPartiesToNotifyOfModuleChange(
-                moduleId = ModuleID.LOCATIONS, partyId = fromPartyID, countryCode = fromCountryCode
-            )
-            if (parties.isNotEmpty()) {
-                val senderRole = BasicRole(fromPartyID, fromCountryCode)
-                moduleNotificationService.notifyPartiesOfModuleChangeAsync(
-                    moduleId = ModuleID.LOCATIONS,
-                    parties = parties,
-                    changedData = body,
-                    urlPath = "$countryCode/$partyID/$locationID/$evseUID/$connectorID",
-                    sender = senderRole
-                )
-            }
-
-            return ResponseEntity.status(200).body(
-                    OcpiResponse(
-                        OcpiStatus.SUCCESS.code
-                    )
-                )
-        }
-
         val requestVariables = OcpiRequestVariables(
             module = ModuleID.LOCATIONS,
             interfaceRole = InterfaceRole.RECEIVER,
@@ -441,7 +373,7 @@ class LocationsController(
             body = body
         )
 
-        return requestHandlerBuilder.build<Unit>(requestVariables).forwardDefault().getResponse()
+        return nodeObjectRoutingService.route<Unit>(requestVariables)
     }
 
     @PatchMapping("/ocpi/receiver/2.2.1/locations/{countryCode}/{partyID}/{locationID}")
@@ -463,28 +395,6 @@ class LocationsController(
         val sender = BasicRole(fromPartyID, fromCountryCode)
         val receiver = BasicRole(toPartyID, toCountryCode)
 
-        if (toCountryCode.equals(nodeProperties.countryCode, true) && toPartyID.equals(nodeProperties.partyId, true)) {
-            val parties = moduleNotificationService.getPartiesToNotifyOfModuleChange(
-                moduleId = ModuleID.LOCATIONS, partyId = fromPartyID, countryCode = fromCountryCode
-            )
-            if (parties.isNotEmpty()) {
-                val senderRole = BasicRole(fromPartyID, fromCountryCode)
-                moduleNotificationService.notifyPartiesOfModuleChangeAsync(
-                    moduleId = ModuleID.LOCATIONS,
-                    parties = parties,
-                    changedData = body,
-                    urlPath = "$countryCode/$partyID/$locationID",
-                    sender = senderRole
-                )
-            }
-
-            return ResponseEntity.status(200).body(
-                    OcpiResponse(
-                        OcpiStatus.SUCCESS.code
-                    )
-                )
-        }
-
         val requestVariables = OcpiRequestVariables(
             module = ModuleID.LOCATIONS,
             interfaceRole = InterfaceRole.RECEIVER,
@@ -494,7 +404,7 @@ class LocationsController(
             body = body
         )
 
-        return requestHandlerBuilder.build<Unit>(requestVariables).forwardDefault().getResponse()
+        return nodeObjectRoutingService.route<Unit>(requestVariables)
     }
 
     @PatchMapping("/ocpi/receiver/2.2.1/locations/{countryCode}/{partyID}/{locationID}/{evseUID}")
@@ -517,28 +427,6 @@ class LocationsController(
         val sender = BasicRole(fromPartyID, fromCountryCode)
         val receiver = BasicRole(toPartyID, toCountryCode)
 
-        if (toCountryCode.equals(nodeProperties.countryCode, true) && toPartyID.equals(nodeProperties.partyId, true)) {
-            val parties = moduleNotificationService.getPartiesToNotifyOfModuleChange(
-                moduleId = ModuleID.LOCATIONS, partyId = fromPartyID, countryCode = fromCountryCode
-            )
-            if (parties.isNotEmpty()) {
-                val senderRole = BasicRole(fromPartyID, fromCountryCode)
-                moduleNotificationService.notifyPartiesOfModuleChangeAsync(
-                    moduleId = ModuleID.LOCATIONS,
-                    parties = parties,
-                    changedData = body,
-                    urlPath = "$countryCode/$partyID/$locationID/$evseUID",
-                    sender = senderRole
-                )
-            }
-
-            return ResponseEntity.status(200).body(
-                    OcpiResponse(
-                        OcpiStatus.SUCCESS.code
-                    )
-                )
-        }
-
         val requestVariables = OcpiRequestVariables(
             module = ModuleID.LOCATIONS,
             interfaceRole = InterfaceRole.RECEIVER,
@@ -548,7 +436,7 @@ class LocationsController(
             body = body
         )
 
-        return requestHandlerBuilder.build<Unit>(requestVariables).forwardDefault().getResponse()
+        return nodeObjectRoutingService.route<Unit>(requestVariables)
     }
 
     @PatchMapping("/ocpi/receiver/2.2.1/locations/{countryCode}/{partyID}/{locationID}/{evseUID}/{connectorID}")
@@ -572,28 +460,6 @@ class LocationsController(
         val sender = BasicRole(fromPartyID, fromCountryCode)
         val receiver = BasicRole(toPartyID, toCountryCode)
 
-        if (toCountryCode.equals(nodeProperties.countryCode, true) && toPartyID.equals(nodeProperties.partyId, true)) {
-            val parties = moduleNotificationService.getPartiesToNotifyOfModuleChange(
-                moduleId = ModuleID.LOCATIONS, partyId = fromPartyID, countryCode = fromCountryCode
-            )
-            if (parties.isNotEmpty()) {
-                val senderRole = BasicRole(fromPartyID, fromCountryCode)
-                moduleNotificationService.notifyPartiesOfModuleChangeAsync(
-                    moduleId = ModuleID.LOCATIONS,
-                    parties = parties,
-                    changedData = body,
-                    urlPath = "$countryCode/$partyID/$locationID/$evseUID/$connectorID",
-                    sender = senderRole
-                )
-            }
-
-            return ResponseEntity.status(200).body(
-                    OcpiResponse(
-                        OcpiStatus.SUCCESS.code
-                    )
-                )
-        }
-
         val requestVariables = OcpiRequestVariables(
             module = ModuleID.LOCATIONS,
             interfaceRole = InterfaceRole.RECEIVER,
@@ -603,7 +469,7 @@ class LocationsController(
             body = body
         )
 
-        return requestHandlerBuilder.build<Unit>(requestVariables).forwardDefault().getResponse()
+        return nodeObjectRoutingService.route<Unit>(requestVariables)
     }
 
 }

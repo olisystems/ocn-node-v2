@@ -31,6 +31,7 @@ import snc.openchargingnetwork.node.models.exceptions.OcpiClientInvalidParameter
 import snc.openchargingnetwork.node.models.exceptions.OcpiClientUnknownLocationException
 import snc.openchargingnetwork.node.models.exceptions.OcpiHubUnknownReceiverException
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
+import snc.openchargingnetwork.node.models.ocpi.ConnectionStatus
 import snc.openchargingnetwork.node.models.ocpi.InterfaceRole
 import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
 import snc.openchargingnetwork.node.repositories.EndpointRepository
@@ -59,6 +60,24 @@ class RoutingService(
     fun isRoleKnown(role: BasicRole) =
             roleRepo.existsByCountryCodeAndPartyIDAllIgnoreCase(role.country, role.id)
 
+    /**
+     * Platform ID of a CONNECTED role row for the given country/party, if any.
+     *
+     * When multiple RoleEntity rows exist for the same identity, connectivity and routing must use
+     * the same row — not an arbitrary first match.
+     */
+    fun findConnectedPlatformId(role: BasicRole): Long? {
+        return roleRepo
+                .findAllByCountryCodeAndPartyIDAllIgnoreCase(role.country, role.id)
+                .firstOrNull {
+                    platformRepo.findByIdOrNull(it.platformID)?.status == ConnectionStatus.CONNECTED
+                }
+                ?.platformID
+    }
+
+    /** Check whether a role belongs to a platform with a completed, active handshake. */
+    fun isRoleConnected(role: BasicRole): Boolean = findConnectedPlatformId(role) != null
+
     /** get platform by role  */
     fun getPlatform(role: BasicRole): PlatformEntity {
         val platformID = getPlatformID(role)
@@ -70,9 +89,11 @@ class RoutingService(
 
     /** get platform ID - used as foreign key in endpoint and roles repositories */
     fun getPlatformID(role: BasicRole): Long {
-        return roleRepo.findAllByCountryCodeAndPartyIDAllIgnoreCase(role.country, role.id)
-                .firstOrNull()
-                ?.platformID
+        return findConnectedPlatformId(role)
+                ?: roleRepo
+                        .findAllByCountryCodeAndPartyIDAllIgnoreCase(role.country, role.id)
+                        .firstOrNull()
+                        ?.platformID
                 ?: throw OcpiHubUnknownReceiverException("Could not find platform ID of $role")
     }
 
