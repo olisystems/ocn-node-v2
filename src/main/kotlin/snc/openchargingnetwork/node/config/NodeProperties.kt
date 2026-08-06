@@ -58,6 +58,10 @@ class NodeProperties {
     // If Enabled runs the enhanced hub client info sync task (includes pull + push operations)
     var hubClientInfoSyncEnabled: Boolean = false
 
+    // Maximum duration for outbound OCPI requests. Some credentials endpoints perform
+    // synchronous validation before responding and can exceed Ktor's 15-second default.
+    var httpRequestTimeoutMillis: Long = 60000
+
     // If Enabled logs full curl commands for forwarded OCPI requests (includes tokens/sensitive
     // data)
     var logCurlCommands: Boolean = false

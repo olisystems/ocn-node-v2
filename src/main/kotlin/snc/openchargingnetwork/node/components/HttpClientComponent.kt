@@ -11,6 +11,7 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.header
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
@@ -92,7 +93,12 @@ open class HttpClientComponent(private val properties: NodeProperties) {
         fun convertToRequestVariables(stringBody: String): OcpiRequestVariables =
                 mapper.readValue(stringBody)
 
-        val client = HttpClient(CIO)
+        val client =
+                HttpClient(CIO) {
+                        install(HttpTimeout) {
+                                requestTimeoutMillis = properties.httpRequestTimeoutMillis
+                        }
+                }
 
         private companion object {
                 const val OCN_MESSAGE_ENDPOINT = "/ocn/message"
