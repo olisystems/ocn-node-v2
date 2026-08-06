@@ -109,11 +109,14 @@ class AdminController(
             @RequestHeader("Authorization") authorization: String,
             @PathVariable platformId: Long
     ): ResponseEntity<Any> {
-        // Log request
-        logger.info("Starting handshake for platform: $platformId")
+        logger.info("[Handshake] platformId={} step=request_received", platformId)
 
         // Check authorization
         if (!isAuthorized(authorization)) {
+            logger.warn(
+                    "[Handshake] platformId={} step=validate_request failed: invalid admin authorization",
+                    platformId
+            )
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(mapOf("error" to "Invalid Authorization"))
         }
@@ -121,11 +124,21 @@ class AdminController(
         // Get the platform
         val platform =
                 platformRepo.findByIdOrNull(platformId)
-                        ?: return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                                .body(mapOf("error" to "Platform not found"))
+                        ?: run {
+                            logger.warn(
+                                    "[Handshake] platformId={} step=load_platform failed: platform not found",
+                                    platformId
+                            )
+                            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                    .body(mapOf("error" to "Platform not found"))
+                        }
 
         // Verify platform was created with handshakeSelfInitiated=true
         if (!platform.auth.handshakeSelfInitiated) {
+            logger.warn(
+                    "[Handshake] platformId={} step=validate_platform failed: handshakeSelfInitiated is false",
+                    platformId
+            )
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(mapOf("error" to "Platform was not created with handshakeSelfInitiated=true"))
         }
@@ -133,54 +146,157 @@ class AdminController(
         // Verify versionsUrl is set
         val versionsUrl =
                 platform.versionsUrl
-                        ?: return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                .body(mapOf("error" to "Platform has no versionsUrl set"))
+                        ?: run {
+                            logger.warn(
+                                    "[Handshake] platformId={} step=validate_platform failed: versions URL is missing",
+                                    platformId
+                            )
+                            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                    .body(mapOf("error" to "Platform has no versionsUrl set"))
+                        }
 
         // Get tokenA
         val tokenA =
                 platform.auth.tokenA
-                        ?: return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                .body(mapOf("error" to "Platform has no tokenA"))
+                        ?: run {
+                            logger.warn(
+                                    "[Handshake] platformId={} step=validate_platform failed: Token A is missing",
+                                    platformId
+                            )
+                            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                    .body(mapOf("error" to "Platform has no tokenA"))
+                        }
 
+        logger.info(
+                "[Handshake] platformId={} step=validate_platform completed versionsUrl={}",
+                platformId,
+                versionsUrl
+        )
+
+        var currentStep = "fetch_versions"
+        var requestId: String? = null
+        var correlationId: String? = null
         try {
             // Step 1: Call platform-whitelabel's versions endpoint with tokenA
+            logger.info(
+                    "[Handshake] platformId={} step={} url={}",
+                    platformId,
+                    currentStep,
+                    versionsUrl
+            )
             val versions = httpClientComponent.getVersions(versionsUrl, tokenA)
+            logger.info(
+                    "[Handshake] platformId={} step={} completed supportedVersions={}",
+                    platformId,
+                    currentStep,
+                    versions.map { it.version }
+            )
 
             // Step 2: Find matching version (2.2.1 or 2.2)
+            currentStep = "select_version"
             val targetVersion =
                     versions.firstOrNull { it.version == "2.2.1" || it.version == "2.2" }
-                            ?: return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                    .body(mapOf("error" to "No compatible OCPI version found"))
+                            ?: run {
+                                logger.warn(
+                                        "[Handshake] platformId={} step={} failed: no compatible OCPI version",
+                                        platformId,
+                                        currentStep
+                                )
+                                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                        .body(mapOf("error" to "No compatible OCPI version found"))
+                            }
+            logger.info(
+                    "[Handshake] platformId={} step={} completed version={} url={}",
+                    platformId,
+                    currentStep,
+                    targetVersion.version,
+                    targetVersion.url
+            )
 
             // Step 3: Get version details
+            currentStep = "fetch_version_details"
+            logger.info(
+                    "[Handshake] platformId={} step={} url={}",
+                    platformId,
+                    currentStep,
+                    targetVersion.url
+            )
             val versionDetail =
                     httpClientComponent.getVersionDetail(targetVersion.url, tokenA)
+            logger.info(
+                    "[Handshake] platformId={} step={} completed endpointCount={}",
+                    platformId,
+                    currentStep,
+                    versionDetail.endpoints.size
+            )
 
             // Step 4: Extract credentials module URL (RECEIVER, same as update/verify flows)
+            currentStep = "select_credentials_endpoint"
             val credentialsEndpoint =
                     versionDetail.endpoints.find {
                         it.identifier == "credentials" && it.role == InterfaceRole.RECEIVER
                     }
-                            ?: return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                    .body(
-                                            mapOf(
-                                                    "error" to
-                                                            "No credentials RECEIVER endpoint found"
-                                            )
-                                    )
+                            ?: run {
+                                logger.warn(
+                                        "[Handshake] platformId={} step={} failed: credentials RECEIVER endpoint is missing",
+                                        platformId,
+                                        currentStep
+                                )
+                                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                        .body(
+                                                mapOf(
+                                                        "error" to
+                                                                "No credentials RECEIVER endpoint found"
+                                                )
+                                        )
+                            }
+            logger.info(
+                    "[Handshake] platformId={} step={} completed url={}",
+                    platformId,
+                    currentStep,
+                    credentialsEndpoint.url
+            )
 
             // Step 5: Get existing tokenB (self_credentials_token)
+            currentStep = "prepare_credentials"
             val tokenB =
                     platform.auth.selfCredentialsToken
-                            ?: return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                    .body(mapOf("error" to "Platform has no selfCredentialsToken"))
+                            ?: run {
+                                logger.warn(
+                                        "[Handshake] platformId={} step={} failed: self credentials token is missing",
+                                        platformId,
+                                        currentStep
+                                )
+                                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                        .body(mapOf("error" to "Platform has no selfCredentialsToken"))
+                            }
 
             // Step 6: Build credentials payload with tokenB
             val credentialsPayload = credentialsService.myCredentials(tokenB)
+            logger.info(
+                    "[Handshake] platformId={} step={} completed callbackUrl={} roles={}",
+                    platformId,
+                    currentStep,
+                    credentialsPayload.url,
+                    credentialsPayload.roles.map {
+                        "${it.countryCode}-${it.partyID}:${it.role}"
+                    }
+            )
 
             // Step 7: Call platform-whitelabel's credentials POST with tokenA in
             // header, tokenB in
             // body
+            currentStep = "post_credentials"
+            requestId = generateUUIDv4Token()
+            correlationId = generateUUIDv4Token()
+            logger.info(
+                    "[Handshake] platformId={} step={} url={} requestId={} correlationId={}",
+                    platformId,
+                    currentStep,
+                    credentialsEndpoint.url,
+                    requestId,
+                    correlationId
+            )
             val credentialsResponse =
                     httpClientComponent.makeOcpiRequest<Credentials>(
                             method = HttpMethod.POST,
@@ -189,8 +305,8 @@ class AdminController(
                                     mapOf(
                                             "Authorization" to "Token ${tokenA.toBs64String()}",
                                             "Content-Type" to "application/json",
-                                            "X-Request-ID" to generateUUIDv4Token(),
-                                            "X-Correlation-ID" to generateUUIDv4Token()
+                                            "X-Request-ID" to requestId,
+                                            "X-Correlation-ID" to correlationId
                                     ),
                             body =
                                     httpClientComponent.mapper.writeValueAsString(
@@ -198,21 +314,55 @@ class AdminController(
                                     ),
                             typeClass = Credentials::class.java
                     )
+            logger.info(
+                    "[Handshake] platformId={} step={} completed httpStatus={} ocpiStatus={} requestId={} correlationId={}",
+                    platformId,
+                    currentStep,
+                    credentialsResponse.statusCode,
+                    credentialsResponse.body?.statusCode,
+                    requestId,
+                    correlationId
+            )
 
             // Check response
             if (credentialsResponse.body?.statusCode != 1000) {
+                logger.warn(
+                        "[Handshake] platformId={} step={} failed: OCPI status={} message={}",
+                        platformId,
+                        currentStep,
+                        credentialsResponse.body?.statusCode,
+                        credentialsResponse.body?.statusMessage
+                )
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(mapOf("error" to "Credentials POST failed: ${credentialsResponse.body?.statusMessage}"))
             }
 
             // Step 8: Extract tokenC from response
+            currentStep = "validate_credentials_response"
             val receivedCredentials =
                     credentialsResponse.body?.data
-                            ?: return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                    .body(mapOf("error" to "No credentials data in response"))
+                            ?: run {
+                                logger.warn(
+                                        "[Handshake] platformId={} step={} failed: response has no credentials data",
+                                        platformId,
+                                        currentStep
+                                )
+                                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                        .body(mapOf("error" to "No credentials data in response"))
+                            }
             val tokenCPlain = receivedCredentials.token
+            logger.info(
+                    "[Handshake] platformId={} step={} completed remoteUrl={} roles={} tokenReceived=true",
+                    platformId,
+                    currentStep,
+                    receivedCredentials.url,
+                    receivedCredentials.roles.map {
+                        "${it.countryCode}-${it.partyID}:${it.role}"
+                    }
+            )
 
             // Step 9: Store tokenC in platform (plain text)
+            currentStep = "persist_platform"
             platform.auth =
                     Auth(
                             tokenA = platform.auth.tokenA,
@@ -226,8 +376,15 @@ class AdminController(
             platform.status = ConnectionStatus.CONNECTED
             platform.lastUpdated = getTimestamp()
             platformRepo.save(platform)
+            logger.info(
+                    "[Handshake] platformId={} step={} completed status={}",
+                    platformId,
+                    currentStep,
+                    platform.status
+            )
 
             // Step 11: Save roles from credentials response
+            currentStep = "persist_roles"
             // First, delete any existing roles with same (country_code, party_id, role) to prevent duplicates
             receivedCredentials.roles.forEach { role ->
                 roleRepo.deleteByCountryCodeAndPartyIDAndRoleAllIgnoreCase(
@@ -249,8 +406,15 @@ class AdminController(
                         )
                     }
             roleRepo.saveAll(roles)
+            logger.info(
+                    "[Handshake] platformId={} step={} completed roleCount={}",
+                    platformId,
+                    currentStep,
+                    roles.size
+            )
 
             // Step 12: Save endpoints from version details
+            currentStep = "persist_endpoints"
             for (endpoint in versionDetail.endpoints) {
                 endpointRepo.save(
                         EndpointEntity(
@@ -259,10 +423,20 @@ class AdminController(
                                 role = endpoint.role,
                                 url = endpoint.url
                         )
-                )
+                    )
             }
+            logger.info(
+                    "[Handshake] platformId={} step={} completed endpointCount={}",
+                    platformId,
+                    currentStep,
+                    versionDetail.endpoints.size
+            )
 
-            logger.info("Handshake completed successfully. Platform status: CONNECTED")
+            logger.info(
+                    "[Handshake] platformId={} step=complete status={}",
+                    platformId,
+                    platform.status
+            )
 
             return ResponseEntity.status(HttpStatus.OK)
                     .body(mapOf(
@@ -271,6 +445,10 @@ class AdminController(
                             "base64_token_c" to "Token ${tokenCPlain.toBs64String()}"
                     ))
         } catch (e: Exception) {
+            logger.error(
+                    "[Handshake] platformId=$platformId step=$currentStep requestId=$requestId correlationId=$correlationId failed: ${e.message}",
+                    e
+            )
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(mapOf("error" to "Handshake failed: ${e.message}"))
         }
