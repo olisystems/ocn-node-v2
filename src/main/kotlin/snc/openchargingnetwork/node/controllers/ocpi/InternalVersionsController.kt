@@ -16,6 +16,7 @@
 
 package snc.openchargingnetwork.node.controllers.ocpi
 
+import org.slf4j.LoggerFactory
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
@@ -40,38 +41,114 @@ class InternalVersionsController(
         private val properties: NodeProperties
 ) {
 
+    companion object {
+        private val logger = LoggerFactory.getLogger(InternalVersionsController::class.java)
+    }
+
     @GetMapping("/versions")
     fun getVersions(
-            @RequestHeader("Authorization") authorization: String
+            @RequestHeader("Authorization") authorization: String,
+            @RequestHeader("X-Request-ID", required = false) requestId: String?,
+            @RequestHeader("X-Correlation-ID", required = false) correlationId: String?
     ): OcpiResponse<List<Version>> {
 
-        platformAuthService.assertTokenAOrC(authorization)
+        logRequestReceived("versions", requestId, correlationId)
+        authenticate(authorization, "versions", requestId, correlationId)
         val endpoint2_2_1 = urlJoin(properties.url, properties.apiPrefix, "/ocpi/2.2.1")
         val versions =
                 mutableListOf(Version("2.2.1", endpoint2_2_1))
         versions.addAll(versionContributors.flatMap { it.versions() })
-        return OcpiResponse(OcpiStatus.SUCCESS.code, data = versions.distinctBy { it.version })
+        val advertisedVersions = versions.distinctBy { it.version }
+        val response = OcpiResponse(OcpiStatus.SUCCESS.code, data = advertisedVersions)
+        logger.info(
+                "[HandshakeCallback] endpoint=versions step=response_ready requestId={} correlationId={} httpStatus=200 ocpiStatus={} versions={} urls={}",
+                requestIdForLog(requestId),
+                requestIdForLog(correlationId),
+                response.statusCode,
+                advertisedVersions.map { it.version },
+                advertisedVersions.map { it.url }
+        )
+        return response
     }
 
     @GetMapping("/2.2")
     fun getVersionsDetail(
-            @RequestHeader("Authorization") authorization: String
+            @RequestHeader("Authorization") authorization: String,
+            @RequestHeader("X-Request-ID", required = false) requestId: String?,
+            @RequestHeader("X-Correlation-ID", required = false) correlationId: String?
     ): OcpiResponse<VersionDetail> {
 
-        platformAuthService.assertTokenAOrC(authorization)
-        val endpoints = this.getAllEndpoints()
-        return OcpiResponse(OcpiStatus.SUCCESS.code, data = VersionDetail("2.2", endpoints))
+        return getVersionDetail(authorization, "2.2", requestId, correlationId)
     }
 
     @GetMapping("/2.2.1")
     fun getVersionsDetail2_2_1(
-            @RequestHeader("Authorization") authorization: String
+            @RequestHeader("Authorization") authorization: String,
+            @RequestHeader("X-Request-ID", required = false) requestId: String?,
+            @RequestHeader("X-Correlation-ID", required = false) correlationId: String?
     ): OcpiResponse<VersionDetail> {
 
-        platformAuthService.assertTokenAOrC(authorization)
-        val endpoints = this.getAllEndpoints()
-        return OcpiResponse(OcpiStatus.SUCCESS.code, data = VersionDetail("2.2.1", endpoints))
+        return getVersionDetail(authorization, "2.2.1", requestId, correlationId)
     }
+
+    private fun getVersionDetail(
+            authorization: String,
+            version: String,
+            requestId: String?,
+            correlationId: String?
+    ): OcpiResponse<VersionDetail> {
+        val endpoint = "version_detail_$version"
+        logRequestReceived(endpoint, requestId, correlationId)
+        authenticate(authorization, endpoint, requestId, correlationId)
+        val endpoints = this.getAllEndpoints()
+        val response = OcpiResponse(OcpiStatus.SUCCESS.code, data = VersionDetail(version, endpoints))
+        logger.info(
+                "[HandshakeCallback] endpoint={} step=response_ready requestId={} correlationId={} httpStatus=200 ocpiStatus={} endpointCount={}",
+                endpoint,
+                requestIdForLog(requestId),
+                requestIdForLog(correlationId),
+                response.statusCode,
+                endpoints.size
+        )
+        return response
+    }
+
+    private fun logRequestReceived(endpoint: String, requestId: String?, correlationId: String?) {
+        logger.info(
+                "[HandshakeCallback] endpoint={} step=request_received requestId={} correlationId={}",
+                endpoint,
+                requestIdForLog(requestId),
+                requestIdForLog(correlationId)
+        )
+    }
+
+    private fun authenticate(
+            authorization: String,
+            endpoint: String,
+            requestId: String?,
+            correlationId: String?
+    ) {
+        try {
+            platformAuthService.assertTokenAOrC(authorization)
+            logger.info(
+                    "[HandshakeCallback] endpoint={} step=authenticate completed requestId={} correlationId={}",
+                    endpoint,
+                    requestIdForLog(requestId),
+                    requestIdForLog(correlationId)
+            )
+        } catch (exception: RuntimeException) {
+            logger.warn(
+                    "[HandshakeCallback] endpoint={} step=authenticate failed requestId={} correlationId={} exceptionType={}",
+                    endpoint,
+                    requestIdForLog(requestId),
+                    requestIdForLog(correlationId),
+                    exception.javaClass.simpleName
+            )
+            throw exception
+        }
+    }
+
+    private fun requestIdForLog(value: String?): String = value ?: "missing"
 
     private fun getModuleEndpoints(module: ModuleID): List<Endpoint> {
         return InterfaceRole.values().map {

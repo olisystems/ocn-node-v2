@@ -83,6 +83,7 @@ The project is primarily configured through environment variables. Common ones:
 - `OCN_NODE_API`
 - `OCN_NODE_COUNTRY_CODE`
 - `OCN_NODE_PARTY_ID`
+- `OCN_NODE_HTTP_REQUEST_TIMEOUT_MILLIS`
 - `OCN_REGISTRY_INDEXER_URL`
 - `OCN_REGISTRY_INDEXER_TOKEN`
 - `OCN_NODE_POSTGRES_DATABASE`

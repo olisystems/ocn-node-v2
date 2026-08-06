@@ -58,6 +58,10 @@ class NodeProperties {
     // If Enabled runs the enhanced hub client info sync task (includes pull + push operations)
     var hubClientInfoSyncEnabled: Boolean = false
 
+    // Keep this below the ingress timeout so callers receive the node's OCPI error instead of an
+    // ingress-generated 504 when an upstream platform does not respond.
+    var httpRequestTimeoutMillis: Long = 55000
+
     // If Enabled logs full curl commands for forwarded OCPI requests (includes tokens/sensitive
     // data)
     var logCurlCommands: Boolean = false
