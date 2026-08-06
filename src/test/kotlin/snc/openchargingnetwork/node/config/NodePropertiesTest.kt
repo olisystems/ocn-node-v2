@@ -5,7 +5,7 @@ import kotlin.test.assertEquals
 
 class NodePropertiesTest {
     @Test
-    fun `outbound OCPI request timeout allows slow credentials handshakes`() {
-        assertEquals(60000, NodeProperties().httpRequestTimeoutMillis)
+    fun `outbound request timeout expires before the ingress timeout`() {
+        assertEquals(55_000, NodeProperties().httpRequestTimeoutMillis)
     }
 }
