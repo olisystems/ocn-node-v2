@@ -20,13 +20,17 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import snc.openchargingnetwork.node.components.OcpiRequestHandlerBuilder
+import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.ocpi.*
 import snc.openchargingnetwork.node.tools.filterNull
 
 @RestController
 @RequestMapping("\${ocn.node.apiPrefix}")
-class TokensController(private val requestHandlerBuilder: OcpiRequestHandlerBuilder) {
+class TokensController(
+    private val requestHandlerBuilder: OcpiRequestHandlerBuilder,
+    private val properties: NodeProperties
+) {
 
 
     /**
@@ -65,6 +69,7 @@ class TokensController(private val requestHandlerBuilder: OcpiRequestHandlerBuil
 
         return requestHandlerBuilder
             .build<Array<Token>>(requestVariables)
+            .forwardSenderIntegrationsAsync(ModuleID.TOKENS)
             .forwardDefault()
             .getResponseWithPaginationHeaders() // proxies Link response header
     }
@@ -95,6 +100,7 @@ class TokensController(private val requestHandlerBuilder: OcpiRequestHandlerBuil
 
         return requestHandlerBuilder
             .build<Array<Token>>(requestVariables)
+            .forwardSenderIntegrationsAsync(ModuleID.TOKENS)
             .forwardDefault(proxied = true) // retrieves proxied Link response header
             .getResponseWithPaginationHeaders()
     }
@@ -169,6 +175,7 @@ class TokensController(private val requestHandlerBuilder: OcpiRequestHandlerBuil
 
         return requestHandlerBuilder
             .build<Token>(requestVariables)
+            .forwardToPartyAsync(properties.tokensAdditionalReceiverCountryCode, properties.tokensAdditionalReceiverPartyId)
             .forwardDefault()
             .getResponse()
     }
@@ -205,6 +212,7 @@ class TokensController(private val requestHandlerBuilder: OcpiRequestHandlerBuil
 
         return requestHandlerBuilder
             .build<Unit>(requestVariables)
+            .forwardToPartyAsync(properties.tokensAdditionalReceiverCountryCode, properties.tokensAdditionalReceiverPartyId)
             .forwardDefault()
             .getResponse()
     }
@@ -241,6 +249,7 @@ class TokensController(private val requestHandlerBuilder: OcpiRequestHandlerBuil
 
         return requestHandlerBuilder
             .build<Unit>(requestVariables)
+            .forwardToPartyAsync(properties.tokensAdditionalReceiverCountryCode, properties.tokensAdditionalReceiverPartyId)
             .forwardDefault()
             .getResponse()
     }

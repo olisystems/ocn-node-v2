@@ -3,6 +3,7 @@ package snc.openchargingnetwork.node.components
 import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.core.JsonParseException
 import com.fasterxml.jackson.core.JsonProcessingException
+import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.JsonSerializer
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.databind.SerializerProvider
@@ -23,9 +24,11 @@ import io.ktor.util.toMap
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpMethod
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.RequestPredicates
+import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.ControllerResponse
 import snc.openchargingnetwork.node.models.GqlCertificateData
 import snc.openchargingnetwork.node.models.GqlPartiesAndOpsData
@@ -35,6 +38,7 @@ import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.OcnMessageHeaders
 import snc.openchargingnetwork.node.models.OcpiHttpResponse
 import snc.openchargingnetwork.node.models.SyncedHttpResponse
+import snc.openchargingnetwork.node.models.exceptions.OcpiHubGenericException
 import snc.openchargingnetwork.node.models.exceptions.OcpiServerGenericException
 import snc.openchargingnetwork.node.models.exceptions.OcpiServerUnusableApiException
 import snc.openchargingnetwork.node.models.ocpi.ClientInfo
@@ -43,491 +47,623 @@ import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
 import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
 import snc.openchargingnetwork.node.models.ocpi.Version
 import snc.openchargingnetwork.node.models.ocpi.VersionDetail
+import snc.openchargingnetwork.node.tools.CurlLogger
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
+import snc.openchargingnetwork.node.tools.toBs64String
 import snc.openchargingnetwork.node.tools.urlJoin
 
 @Component
-class HttpClientComponent {
+open class HttpClientComponent(private val properties: NodeProperties) {
 
-    class HttpMethodSerializer : JsonSerializer<org.springframework.http.HttpMethod>() {
-        override fun serialize(
-                value: org.springframework.http.HttpMethod?,
-                gen: JsonGenerator,
-                serializers: SerializerProvider
-        ) {
-            if (value != null) {
-                gen.writeString(value.toString())
-            }
-        }
-    }
+        private val logger = LoggerFactory.getLogger(HttpClientComponent::class.java)
 
-    val mapper =
-            jacksonObjectMapper().apply {
-                configure(SerializationFeature.WRITE_ENUMS_USING_TO_STRING, true)
-                configure(
-                        com.fasterxml.jackson.databind.DeserializationFeature
-                                .FAIL_ON_UNKNOWN_PROPERTIES,
-                        false
-                )
-                registerModule(
-                        com.fasterxml.jackson.databind.module.SimpleModule().apply {
-                            addSerializer(
-                                    org.springframework.http.HttpMethod::class.java,
-                                    HttpMethodSerializer()
-                            )
+        class HttpMethodSerializer : JsonSerializer<org.springframework.http.HttpMethod>() {
+                override fun serialize(
+                        value: org.springframework.http.HttpMethod?,
+                        gen: JsonGenerator,
+                        serializers: SerializerProvider
+                ) {
+                        if (value != null) {
+                                gen.writeString(value.toString())
                         }
-                )
-            }
+                }
+        }
 
-    val configurationModules: List<ModuleID> = listOf(ModuleID.CREDENTIALS)
-
-    fun convertToRequestVariables(stringBody: String): OcpiRequestVariables =
-            mapper.readValue(stringBody)
-
-    val client = HttpClient(CIO)
-
-    private companion object {
-        const val OCN_MESSAGE_ENDPOINT = "/ocn/message"
-    }
-
-    /** General purpose Http Request wrapper around async call from Ktor Client */
-    fun sendHttpRequest(
-            endpoint: String,
-            method: HttpMethod,
-            body: Any? = null,
-            headers: Map<String, String> = mapOf(),
-            queryParams: Map<String, String> = mapOf()
-    ): SyncedHttpResponse {
-        return runBlocking {
-            val response =
-                    client.request(endpoint) {
-                        this.method =
-                                when (method) {
-                                    HttpMethod.GET -> io.ktor.http.HttpMethod.Get
-                                    HttpMethod.POST -> io.ktor.http.HttpMethod.Post
-                                    HttpMethod.PUT -> io.ktor.http.HttpMethod.Put
-                                    HttpMethod.DELETE -> io.ktor.http.HttpMethod.Delete
-                                    HttpMethod.PATCH -> io.ktor.http.HttpMethod.Patch
-                                    HttpMethod.HEAD -> io.ktor.http.HttpMethod.Head
-                                    HttpMethod.OPTIONS -> io.ktor.http.HttpMethod.Options
-                                    else -> {
-                                        io.ktor.http.HttpMethod.Get
-                                    }
+        val mapper =
+                jacksonObjectMapper().apply {
+                        configure(SerializationFeature.WRITE_ENUMS_USING_TO_STRING, true)
+                        configure(
+                                com.fasterxml.jackson.databind.DeserializationFeature
+                                        .FAIL_ON_UNKNOWN_PROPERTIES,
+                                false
+                        )
+                        registerModule(
+                                com.fasterxml.jackson.databind.module.SimpleModule().apply {
+                                        addSerializer(
+                                                org.springframework.http.HttpMethod::class.java,
+                                                HttpMethodSerializer()
+                                        )
                                 }
-                        headers.forEach { (key, value) -> header(key, value) }
-                        url {
-                            queryParams.forEach { (key, value) -> parameters.append(key, value) }
+                        )
+                }
+
+        val configurationModules: List<ModuleID> = listOf(ModuleID.CREDENTIALS)
+
+        fun convertToRequestVariables(stringBody: String): OcpiRequestVariables =
+                mapper.readValue(stringBody)
+
+        val client = HttpClient(CIO)
+
+        private companion object {
+                const val OCN_MESSAGE_ENDPOINT = "/ocn/message"
+        }
+
+        /** General purpose Http Request wrapper around async call from Ktor Client */
+        open fun sendHttpRequest(
+                endpoint: String,
+                method: HttpMethod,
+                body: Any? = null,
+                headers: Map<String, String> = mapOf(),
+                queryParams: Map<String, String> = mapOf()
+        ): SyncedHttpResponse {
+                return runBlocking {
+                        val response =
+                                client.request(endpoint) {
+                                        this.method =
+                                                when (method) {
+                                                        HttpMethod.GET ->
+                                                                io.ktor.http.HttpMethod.Get
+                                                        HttpMethod.POST ->
+                                                                io.ktor.http.HttpMethod.Post
+                                                        HttpMethod.PUT ->
+                                                                io.ktor.http.HttpMethod.Put
+                                                        HttpMethod.DELETE ->
+                                                                io.ktor.http.HttpMethod.Delete
+                                                        HttpMethod.PATCH ->
+                                                                io.ktor.http.HttpMethod.Patch
+                                                        HttpMethod.HEAD ->
+                                                                io.ktor.http.HttpMethod.Head
+                                                        HttpMethod.OPTIONS ->
+                                                                io.ktor.http.HttpMethod.Options
+                                                        else -> {
+                                                                io.ktor.http.HttpMethod.Get
+                                                        }
+                                                }
+                                        headers.forEach { (key, value) -> header(key, value) }
+                                        url {
+                                                queryParams.forEach { (key, value) ->
+                                                        parameters.append(key, value)
+                                                }
+                                        }
+                                        queryParams.forEach { (key, value) ->
+                                                RequestPredicates.param(key, value)
+                                        }
+                                        if (body != null) {
+                                                contentType(ContentType.Application.Json)
+                                                setBody(body)
+                                        }
+                                }
+
+                        val syncedSyncedHttpResponse =
+                                SyncedHttpResponse(
+                                        response.status,
+                                        response.headers,
+                                        response.contentType(),
+                                        response.contentLength(),
+                                        response.bodyAsText()
+                                )
+                        return@runBlocking syncedSyncedHttpResponse
+                }
+        }
+
+        /**
+         * Makes an OCPI HTTP request to the given URL with the specified method, headers, query
+         * parameters, and body.
+         *
+         * @param method The HTTP method to be used for the request (e.g., GET, POST).
+         * @param url The target URL for the OCPI request.
+         * @param headers The HTTP headers to include in the request, with each key being the header
+         * name and the value being the header value.
+         * @param queryParams The query parameters to append to the request URL as key-value pairs.
+         * Defaults to null if no query parameters are provided.
+         * @param body The request body as a String, if applicable. Defaults to null if no body is
+         * needed.
+         * @return An OcpiHttpResponse object containing the response status code, headers, and
+         * parsed body of type T.
+         * @throws snc.openchargingnetwork.node.models.exceptions.OcpiServerGenericException if the
+         * JSON response cannot be parsed or a generic server error occurs.
+         */
+        fun <T : Any> makeOcpiRequest(
+                method: HttpMethod,
+                url: String,
+                headers: Map<String, String?>,
+                queryParams: Map<String, Any?>? = null,
+                body: String? = null,
+                typeClass: Class<T>? = null
+        ): OcpiHttpResponse<T> {
+                val stringHeaders = headers.mapNotNull { (key, value) -> value?.let { key to it } }.toMap()
+                val stringQueryParams =
+                        queryParams?.mapValues { (_, value) -> value.toString() } ?: mapOf()
+
+                CurlLogger.logCurlCommand(
+                        method,
+                        url,
+                        stringHeaders,
+                        body,
+                        properties.logCurlCommands
+                )
+
+                val response = sendHttpRequest(url, method, body, stringHeaders, stringQueryParams)
+
+                try {
+                        // Construct the proper type for OcpiResponse<T>
+                        val typeFactory = mapper.typeFactory
+                        val innerType = if (typeClass != null) {
+                                typeFactory.constructType(typeClass)
+                        } else {
+                                typeFactory.constructType(object : TypeReference<T>() {})
                         }
-                        queryParams.forEach { (key, value) -> RequestPredicates.param(key, value) }
-                        if (body != null) {
-                            contentType(ContentType.Application.Json)
-                            setBody(body)
+                        val responseType =
+                                typeFactory.constructParametricType(
+                                        OcpiResponse::class.java,
+                                        innerType
+                                )
+                        val parsedBody: OcpiResponse<T> =
+                                mapper.readValue(response.body, responseType)
+                        val logMessage = "HTTP Response - Status: ${response.statusCode.value}, Body: ${response.body.take(500)}"
+                        if (parsedBody.statusCode != 1000) {
+                                logger.error(logMessage)
+                        } else {
+                                logger.info(logMessage)
                         }
-                    }
-
-            val syncedSyncedHttpResponse =
-                    SyncedHttpResponse(
-                            response.status,
-                            response.headers,
-                            response.contentType(),
-                            response.contentLength(),
-                            response.bodyAsText()
-                    )
-            return@runBlocking syncedSyncedHttpResponse
+                        return OcpiHttpResponse(
+                                statusCode = response.statusCode.value,
+                                headers =
+                                        response.headers.toMap().mapValues { (_, value) ->
+                                                value.toString()
+                                        },
+                                body = parsedBody,
+                        )
+                } catch (e: JsonParseException) {
+                        val toCountry = stringHeaders["OCPI-to-country-code"] ?: "UNKNOWN"
+                        val toParty = stringHeaders["OCPI-to-party-id"] ?: "UNKNOWN"
+                        val contentType = response.headers[HttpHeaders.ContentType] ?: "UNKNOWN"
+                        val bodyLength = response.body.length
+                        logger.error(
+                                "Response received from $toCountry $toParty is not an OCPI-compliant response | " +
+                                        "Status: ${response.statusCode.value}, Content-Type: $contentType, Body length: $bodyLength"
+                        )
+                        throw OcpiHubGenericException(
+                                "Could not parse JSON response of forwarded OCPI request: ${e.message}"
+                        )
+                }
         }
-    }
 
-    /**
-     * Makes an OCPI HTTP request to the given URL with the specified method, headers, query
-     * parameters, and body.
-     *
-     * @param method The HTTP method to be used for the request (e.g., GET, POST).
-     * @param url The target URL for the OCPI request.
-     * @param headers The HTTP headers to include in the request, with each key being the header
-     * name and the value being the header value.
-     * @param queryParams The query parameters to append to the request URL as key-value pairs.
-     * Defaults to null if no query parameters are provided.
-     * @param body The request body as a String, if applicable. Defaults to null if no body is
-     * needed.
-     * @return An OcpiHttpResponse object containing the response status code, headers, and parsed
-     * body of type T.
-     * @throws snc.openchargingnetwork.node.models.exceptions.OcpiServerGenericException if the JSON
-     * response cannot be parsed or a generic server error occurs.
-     */
-    fun <T : Any> makeOcpiRequest(
-            method: HttpMethod,
-            url: String,
-            headers: Map<String, String?>,
-            queryParams: Map<String, Any?>? = null,
-            body: String? = null
-    ): OcpiHttpResponse<T> {
-        val stringHeaders = headers.mapValues { (_, value) -> value.toString() }
-        val stringQueryParams = queryParams?.mapValues { (_, value) -> value.toString() } ?: mapOf()
-        val response = sendHttpRequest(url, method, body, stringHeaders, stringQueryParams)
-        try {
-            return OcpiHttpResponse(
-                    statusCode = response.statusCode.value,
-                    headers = response.headers.toMap().mapValues { (_, value) -> value.toString() },
-                    body = mapper.readValue(response.body),
-            )
-        } catch (e: JsonParseException) {
-            throw OcpiServerGenericException(
-                    "Could not parse JSON response of forwarded OCPI request: ${e.message}"
-            )
-        }
-    }
+        /**
+         * Makes an OCPI request to the specified URL using the provided headers and request
+         * variables.
+         *
+         * @param url The endpoint URL to which the OCPI request will be made.
+         * @param ocnHeaders The headers to be included in the request, including routing and other
+         * specific headers.
+         * @param requestVariables The parameters and body for the request, encapsulated in an
+         * `OcpiRequestVariables` object.
+         * @return An `OcpiHttpResponse` object containing the response details, including HTTP
+         * status, headers, and parsed body.
+         */
+        final fun <T : Any> makeOcpiRequest(
+                url: String,
+                ocnHeaders: OcnHeaders,
+                requestVariables: OcpiRequestVariables
+        ): OcpiHttpResponse<T> {
 
-    /**
-     * Makes an OCPI request to the specified URL using the provided headers and request variables.
-     *
-     * @param url The endpoint URL to which the OCPI request will be made.
-     * @param ocnHeaders The headers to be included in the request, including routing and other
-     * specific headers.
-     * @param requestVariables The parameters and body for the request, encapsulated in an
-     * `OcpiRequestVariables` object.
-     * @return An `OcpiHttpResponse` object containing the response details, including HTTP status,
-     * headers, and parsed body.
-     */
-    final fun <T : Any> makeOcpiRequest(
-            url: String,
-            ocnHeaders: OcnHeaders,
-            requestVariables: OcpiRequestVariables
-    ): OcpiHttpResponse<T> {
+                // includes or excludes routing headers based on module type (functional or
+                // configuration)
+                // TODO: credentials and versions must also include X-Request-ID/X-Correlation-ID
+                val headersMap =
+                        ocnHeaders.toMap(
+                                routingHeaders =
+                                        !configurationModules.contains(requestVariables.module)
+                        )
 
-        // includes or excludes routing headers based on module type (functional or configuration)
-        // TODO: credentials and versions must also include X-Request-ID/X-Correlation-ID
-        val headersMap =
-                ocnHeaders.toMap(
-                        routingHeaders = !configurationModules.contains(requestVariables.module)
+                var jsonBody: String? = null
+                if (requestVariables.body != null) {
+                        // Setting content-type to json as this is the expected format for standard
+                        // and custom
+                        // OCPI modules
+                        headersMap["content-type"] = "application/json"
+                        // If the request body is a String, we assume that it is already JSON
+                        jsonBody =
+                                requestVariables.body as? String
+                                        ?: mapper.writeValueAsString(requestVariables.body)
+                }
+
+                return makeOcpiRequest(
+                        method = requestVariables.method,
+                        url = url,
+                        headers = headersMap,
+                        queryParams = requestVariables.queryParams,
+                        body = jsonBody
                 )
-
-        var jsonBody: String? = null
-        if (requestVariables.body != null) {
-            // Setting content-type to json as this is the expected format for standard and custom
-            // OCPI modules
-            headersMap["content-type"] = "application/json"
-            // If the request body is a String, we assume that it is already JSON
-            jsonBody =
-                    requestVariables.body as? String
-                            ?: mapper.writeValueAsString(requestVariables.body)
         }
 
-        return makeOcpiRequest(
-                method = requestVariables.method,
-                url = url,
-                headers = headersMap,
-                queryParams = requestVariables.queryParams,
-                body = jsonBody
-        )
-    }
+        /**
+         * Retrieves available versions from the specified URL using the provided authorization
+         * token.
+         *
+         * @param url The endpoint URL from which to request the version information.
+         * @param authorization The authorization token to be used for the request.
+         * @return A list of `Version` objects representing the available OCPI versions.
+         * @throws snc.openchargingnetwork.node.models.exceptions.OcpiServerUnusableApiException If
+         * the response contains an unexpected HTTP status code, an unexpected OCPI status code,
+         * missing or invalid version data, or if there is an error during request execution or
+         * response parsing.
+         */
+        open fun getVersions(url: String, authorization: String): List<Version> {
+                try {
+                        val headers =
+                                mapOf(
+                                        "Authorization" to "Token ${authorization.toBs64String()}",
+                                        "X-Correlation-ID" to generateUUIDv4Token(),
+                                        "X-Request-ID" to generateUUIDv4Token()
+                                )
 
-    /**
-     * Retrieves available versions from the specified URL using the provided authorization token.
-     *
-     * @param url The endpoint URL from which to request the version information.
-     * @param authorization The authorization token to be used for the request.
-     * @return A list of `Version` objects representing the available OCPI versions.
-     * @throws snc.openchargingnetwork.node.models.exceptions.OcpiServerUnusableApiException If the
-     * response contains an unexpected HTTP status code, an unexpected OCPI status code, missing or
-     * invalid version data, or if there is an error during request execution or response parsing.
-     */
-    fun getVersions(url: String, authorization: String): List<Version> {
-        try {
-            val response =
-                    sendHttpRequest(
-                            endpoint = url,
-                            method = HttpMethod.GET,
-                            headers =
-                                    mapOf(
-                                            "Authorization" to "Token $authorization",
-                                            "X-Correlation-ID" to generateUUIDv4Token(),
-                                            "X-Request-ID" to generateUUIDv4Token()
-                                    )
-                    )
-
-            val body: OcpiResponse<List<Version>> = mapper.readValue(response.body)
-
-            when {
-                !response.statusCode.toString().startsWith("2") ->
-                        throw OcpiServerUnusableApiException(
-                                "Unexpected HTTP status code: ${response.statusCode}"
-                        )
-                body.statusCode != 1000 ->
-                        throw OcpiServerUnusableApiException(
-                                "Unexpected OCPI status code: ${body.statusCode} - ${body.statusMessage}"
-                        )
-                body.data == null ->
-                        throw OcpiServerUnusableApiException("No version data received")
-                else -> return body.data
-            }
-        } catch (e: JsonProcessingException) {
-            throw OcpiServerUnusableApiException("Failed to parse response: ${e.message}")
-        } catch (e: Exception) {
-            throw OcpiServerUnusableApiException("Failed to request from $url: ${e.message}")
-        }
-    }
-
-    fun checkVersionsHealth(url: String): List<Version> {
-        try {
-            val response =
-                    sendHttpRequest(
-                            endpoint = url,
-                            method = HttpMethod.GET,
-                            headers =
-                                    mapOf(
-                                            "X-Correlation-ID" to generateUUIDv4Token(),
-                                            "X-Request-ID" to generateUUIDv4Token()
-                                    )
-                    )
-
-            val body: OcpiResponse<List<Version>> = mapper.readValue(response.body)
-
-            when {
-                !response.statusCode.toString().startsWith("2") ->
-                        throw OcpiServerUnusableApiException(
-                                "Unexpected HTTP status code: ${response.statusCode}"
-                        )
-                body.statusCode != 1000 ->
-                        throw OcpiServerUnusableApiException(
-                                "Unexpected OCPI status code: ${body.statusCode} - ${body.statusMessage}"
-                        )
-                body.data == null ->
-                        throw OcpiServerUnusableApiException("No version data received")
-                else -> return body.data
-            }
-        } catch (e: JsonProcessingException) {
-            throw OcpiServerUnusableApiException("Failed to parse response: ${e.message}")
-        } catch (e: Exception) {
-            throw OcpiServerUnusableApiException("Failed to request from $url: ${e.message}")
-        }
-    }
-
-    /**
-     * Retrieves the version details from the specified URL using the provided authorization token.
-     *
-     * @param url The endpoint URL to request version details from.
-     * @param authorization The authorization token required to authenticate the request.
-     * @return The version details encapsulated in a `VersionDetail` object.
-     * @throws OcpiServerUnusableApiException If the response contains an unexpected HTTP status,
-     * unexpected OCPI status code,
-     * ```
-     *        missing or invalid version detail data, or if there is an error during response parsing or request execution.
-     * ```
-     */
-    fun getVersionDetail(url: String, authorization: String): VersionDetail {
-        try {
-            val response =
-                    sendHttpRequest(
-                            endpoint = url,
-                            method = HttpMethod.GET,
-                            headers =
-                                    mapOf(
-                                            "Authorization" to "Token $authorization",
-                                            "X-Correlation-ID" to generateUUIDv4Token(),
-                                            "X-Request-ID" to generateUUIDv4Token()
-                                    )
-                    )
-
-            val body: OcpiResponse<VersionDetail> = mapper.readValue(response.body)
-
-            when {
-                !response.statusCode.toString().startsWith("2") ->
-                        throw OcpiServerUnusableApiException(
-                                "Unexpected HTTP status code: ${response.statusCode}"
-                        )
-                body.statusCode != 1000 ->
-                        throw OcpiServerUnusableApiException(
-                                "Unexpected OCPI status code: ${body.statusCode} - ${body.statusMessage}"
-                        )
-                body.data == null ->
-                        throw OcpiServerUnusableApiException("No version detail data received")
-                else -> return body.data
-            }
-        } catch (e: JsonProcessingException) {
-            throw OcpiServerUnusableApiException(
-                    "Failed to parse version details response: ${e.message}"
-            )
-        } catch (e: Exception) {
-            throw OcpiServerUnusableApiException(
-                    "Failed to request version details from $url: ${e.message}"
-            )
-        }
-    }
-
-    /**
-     * Makes a POST request to an OCN Node's message endpoint. Used to forward requests to OCPI
-     * platforms without a direct local connection.
-     *
-     * @param url The base URL of the OCN node
-     * @param headers The OCN-specific message headers
-     * @param body The request body as a string
-     * @return OcpiHttpResponse containing the parsed response of type T
-     * @throws OcpiServerGenericException if the request fails or response cannot be parsed
-     */
-    fun <T : Any> postOcnMessage(
-            url: String,
-            headers: OcnMessageHeaders,
-            body: String
-    ): OcpiHttpResponse<T> {
-        val fullUrl = urlJoin(url, OCN_MESSAGE_ENDPOINT)
-
-        try {
-            val response =
-                    sendHttpRequest(
-                            endpoint = fullUrl,
-                            method = HttpMethod.POST,
-                            body = body,
-                            headers = headers.toMap()
-                    )
-
-            return OcpiHttpResponse(
-                    statusCode = response.statusCode.value,
-                    headers = response.headers.toMap().mapValues { it.value.toString() },
-                    body = mapper.readValue(response.body)
-            )
-        } catch (e: JsonParseException) {
-            throw OcpiServerGenericException("Failed to parse OCN message response: ${e.message}")
-        } catch (e: Exception) {
-            throw OcpiServerGenericException("Failed to post OCN message: ${e.message}")
-        }
-    }
-
-    /**
-     * Updates the OCN client information by sending a PUT request to the specified URL.
-     *
-     * @param url The base URL of the OCN node to which the client information is being updated.
-     * @param signature The OCN-specific signature used to authorize the request.
-     * @param body The details of the client being updated, encapsulated in a `ClientInfo` object.
-     */
-    fun putOcnClientInfo(url: String, signature: String, body: ClientInfo) {
-        val headers = mapOf("OCN-Signature" to signature)
-        val endpoint = urlJoin(url, "/ocn/client-info")
-        val bodyString = mapper.writeValueAsString(body)
-        sendHttpRequest(endpoint, HttpMethod.PUT, bodyString, headers)
-    }
-
-    /**
-     * Sends a GraphQL query to the specified URL to fetch a list of parties from the indexed OCN
-     * registry.
-     *
-     * @param url The endpoint URL to send the GraphQL request.
-     * @param authorization The bearer token used for authorization with the specified URL.
-     * @param query The GraphQL query string to execute.
-     * @return A ControllerResponse containing a list of Party objects if the operation is
-     * successful,
-     * ```
-     *         or an error message in case of failure.
-     * ```
-     */
-    fun getIndexedOcnRegistry(
-            url: String,
-            authorization: String,
-            query: String
-    ): ControllerResponse<GqlPartiesAndOpsData> = runBlocking {
-        try {
-            val query =
-                    GqlQuery(
-                            query = query.trimIndent(),
-                            operationName = "Subgraphs",
-                            variables = emptyMap()
-                    )
-
-            val response =
-                    sendHttpRequest(
-                            endpoint = url,
-                            method = HttpMethod.POST,
-                            body = Json.Default.encodeToString(query),
-                            headers =
-                                    mapOf(
-                                            HttpHeaders.Authorization to "Bearer $authorization",
-                                            HttpHeaders.ContentType to
-                                                    ContentType.Application.Json.toString()
-                                    )
-                    )
-
-            if (!response.statusCode.isSuccess()) {
-                return@runBlocking ControllerResponse(
-                        false,
-                        null,
-                        "getIndexedOcnRegistry returned HTTP ${response.statusCode}; Error: ${response.body}"
-                )
-            }
-
-            val queryResult: GqlResponse<GqlPartiesAndOpsData> =
-                    Json.Default.decodeFromString(response.body)
-
-            return@runBlocking when {
-                // Error
-                queryResult.errors != null ->
-                        ControllerResponse(
-                                false,
+                        CurlLogger.logCurlCommand(
+                                HttpMethod.GET,
+                                url,
+                                headers,
                                 null,
-                                "getIndexedOcnRegistry query error: ${queryResult.errors}"
+                                properties.logCurlCommands
                         )
-                // Success
-                queryResult.data != null -> ControllerResponse(true, queryResult.data)
-                // Undefined behaviour
-                else -> ControllerResponse(false, null, "No data received from the GraphQL query")
-            }
-        } catch (e: Exception) {
-            ControllerResponse(false, null, "Unexpected error: ${e.message}")
+
+                        val response =
+                                sendHttpRequest(
+                                        endpoint = url,
+                                        method = HttpMethod.GET,
+                                        headers = headers
+                                )
+
+                        val body: OcpiResponse<List<Version>> = mapper.readValue(response.body)
+
+                        when {
+                                !response.statusCode.toString().startsWith("2") ->
+                                        throw OcpiServerUnusableApiException(
+                                                "Unexpected HTTP status code: ${response.statusCode}"
+                                        )
+                                body.statusCode != 1000 ->
+                                        throw OcpiServerUnusableApiException(
+                                                "Unexpected OCPI status code: ${body.statusCode} - ${body.statusMessage}"
+                                        )
+                                body.data == null ->
+                                        throw OcpiServerUnusableApiException(
+                                                "No version data received"
+                                        )
+                                else -> return body.data
+                        }
+                } catch (e: JsonProcessingException) {
+                        throw OcpiServerUnusableApiException(
+                                "Failed to parse response: ${e.message}"
+                        )
+                } catch (e: Exception) {
+                        throw OcpiServerUnusableApiException(
+                                "Failed to request from $url: ${e.message}"
+                        )
+                }
         }
-    }
 
-    /**
-     */
-    fun getIndexedOcnRegistryCertificates(
-            url: String,
-            authorization: String,
-            query: String
-    ): ControllerResponse<GqlCertificateData> = runBlocking {
-        try {
-            val query =
-                    GqlQuery(
-                            query = query.trimIndent(),
-                            operationName = "Subgraphs",
-                            variables = emptyMap()
-                    )
+        open fun checkVersionsHealth(url: String): List<Version> {
+                try {
+                        val response =
+                                sendHttpRequest(
+                                        endpoint = url,
+                                        method = HttpMethod.GET,
+                                        headers =
+                                                mapOf(
+                                                        "X-Correlation-ID" to generateUUIDv4Token(),
+                                                        "X-Request-ID" to generateUUIDv4Token()
+                                                )
+                                )
 
-            val response =
-                    sendHttpRequest(
-                            endpoint = url,
-                            method = HttpMethod.POST,
-                            body = Json.Default.encodeToString(query),
-                            headers =
-                                    mapOf(
-                                            HttpHeaders.Authorization to "Bearer $authorization",
-                                            HttpHeaders.ContentType to
-                                                    ContentType.Application.Json.toString()
-                                    )
-                    )
+                        val body: OcpiResponse<List<Version>> = mapper.readValue(response.body)
 
-            if (!response.statusCode.isSuccess()) {
-                return@runBlocking ControllerResponse(
-                        false,
-                        null,
-                        "getIndexedOcnRegistryCertificates returned HTTP ${response.statusCode}; Error: ${response.body}"
-                )
-            }
+                        when {
+                                !response.statusCode.toString().startsWith("2") ->
+                                        throw OcpiServerUnusableApiException(
+                                                "Unexpected HTTP status code: ${response.statusCode}"
+                                        )
+                                body.statusCode != 1000 ->
+                                        throw OcpiServerUnusableApiException(
+                                                "Unexpected OCPI status code: ${body.statusCode} - ${body.statusMessage}"
+                                        )
+                                body.data == null ->
+                                        throw OcpiServerUnusableApiException(
+                                                "No version data received"
+                                        )
+                                else -> return body.data
+                        }
+                } catch (e: JsonProcessingException) {
+                        throw OcpiServerUnusableApiException(
+                                "Failed to parse response: ${e.message}"
+                        )
+                } catch (e: Exception) {
+                        throw OcpiServerUnusableApiException(
+                                "Failed to request from $url: ${e.message}"
+                        )
+                }
+        }
 
-            val queryResult: GqlResponse<GqlCertificateData> =
-                    Json.Default.decodeFromString(response.body)
+        /**
+         * Retrieves the version details from the specified URL using the provided authorization
+         * token.
+         *
+         * @param url The endpoint URL to request version details from.
+         * @param authorization The authorization token required to authenticate the request.
+         * @return The version details encapsulated in a `VersionDetail` object.
+         * @throws OcpiServerUnusableApiException If the response contains an unexpected HTTP
+         * status, unexpected OCPI status code,
+         * ```
+         *        missing or invalid version detail data, or if there is an error during response parsing or request execution.
+         * ```
+         */
+        open fun getVersionDetail(url: String, authorization: String): VersionDetail {
+                try {
+                        val headers =
+                                mapOf(
+                                        "Authorization" to "Token ${authorization.toBs64String()}",
+                                        "X-Correlation-ID" to generateUUIDv4Token(),
+                                        "X-Request-ID" to generateUUIDv4Token()
+                                )
 
-            return@runBlocking when {
-                // Error
-                queryResult.errors != null ->
-                        ControllerResponse(
-                                false,
+                        CurlLogger.logCurlCommand(
+                                HttpMethod.GET,
+                                url,
+                                headers,
                                 null,
-                                "getIndexedOcnRegistryCertificates query error: ${queryResult.errors}"
+                                properties.logCurlCommands
                         )
-                // Success
-                queryResult.data != null -> ControllerResponse(true, queryResult.data)
-                // Undefined behaviour
-                else -> ControllerResponse(false, null, "No data received from the GraphQL query")
-            }
-        } catch (e: Exception) {
-            ControllerResponse(false, null, "Unexpected error: ${e.message}")
+
+                        val response =
+                                sendHttpRequest(
+                                        endpoint = url,
+                                        method = HttpMethod.GET,
+                                        headers = headers
+                                )
+
+                        val body: OcpiResponse<VersionDetail> = mapper.readValue(response.body)
+
+                        when {
+                                !response.statusCode.toString().startsWith("2") ->
+                                        throw OcpiServerUnusableApiException(
+                                                "Unexpected HTTP status code: ${response.statusCode}"
+                                        )
+                                body.statusCode != 1000 ->
+                                        throw OcpiServerUnusableApiException(
+                                                "Unexpected OCPI status code: ${body.statusCode} - ${body.statusMessage}"
+                                        )
+                                body.data == null ->
+                                        throw OcpiServerUnusableApiException(
+                                                "No version detail data received"
+                                        )
+                                else -> return body.data
+                        }
+                } catch (e: JsonProcessingException) {
+                        throw OcpiServerUnusableApiException(
+                                "Failed to parse version details response: ${e.message}"
+                        )
+                } catch (e: Exception) {
+                        throw OcpiServerUnusableApiException(
+                                "Failed to request version details from $url: ${e.message}"
+                        )
+                }
         }
-    }
+
+        /**
+         * Makes a POST request to an OCN Node's message endpoint. Used to forward requests to OCPI
+         * platforms without a direct local connection.
+         *
+         * @param url The base URL of the OCN node
+         * @param headers The OCN-specific message headers
+         * @param body The request body as a string
+         * @return OcpiHttpResponse containing the parsed response of type T
+         * @throws OcpiServerGenericException if the request fails or response cannot be parsed
+         */
+        fun <T : Any> postOcnMessage(
+                url: String,
+                headers: OcnMessageHeaders,
+                body: String
+        ): OcpiHttpResponse<T> {
+                val fullUrl = urlJoin(url, OCN_MESSAGE_ENDPOINT)
+
+                CurlLogger.logCurlCommand(
+                        HttpMethod.POST,
+                        fullUrl,
+                        headers.toMap(),
+                        body,
+                        properties.logCurlCommands
+                )
+
+                try {
+                        val response =
+                                sendHttpRequest(
+                                        endpoint = fullUrl,
+                                        method = HttpMethod.POST,
+                                        body = body,
+                                        headers = headers.toMap()
+                                )
+
+                        logger.info(
+                                "[OCN Message] Response from remote node {} — HTTP {} | body preview: {}",
+                                url, response.statusCode.value, response.body.take(200)
+                        )
+
+                        return OcpiHttpResponse(
+                                statusCode = response.statusCode.value,
+                                headers =
+                                        response.headers.toMap().mapValues { it.value.toString() },
+                                body = mapper.readValue(response.body)
+                        )
+                } catch (e: JsonParseException) {
+                        throw OcpiServerGenericException(
+                                "Failed to forward OCN message to $fullUrl: Non-OCPI response received — verify this is a valid OCPI-compliant endpoint"
+                        )
+                } catch (e: Exception) {
+                        throw OcpiServerGenericException("Failed to post OCN message: ${e.message}")
+                }
+        }
+
+        /**
+         * Updates the OCN client information by sending a PUT request to the specified URL.
+         *
+         * @param url The base URL of the OCN node to which the client information is being updated.
+         * @param signature The OCN-specific signature used to authorize the request.
+         * @param body The details of the client being updated, encapsulated in a `ClientInfo`
+         * object.
+         */
+        fun putOcnClientInfo(url: String, signature: String, body: ClientInfo) {
+                val headers = mapOf("OCN-Signature" to signature)
+                val endpoint = urlJoin(url, "/ocn/client-info")
+                val bodyString = mapper.writeValueAsString(body)
+                sendHttpRequest(endpoint, HttpMethod.PUT, bodyString, headers)
+        }
+
+        /**
+         * Sends a GraphQL query to the specified URL to fetch a list of parties from the indexed
+         * OCN registry.
+         *
+         * @param url The endpoint URL to send the GraphQL request.
+         * @param authorization The bearer token used for authorization with the specified URL.
+         * @param query The GraphQL query string to execute.
+         * @return A ControllerResponse containing a list of Party objects if the operation is
+         * successful,
+         * ```
+         *         or an error message in case of failure.
+         * ```
+         */
+        fun getIndexedOcnRegistry(
+                url: String,
+                authorization: String,
+                query: String
+        ): ControllerResponse<GqlPartiesAndOpsData> = runBlocking {
+                try {
+                        val query =
+                                GqlQuery(
+                                        query = query.trimIndent(),
+                                        operationName = "Subgraphs",
+                                        variables = emptyMap()
+                                )
+
+                        val response =
+                                sendHttpRequest(
+                                        endpoint = url,
+                                        method = HttpMethod.POST,
+                                        body = Json.Default.encodeToString(query),
+                                        headers =
+                                                mapOf(
+                                                        HttpHeaders.Authorization to
+                                                                "Bearer $authorization",
+                                                        HttpHeaders.ContentType to
+                                                                ContentType.Application.Json
+                                                                        .toString()
+                                                )
+                                )
+
+                        if (!response.statusCode.isSuccess()) {
+                                return@runBlocking ControllerResponse(
+                                        false,
+                                        null,
+                                        "getIndexedOcnRegistry returned HTTP ${response.statusCode}; Error: ${response.body}"
+                                )
+                        }
+
+                        val queryResult: GqlResponse<GqlPartiesAndOpsData> =
+                                Json.Default.decodeFromString(response.body)
+
+                        return@runBlocking when {
+                                // Error
+                                queryResult.errors != null ->
+                                        ControllerResponse(
+                                                false,
+                                                null,
+                                                "getIndexedOcnRegistry query error: ${queryResult.errors}"
+                                        )
+                                // Success
+                                queryResult.data != null ->
+                                        ControllerResponse(true, queryResult.data)
+                                // Undefined behaviour
+                                else ->
+                                        ControllerResponse(
+                                                false,
+                                                null,
+                                                "No data received from the GraphQL query"
+                                        )
+                        }
+                } catch (e: Exception) {
+                        ControllerResponse(false, null, "Unexpected error: ${e.message}")
+                }
+        }
+
+        /**
+         */
+        fun getIndexedOcnRegistryCertificates(
+                url: String,
+                authorization: String,
+                query: String
+        ): ControllerResponse<GqlCertificateData> = runBlocking {
+                try {
+                        val query =
+                                GqlQuery(
+                                        query = query.trimIndent(),
+                                        operationName = "Subgraphs",
+                                        variables = emptyMap()
+                                )
+
+                        val response =
+                                sendHttpRequest(
+                                        endpoint = url,
+                                        method = HttpMethod.POST,
+                                        body = Json.Default.encodeToString(query),
+                                        headers =
+                                                mapOf(
+                                                        HttpHeaders.Authorization to
+                                                                "Bearer $authorization",
+                                                        HttpHeaders.ContentType to
+                                                                ContentType.Application.Json
+                                                                        .toString()
+                                                )
+                                )
+
+                        if (!response.statusCode.isSuccess()) {
+                                return@runBlocking ControllerResponse(
+                                        false,
+                                        null,
+                                        "getIndexedOcnRegistryCertificates returned HTTP ${response.statusCode}; Error: ${response.body}"
+                                )
+                        }
+
+                        val queryResult: GqlResponse<GqlCertificateData> =
+                                Json.Default.decodeFromString(response.body)
+
+                        return@runBlocking when {
+                                // Error
+                                queryResult.errors != null ->
+                                        ControllerResponse(
+                                                false,
+                                                null,
+                                                "getIndexedOcnRegistryCertificates query error: ${queryResult.errors}"
+                                        )
+                                // Success
+                                queryResult.data != null ->
+                                        ControllerResponse(true, queryResult.data)
+                                // Undefined behaviour
+                                else ->
+                                        ControllerResponse(
+                                                false,
+                                                null,
+                                                "No data received from the GraphQL query"
+                                        )
+                        }
+                } catch (e: Exception) {
+                        ControllerResponse(false, null, "Unexpected error: ${e.message}")
+                }
+        }
 }

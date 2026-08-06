@@ -2,19 +2,19 @@ import org.gradle.kotlin.dsl.withType
 
 plugins {
 	kotlin("jvm") version "2.1.20"
-	kotlin("plugin.spring") version "1.9.25"
+	kotlin("plugin.spring") version "2.1.20"
 	id("org.springframework.boot") version "3.4.5"
 	id("io.spring.dependency-management") version "1.1.7"
 	id("org.asciidoctor.jvm.convert") version "3.3.2"
-	kotlin("plugin.jpa") version "1.9.25"
+	kotlin("plugin.jpa") version "2.1.20"
 	// configuration processing
-	kotlin("kapt") version "1.3.72"
+	kotlin("kapt") version "2.1.20"
 	// json serialization
 	kotlin("plugin.serialization") version "2.1.20"
 }
 
 group = "snc.openchargingnetwork"
-version = "ocn-v3"
+version = "ocn-v2"
 
 
 extra["snippetsDir"] = file("build/generated-snippets")
@@ -24,6 +24,13 @@ java {
 		languageVersion = JavaLanguageVersion.of(21)
 	}
 }
+
+kotlin {
+	compilerOptions {
+		jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21
+	}
+}
+
 
 
 repositories {
@@ -43,6 +50,7 @@ dependencies {
 	}
 	testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
 	testImplementation("org.springframework.restdocs:spring-restdocs-mockmvc")
+	testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
 	// Project-Specific
@@ -56,12 +64,59 @@ dependencies {
 	kapt("org.springframework.boot:spring-boot-configuration-processor")
 	implementation("io.ktor:ktor-client-core:3.1.3")
 	implementation("io.ktor:ktor-client-cio:3.1.3")
+
+	// Swagger/OpenAPI
+	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.7.0")
+	implementation("io.swagger.core.v3:swagger-annotations:2.2.20")
 }
 
 allOpen {
 	annotation("jakarta.persistence.Entity")
 	annotation("jakarta.persistence.MappedSuperclass")
 	annotation("jakarta.persistence.Embeddable")
+}
+
+tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
+	manifest {
+		attributes(
+			mapOf(
+				"Main-Class" to "org.springframework.boot.loader.launch.PropertiesLauncher",
+				"Start-Class" to "snc.openchargingnetwork.node.ApplicationKt",
+			)
+		)
+	}
+}
+
+val pluginsDir = layout.projectDirectory.dir("plugins")
+
+tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
+	dependsOn("bootJar")
+	mainClass.set("org.springframework.boot.loader.launch.PropertiesLauncher")
+	val bootJarFile = tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar").get().archiveFile
+	classpath = files(bootJarFile)
+	// Any plugin JARs dropped into plugins/ are loaded via PropertiesLauncher.
+	val loaderPath = pluginsDir.asFile.absolutePath
+	jvmArgs(
+		"-Dloader.path=$loaderPath",
+		"-Dloader.main=snc.openchargingnetwork.node.ApplicationKt",
+		"-Dspring.devtools.restart.enabled=false",
+	)
+	doFirst {
+		pluginsDir.asFile.mkdirs()
+		val pluginJars =
+			pluginsDir.asFile.listFiles()
+				?.filter { it.isFile && it.name.endsWith(".jar") }
+				?.map { it.name }
+				?.sorted()
+				.orEmpty()
+		if (pluginJars.isEmpty()) {
+			logger.lifecycle(
+				"bootRun loader.path=$loaderPath (no plugin JARs — copy any plugin JARs into plugins/ to enable them)"
+			)
+		} else {
+			logger.lifecycle("bootRun loader.path=$loaderPath ($pluginJars)")
+		}
+	}
 }
 
 tasks.withType<Test> {
@@ -113,7 +168,10 @@ tasks.register("bootRunLocalMiniKube") {
 val test: Test by tasks
 test.apply {
 	description = "Runs OCN Node unit and integration tests (note: integration tests depend on ganache-cli running)."
-	dependsOn("unitTest", "integrationTest")
+	dependsOn("unitTest")
+	if ((project.findProperty("includeIntegrationTests")?.toString()?.toBoolean() == true) || System.getenv("CI") == "true") {
+		dependsOn("integrationTest")
+	}
 	outputs.dir(project.extra["snippetsDir"]!!)
 }
 
@@ -129,6 +187,7 @@ tasks.register<Test>("integrationTest") {
 	description = "Runs OCN Node integration tests (note: depends on a ganache-cli process running)."
 	useJUnitPlatform()
 	include("**/integration/**")
+	shouldRunAfter("unitTest")
 }
 
 tasks.register<Tar>("archive") {

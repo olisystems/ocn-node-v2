@@ -24,6 +24,7 @@ import snc.openchargingnetwork.node.models.ocpi.BasicRole
 import snc.openchargingnetwork.node.models.ocpi.InterfaceRole
 import snc.openchargingnetwork.node.models.ocpi.ModuleID
 import snc.openchargingnetwork.node.models.ocpi.Role
+import snc.openchargingnetwork.node.models.ocpi.SignatureVerificationStatus
 import java.math.BigInteger
 
 data class OcnMessageHeaders(
@@ -48,15 +49,23 @@ data class OcnHeaders(
     @JsonProperty("X-Request-ID") val requestID: String,
     @JsonProperty("X-Correlation-ID") val correlationID: String,
     val sender: BasicRole,
-    val receiver: BasicRole
+    val receiver: BasicRole,
+    @JsonProperty("OCN-Verification-Status")
+    var verificationStatus: String? = SignatureVerificationStatus.NOT_PRESENTED.name,
+    @JsonProperty("test-tool-origin")
+    val testToolOrigin: Boolean? = null
 ) {
 
     fun toMap(routingHeaders: Boolean = true): MutableMap<String, String?> {
         val map = mutableMapOf<String, String?>()
         map["Authorization"] = authorization
         map["OCN-Signature"] = signature
+        map["OCN-Verification-Status"] = verificationStatus ?: SignatureVerificationStatus.NOT_PRESENTED.name
         map["X-Request-ID"] = requestID
         map["X-Correlation-ID"] = correlationID
+        if (testToolOrigin != null) {
+            map["test-tool-origin"] = testToolOrigin.toString()
+        }
         if (routingHeaders) {
             map["OCPI-from-country-code"] = sender.country
             map["OCPI-from-party-id"] = sender.id
@@ -64,6 +73,14 @@ data class OcnHeaders(
             map["OCPI-to-party-id"] = receiver.id
         }
         return map
+    }
+
+    /** Headers safe to expose to plugin event listeners (excludes Authorization / tokens). */
+    fun toPluginEventHeaders(routingHeaders: Boolean = true): Map<String, String> {
+        return toMap(routingHeaders)
+                .filterKeys { !it.equals("Authorization", ignoreCase = true) }
+                .filterValues { it != null }
+                .mapValues { it.value!! }
     }
 
     fun toSignedHeaders(): SignableHeaders {

@@ -20,26 +20,27 @@ import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonProperty
 import jakarta.persistence.Embeddable
 import jakarta.persistence.Embedded
+import java.math.BigInteger
+import java.time.Instant
+import java.time.format.DateTimeFormatter
 import org.springframework.http.HttpMethod
 import shareandcharge.openchargingnetwork.notary.ValuesToSign
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.exceptions.OcpiClientInvalidParametersException
-import java.math.BigInteger
-import java.time.Instant
-import java.time.format.DateTimeFormatter
-
 
 // TODO: rename to avoid confusion?
 // BasicParty may be a better description
 @Embeddable
 data class BasicRole(
-    @JsonProperty("party_id") final val id: String,
-    @JsonProperty("country_code") final val country: String
+        @JsonProperty("party_id") final val id: String,
+        @JsonProperty("country_code") final val country: String
 ) {
 
     init {
         if (country.length != 2) {
-            throw OcpiClientInvalidParametersException("Given country_code \"$country\" not 2 characters")
+            throw OcpiClientInvalidParametersException(
+                    "Given country_code \"$country\" not 2 characters"
+            )
         }
         if (id.length != 3) {
             throw OcpiClientInvalidParametersException("Given party-id \"$id\" not 3 characters")
@@ -51,19 +52,18 @@ data class BasicRole(
     }
 }
 
-
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class OcpiRequestVariables(
-    @JsonProperty("module") val module: ModuleID,
-    @JsonProperty("interface_role") val interfaceRole: InterfaceRole,
-    @JsonProperty("method") val method: HttpMethod,
-    @JsonProperty("headers") val headers: OcnHeaders,
-    @JsonProperty("url_path") val urlPath: String? = null,
-    @JsonProperty("query_params") val queryParams: Map<String, Any?>? = null,
-    @JsonProperty("proxy_uid") val proxyUID: String? = null,
-    @JsonProperty("proxy_resource") val proxyResource: String? = null,
-    @JsonProperty("custom_module_id") val customModuleId: String? = null,
-    @JsonProperty("body") val body: Any? = null
+        @JsonProperty("module") val module: ModuleID,
+        @JsonProperty("interface_role") val interfaceRole: InterfaceRole,
+        @JsonProperty("method") val method: HttpMethod,
+        @JsonProperty("headers") val headers: OcnHeaders,
+        @JsonProperty("url_path") val urlPath: String? = null,
+        @JsonProperty("query_params") val queryParams: Map<String, Any?>? = null,
+        @JsonProperty("proxy_uid") val proxyUID: String? = null,
+        @JsonProperty("proxy_resource") val proxyResource: String? = null,
+        @JsonProperty("custom_module_id") val customModuleId: String? = null,
+        @JsonProperty("body") val body: Any? = null
 ) {
 
     init {
@@ -76,11 +76,7 @@ data class OcpiRequestVariables(
     }
 
     fun toSignedValues(): ValuesToSign<*> {
-        return ValuesToSign(
-            headers = headers.toSignedHeaders(),
-            params = queryParams,
-            body = body
-        )
+        return ValuesToSign(headers = headers.toSignedHeaders(), params = queryParams, body = body)
     }
 
     fun resolveModuleId(): String {
@@ -90,52 +86,48 @@ data class OcpiRequestVariables(
             customModuleId!!
         }
     }
-
 }
 
-
 data class RegistrationInfo(
-    @JsonProperty("token") val token: String,
-    @JsonProperty("versions") val versions: String
+        @JsonProperty("id") val id: Long,
+        @JsonProperty("token") val token: String,
+        @JsonProperty("versions") val versions: String
 )
-
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class OcpiResponse<T>(
-    @JsonProperty("status_code") val statusCode: Int,
-    @JsonProperty("status_message") val statusMessage: String? = null,
-    @JsonProperty("data") val data: T? = null,
-    @JsonProperty("timestamp") val timestamp: String = DateTimeFormatter.ISO_INSTANT.format(Instant.now()),
-    @JsonProperty("ocn_signature") var signature: String? = null
+        @JsonProperty("status_code") val statusCode: Int,
+        @JsonProperty("status_message") val statusMessage: String? = null,
+        @JsonProperty("data") val data: T? = null,
+        @JsonProperty("timestamp")
+        val timestamp: String = DateTimeFormatter.ISO_INSTANT.format(Instant.now()),
+        @JsonProperty("ocn_signature") var signature: String? = null,
+        @JsonProperty("ocn_verification_status") var verificationStatus: String? = null
 )
-
 
 @Embeddable
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class BusinessDetails(
-    @JsonProperty("name") val name: String,
-    @JsonProperty("website") val website: String? = null,
-    @Embedded @JsonProperty("logo") val logo: Image? = null
+        @JsonProperty("name") val name: String,
+        @JsonProperty("website") val website: String? = null,
+        @Embedded @JsonProperty("logo") val logo: Image? = null
 )
-
 
 @Embeddable
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class Image(
-    @JsonProperty("url") val url: String,
-    @JsonProperty("thumbnail") val thumbnail: String? = null,
-    @JsonProperty("category") val category: ImageCategory,
-    @JsonProperty("type") val type: String,
-    @JsonProperty("width") val width: Int? = null,
-    @JsonProperty("height") val height: Int? = null
+        @JsonProperty("url") val url: String,
+        @JsonProperty("thumbnail") val thumbnail: String? = null,
+        @JsonProperty("category") val category: ImageCategory,
+        @JsonProperty("type") val type: String,
+        @JsonProperty("width") val width: Int? = null,
+        @JsonProperty("height") val height: Int? = null
 )
-
 
 data class DisplayText(
-    @JsonProperty("language") val language: String,
-    @JsonProperty("text") val text: String
+        @JsonProperty("language") val language: String,
+        @JsonProperty("text") val text: String
 )
-
 
 enum class OcpiStatus(val code: Int) {
     SUCCESS(1000),
@@ -149,11 +141,11 @@ enum class OcpiStatus(val code: Int) {
     SERVER_UNUSABLE_API(3001),
     SERVER_UNSUPPORTED_VERSION(3002),
     SERVER_NO_MATCHING_ENDPOINTS(3003),
+    HUB_GENERIC_ERROR(4000),
     HUB_UNKNOWN_RECEIVER(4001),
     HUB_REQUEST_TIMEOUT(4002),
     HUB_CONNECTION_PROBLEM(4003)
 }
-
 
 enum class ConnectionStatus {
     CONNECTED,
@@ -161,7 +153,6 @@ enum class ConnectionStatus {
     PLANNED,
     SUSPENDED
 }
-
 
 enum class ModuleID(val id: String) {
     CDRS("cdrs"),
@@ -177,7 +168,6 @@ enum class ModuleID(val id: String) {
     VERSIONS("versions")
 }
 
-
 enum class InterfaceRole(val id: String) {
     SENDER(id = "sender"),
     RECEIVER(id = "receiver");
@@ -190,11 +180,12 @@ enum class InterfaceRole(val id: String) {
         fun resolve(role: String): InterfaceRole {
             val values = values()
             return values.find { it.id.lowercase() == role }
-                ?: throw OcpiClientInvalidParametersException("No interface $role found. Expected one of $values.")
+                    ?: throw OcpiClientInvalidParametersException(
+                            "No interface $role found. Expected one of $values."
+                    )
         }
     }
 }
-
 
 enum class Role {
     CPO,
@@ -214,9 +205,7 @@ enum class Role {
             return values()[index.intValueExact()]
         }
     }
-
 }
-
 
 enum class ImageCategory {
     CHARGER,
@@ -228,9 +217,15 @@ enum class ImageCategory {
     OWNER
 }
 
-
 enum class AuthMethod {
     AUTH_REQUEST,
     COMMAND,
     WHITELIST
+}
+
+
+enum class SignatureVerificationStatus {
+    VERIFIED,
+    VERIFICATION_FAILED,
+    NOT_PRESENTED
 }

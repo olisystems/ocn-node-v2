@@ -28,6 +28,10 @@ import snc.openchargingnetwork.node.models.exceptions.OcpiClientInvalidParameter
 import snc.openchargingnetwork.node.models.exceptions.OcpiServerGenericException
 import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
 import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
+import snc.openchargingnetwork.node.models.ocpi.SignatureVerificationStatus
+import org.springframework.context.ApplicationEventPublisher
+import snc.openchargingnetwork.node.plugins.core.OcpiObjectEvent
+import snc.openchargingnetwork.node.plugins.core.OcpiObjectEventPhase
 import snc.openchargingnetwork.node.services.HubClientInfoService
 import snc.openchargingnetwork.node.services.RegistryService
 import snc.openchargingnetwork.node.services.RoutingService
@@ -45,6 +49,7 @@ class OcpiResponseHandlerBuilder(
     private val hubClientInfoService: HubClientInfoService,
     private val properties: NodeProperties,
     private val haasProperties: HaasProperties,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
 
     /**
@@ -53,15 +58,17 @@ class OcpiResponseHandlerBuilder(
      * @param request the OCPI HTTP request as OcpiRequestVariables.
      * @param response the OCPI HTTP response as HttpResponse<T>
      * @param knownSender is the sender of the request known to this node?
+     * @param requestVerificationStatus signature verification result for the original request.
      */
     fun <T : Any> build(
         request: OcpiRequestVariables,
         response: OcpiHttpResponse<T>,
-        knownSender: Boolean = true
+        knownSender: Boolean = true,
+        requestVerificationStatus: SignatureVerificationStatus? = null
     ): OcpiResponseHandler<T> {
         return OcpiResponseHandler(
-            request, response, knownSender, routingService, registryService,
-            properties, haasProperties, hubClientInfoService
+            request, response, knownSender, requestVerificationStatus, routingService, registryService,
+            properties, haasProperties, hubClientInfoService, eventPublisher
         )
     }
 
@@ -76,11 +83,13 @@ class OcpiResponseHandler<T : Any>(
     request: OcpiRequestVariables,
     private val response: OcpiHttpResponse<T>,
     private val knownSender: Boolean,
+    private val requestVerificationStatus: SignatureVerificationStatus?,
     routingService: RoutingService,
     registryService: RegistryService,
     properties: NodeProperties,
     haasProperties: HaasProperties,
-    hubClientInfoService: HubClientInfoService
+    hubClientInfoService: HubClientInfoService,
+    private val eventPublisher: ApplicationEventPublisher
 ) :
     OcpiMessageHandler(request, properties, haasProperties, routingService, registryService) {
 
@@ -90,8 +99,15 @@ class OcpiResponseHandler<T : Any>(
 
     init {
         validateResponseSignature()
+        applyRequestVerificationStatus()
+        stripOcnFieldsIfSigningDisabled()
         if (isOcpiSuccess() && routingService.isRoleKnown(request.headers.receiver)) { // only renew connection of known recipients
             hubClientInfoService.renewClientConnection(request.headers.receiver)
+        }
+        try {
+            publishResponseDataEvent()
+        } catch (e: Exception) {
+            logger.warn("Failed to publish response data OcpiObjectEvent: ${e.message}")
         }
     }
 
@@ -120,7 +136,9 @@ class OcpiResponseHandler<T : Any>(
 
                 response.headers["X-Total-Count"]?.let { headers["X-Total-Count"] = it }
                 response.headers["X-Limit"]?.let { headers["X-Limit"] = it }
-                response.headers["OCN-Signature"]?.let { headers["OCN-Signature"] = it }
+                if (isSigningActive(request.headers.sender)) {
+                    response.headers["OCN-Signature"]?.let { headers["OCN-Signature"] = it }
+                }
 
                 response.headers["Link"]?.let {
                     it.extractNextLink()?.let { next ->
@@ -206,6 +224,59 @@ class OcpiResponseHandler<T : Any>(
      */
     private fun isOcpiSuccess(): Boolean {
         return response.statusCode == 200 && response.body?.statusCode == 1000
+    }
+
+    private fun applyRequestVerificationStatus() {
+        // Skip verification status when signing is disabled to ensure clean OCPI responses
+        if (!isSigningActive()) return
+        val statusName = requestVerificationStatus?.name ?: return
+        if (response.body?.verificationStatus == null) {
+            response.body?.verificationStatus = statusName
+        }
+    }
+
+    private fun publishResponseDataEvent() {
+        val data = response.body?.data ?: return
+        objectEventPayloads(data).forEach { (index, item) ->
+            eventPublisher.publishEvent(
+                OcpiObjectEvent(
+                    phase = OcpiObjectEventPhase.RESPONSE_DATA,
+                    module = request.module,
+                    interfaceRole = request.interfaceRole,
+                    method = request.method,
+                    urlPath = request.urlPath,
+                    customModuleId = request.customModuleId,
+                    queryParams = request.queryParams ?: emptyMap(),
+                    payload = item,
+                    payloadIndex = index,
+                    fromPartyId = request.headers.sender.id,
+                    fromCountryCode = request.headers.sender.country,
+                    toPartyId = request.headers.receiver.id,
+                    toCountryCode = request.headers.receiver.country,
+                    headers = request.headers.toPluginEventHeaders(),
+                    responseStatusCode = response.statusCode,
+                    ocpiStatusCode = response.body?.statusCode
+                )
+            )
+        }
+    }
+
+    private fun objectEventPayloads(payload: Any): List<Pair<Int?, Any>> =
+        when (payload) {
+            is Array<*> -> payload.mapIndexedNotNull { index, item -> item?.let { index to it } }
+            is Iterable<*> -> payload.mapIndexedNotNull { index, item -> item?.let { index to it } }
+            else -> listOf(null to payload)
+        }
+
+    /**
+     * Strip OCN-specific fields from response when signing is disabled.
+     * This ensures clean OCPI-compliant responses without ocn_signature and ocn_verification_status.
+     */
+    private fun stripOcnFieldsIfSigningDisabled() {
+        if (!isSigningActive()) {
+            response.body?.signature = null
+            response.body?.verificationStatus = null
+        }
     }
 
     /**

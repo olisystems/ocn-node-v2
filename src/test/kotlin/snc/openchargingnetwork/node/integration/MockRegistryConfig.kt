@@ -4,6 +4,7 @@ import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
 import snc.openchargingnetwork.node.components.OcnRegistryComponent
+import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.config.RegistryIndexerProperties
 import snc.openchargingnetwork.node.models.CvStatus
 import snc.openchargingnetwork.node.models.OcnRegistry
@@ -21,7 +22,8 @@ class MockRegistryConfig {
     return object :
             OcnRegistryComponent(
                     httpClientComponent = createMockHttpClientComponent(),
-                    registryIndexerProperties = createMockRegistryIndexerProperties()
+                    registryIndexerProperties = createMockRegistryIndexerProperties(),
+                    nodeProperties = createMockNodeProperties()
             ) {
       override fun getRegistry(forceReload: Boolean): OcnRegistry {
         return createMockRegistry()
@@ -31,7 +33,12 @@ class MockRegistryConfig {
 
   private fun createMockHttpClientComponent():
           snc.openchargingnetwork.node.components.HttpClientComponent {
-    return object : snc.openchargingnetwork.node.components.HttpClientComponent() {
+    val mockProperties = NodeProperties().apply {
+      logCurlCommands = false
+      privateKey = "1111111111111111111111111111111111111111111111111111111111111111"
+      url = "http://localhost:8080"
+    }
+    return object : snc.openchargingnetwork.node.components.HttpClientComponent(mockProperties) {
       // Mock implementation - not used since we override getRegistry
     }
   }
@@ -40,6 +47,15 @@ class MockRegistryConfig {
     return RegistryIndexerProperties().apply {
       url = "https://mock-registry.com"
       token = "mock-token"
+    }
+  }
+
+  private fun createMockNodeProperties(): NodeProperties {
+    return NodeProperties().apply {
+      logCurlCommands = false
+      privateKey = "1111111111111111111111111111111111111111111111111111111111111111"
+      url = "http://localhost:8080"
+      apiPrefix = "ocn-v2"
     }
   }
 

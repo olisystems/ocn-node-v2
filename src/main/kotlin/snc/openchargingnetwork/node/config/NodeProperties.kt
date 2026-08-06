@@ -25,6 +25,10 @@ class NodeProperties {
     // development mode
     var dev: Boolean = false
 
+    // Node's OCPI identity
+    var countryCode: String? = null
+    var partyId: String? = null
+
     // admin key used for remote management
     var apikey: String = generateUUIDv4Token()
 
@@ -33,6 +37,10 @@ class NodeProperties {
 
     // Ethereum account to sign messages and txs
     var privateKey: String? = null
+
+    // Public address of the Ethereum account and the Node itself (should not be calculated from
+    // private key because only cluster should have the official Node PrivateKey)
+    var publicAddress: String? = null
 
     // Enable signature checking from communicating parties and nodes
     var signatures: Boolean = true
@@ -49,4 +57,19 @@ class NodeProperties {
 
     // If Enabled runs the enhanced hub client info sync task (includes pull + push operations)
     var hubClientInfoSyncEnabled: Boolean = false
+
+    // If Enabled logs full curl commands for forwarded OCPI requests (includes tokens/sensitive
+    // data)
+    var logCurlCommands: Boolean = false
+
+    // If Enabled logs full headers of received requests on forwarding endpoints
+    var logFullHeaders: Boolean = false
+
+    // Additional receiver party for Tokens receiver-interface requests (optional)
+    var tokensAdditionalReceiverCountryCode: String? = null
+    var tokensAdditionalReceiverPartyId: String? = null
+
+    // Additional receiver party for Sessions receiver-interface requests (optional)
+    var sessionsAdditionalReceiverCountryCode: String? = null
+    var sessionsAdditionalReceiverPartyId: String? = null
 }

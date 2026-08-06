@@ -30,6 +30,7 @@
 # Gradle
 .idea/**/gradle.xml
 .idea/**/libraries
+.gradle-cache
 
 # Gradle and Maven with auto-import
 # When using Gradle or Maven with auto-import, you should exclude module files,
@@ -89,6 +90,11 @@ fabric.properties
 !.idea/codeStyles
 !.idea/runConfigurations
 
+.vscode/
+.editorconfig
+
+.windsurf/
+.devin/
 ### Kotlin ###
 # Compiled class file
 *.class
@@ -164,7 +170,7 @@ gradle-app.setting
 
 ### macOS ###
 # General
-.DS_Store
+**/.DS_Store
 .AppleDouble
 .LSOverride
 
@@ -198,8 +204,14 @@ Temporary Items
 # End of https://www.toptal.com/developers/gitignore/api/macos
 
 # local properties
-application-localMinikube.properties
+application-local-custom.properties
 
 # Kotlin compiler files
 .kotlin/
 *.kotlin_module
+
+# start and stop scripts
+
+
+# other local files
+local

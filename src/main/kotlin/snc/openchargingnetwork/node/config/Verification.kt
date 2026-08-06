@@ -62,7 +62,7 @@ class Verification(
 
     @EventListener(ApplicationReadyEvent::class)
     fun testPublicURL() {
-        val url = URI(this.properties.url + "/" + this.properties.apiPrefix).toURL()
+        val url = URI(urlJoin(this.properties.url, this.properties.apiPrefix)).toURL()
 
         val inetAddress =
                 try {
@@ -83,28 +83,9 @@ class Verification(
                 )
             }
         }
-
-        this.testHealth()
     }
 
-    private fun testHealth() {
-        val healthURL = urlJoin(this.properties.url, this.properties.apiPrefix, "/health")
-
-        try {
-            val response = httpClientComponent.sendHttpRequest(healthURL.toString(), HttpMethod.GET)
-            if (!response.statusCode.isSuccess()) {
-                logger.warn("${response.body}. Application stack may not be healthy.")
-            }
-        } catch (e: ConnectException) {
-            throw IllegalArgumentException("Unable to connect. Ensure $healthURL is reachable.")
-        } catch (e: SSLException) {
-            throw IllegalArgumentException(
-                    "Experienced SSL exception. Ensure $healthURL has correct certificates."
-            )
-        } catch (e: Exception) {
-            throw e
-        }
-    }
+   
 
     private fun testRegistryAccess() {
         val query =
@@ -135,10 +116,11 @@ class Verification(
                 )
 
         if (!response.success) {
-            throw IllegalArgumentException(
+            logger.error(
                     "Unable to connect to Registry Indexer. " +
                             "Ensure ${registryIndexerProperties.url} is reachable. " +
-                            "Reason: ${response.error}"
+                            "Reason: ${response.error}. " +
+                            "The node will continue running but registry features may be unavailable."
             )
         }
     }

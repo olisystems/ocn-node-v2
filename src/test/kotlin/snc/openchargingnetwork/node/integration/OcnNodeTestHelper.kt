@@ -16,6 +16,7 @@ import snc.openchargingnetwork.node.Application
 class OcnNodeTestHelper {
 
   private val runningNodes = mutableMapOf<String, ConfigurableApplicationContext>()
+  private val nodePorts = mutableMapOf<String, Int>()
 
   /**
    * Starts a new OCN node with the specified configuration
@@ -35,13 +36,14 @@ class OcnNodeTestHelper {
     // Base configuration for integration tests
     val baseConfig =
             mapOf(
+                    "spring.application.name" to "ocn-node-$nodeId-${System.nanoTime()}",
                     "spring.profiles.active" to "test",
                     "server.port" to port.toString(),
                     "server.address" to "127.0.0.1",
                     "spring.jpa.hibernate.ddl-auto" to "create-drop",
                     "spring.jpa.database-platform" to "org.hibernate.dialect.H2Dialect",
                     "spring.jpa.properties.hibernate.temp.use_jdbc_metadata_defaults" to "false",
-                    "spring.datasource.url" to "jdbc:h2:mem:${nodeId}-db;DB_CLOSE_DELAY=-1",
+                    "spring.datasource.url" to "jdbc:h2:mem:${nodeId}-${System.nanoTime()};DB_CLOSE_DELAY=-1",
                     "spring.datasource.username" to "sa",
                     "spring.datasource.password" to "",
                     "spring.datasource.driver-class-name" to "org.h2.Driver",
@@ -56,7 +58,9 @@ class OcnNodeTestHelper {
                     "ocn.hass.enabled" to "false",
                     "ocn.haas.url" to "http://localhost:9092/haas",
                     "logging.level.web" to "DEBUG",
-                    "logging.level.snc.openchargingnetwork" to "DEBUG"
+                    "logging.level.snc.openchargingnetwork" to "DEBUG",
+                    "ocn.node.stillAliveEnabled" to "false",
+                    "ocn.node.hubClientInfoSyncEnabled" to "false"
             )
 
     // Merge with provided config
@@ -65,13 +69,16 @@ class OcnNodeTestHelper {
     environment.propertySources.addFirst(MapPropertySource("integration-test-config", mergedConfig))
 
     val application =
-            SpringApplicationBuilder(Application::class.java)
+            SpringApplicationBuilder(Application::class.java, DynamicNodeRegistryConfig::class.java)
                     .web(WebApplicationType.SERVLET)
                     .environment(environment)
+                    .properties("spring.main.allow-bean-definition-overriding=true")
+                    .registerShutdownHook(false)
                     .build()
 
     val context = application.run()
     runningNodes[nodeId] = context
+    nodePorts[nodeId] = port
 
     // Wait for the application to start
     waitForNodeToStart(port)
@@ -111,16 +118,34 @@ class OcnNodeTestHelper {
    * @param nodeId The ID of the node to stop
    */
   fun stopNode(nodeId: String) {
+    val port = nodePorts[nodeId]
     runningNodes[nodeId]?.let { context ->
       context.close()
       runningNodes.remove(nodeId)
+      nodePorts.remove(nodeId)
+      if (port != null) waitForPortRelease(port)
     }
   }
 
   /** Stops all running nodes */
   fun stopAllNodes() {
+    val ports = nodePorts.values.toList()
     runningNodes.values.forEach { it.close() }
     runningNodes.clear()
+    nodePorts.clear()
+    ports.forEach { waitForPortRelease(it) }
+  }
+
+  private fun waitForPortRelease(port: Int) {
+    val maxWaitMs = 10000L
+    val startTime = System.currentTimeMillis()
+    while (System.currentTimeMillis() - startTime < maxWaitMs) {
+      try {
+        java.net.ServerSocket(port).use { return }
+      } catch (e: Exception) {
+        Thread.sleep(100)
+      }
+    }
   }
 
   /**
@@ -160,14 +185,23 @@ class OcnNodeTestHelper {
 
               while (attempts < maxAttempts) {
                 try {
-                  val socket = java.net.Socket("127.0.0.1", port)
-                  socket.close()
-                  future.complete(true)
-                  return@Thread
+                  val url = java.net.URL("http://127.0.0.1:$port/ocn-v2/health")
+                  val connection = url.openConnection() as java.net.HttpURLConnection
+                  connection.connectTimeout = 1000
+                  connection.readTimeout = 1000
+                  connection.requestMethod = "GET"
+                  val responseCode = connection.responseCode
+                  connection.disconnect()
+                  if (responseCode == 200) {
+                    Thread.sleep(300)
+                    future.complete(true)
+                    return@Thread
+                  }
                 } catch (e: Exception) {
-                  attempts++
-                  Thread.sleep(1000)
+                  // not ready yet
                 }
+                attempts++
+                Thread.sleep(1000)
               }
               future.complete(false)
             }
