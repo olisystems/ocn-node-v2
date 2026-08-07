@@ -21,12 +21,11 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import jakarta.persistence.Embeddable
 import jakarta.persistence.Embedded
 import java.math.BigInteger
-import java.time.Instant
-import java.time.format.DateTimeFormatter
 import org.springframework.http.HttpMethod
 import shareandcharge.openchargingnetwork.notary.ValuesToSign
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.exceptions.OcpiClientInvalidParametersException
+import snc.openchargingnetwork.node.tools.getTimestamp
 
 // TODO: rename to avoid confusion?
 // BasicParty may be a better description
@@ -99,8 +98,7 @@ data class OcpiResponse<T>(
         @JsonProperty("status_code") val statusCode: Int,
         @JsonProperty("status_message") val statusMessage: String? = null,
         @JsonProperty("data") val data: T? = null,
-        @JsonProperty("timestamp")
-        val timestamp: String = DateTimeFormatter.ISO_INSTANT.format(Instant.now()),
+        @JsonProperty("timestamp") val timestamp: String = getTimestamp(),
         @JsonProperty("ocn_signature") var signature: String? = null,
         @JsonProperty("ocn_verification_status") var verificationStatus: String? = null
 )

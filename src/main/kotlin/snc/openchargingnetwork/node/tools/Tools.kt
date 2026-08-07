@@ -19,6 +19,7 @@ package snc.openchargingnetwork.node.tools
 import org.web3j.crypto.Keys
 import java.time.Instant
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.*
 
 val bs64Encoder: Base64.Encoder = Base64.getEncoder()
@@ -53,11 +54,11 @@ fun urlJoin(base: String, vararg paths: String?): String {
 }
 
 fun getTimestamp(): String {
-    return DateTimeFormatter.ISO_INSTANT.format(Instant.now())
+    return getTimestamp(Instant.now())
 }
 
 fun getTimestamp(instant: Instant): String {
-    return DateTimeFormatter.ISO_INSTANT.format(instant)
+    return DateTimeFormatter.ISO_INSTANT.format(instant.truncatedTo(ChronoUnit.MILLIS))
 }
 
 fun getInstant(timeStamp: String): Instant {
