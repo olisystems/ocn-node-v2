@@ -8,6 +8,12 @@ on:
     branches:
       - main
       - develop
+    # The write-back commit below only touches infra/helm, so ignoring that
+    # path is what stops this workflow re-triggering itself. A skip-ci
+    # directive in the commit message would also suppress the pull_request
+    # checks the branch rulesets require, leaving develop -> main PRs blocked.
+    paths-ignore:
+      - "infra/helm/**"
 
 jobs:
   build-and-push:
@@ -76,7 +82,7 @@ jobs:
           git config user.name "oli-argo-sync[bot]"
           git config user.email "275810390+oli-argo-sync[bot]@users.noreply.github.com"
           git add infra/helm/
-          git commit -m "chore: update ${{ github.ref_name }} image to ${{ github.ref_name }}-${{ steps.sha.outputs.short_sha }} [skip ci]"
+          git commit -m "chore: update ${{ github.ref_name }} image to ${{ github.ref_name }}-${{ steps.sha.outputs.short_sha }}"
           git push
 
       - name: Connect to VPN
