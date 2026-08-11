@@ -297,39 +297,61 @@ class OcpiRequestHandler<T : Any>(
             val receivingParties =
                     integrationsRoutingService.getIntegrationReceivingParties(
                             module,
-                            request.headers.sender
+                            request.headers.receiver
                     )
             for (recevingParty in receivingParties) {
-                val response: OcpiHttpResponse<T> =
-                        when (routingService.getReceiverType(recevingParty)) {
-                            Receiver.LOCAL -> {
-                                val (url, headers) =
-                                        routingService.prepareLocalPlatformRequest(request, false)
-                                val statusName = currentContext.verificationStatus?.name
-                                val localHeaders =
-                                        headers.copy(
-                                                verificationStatus =
-                                                        if (statusName == null)
-                                                                headers.verificationStatus
-                                                        else statusName
-                                        )
-
-                                asyncTaskService.forwardOcpiRequestToLinkedServices(
-                                        currentContext,
-                                        true
-                                )
-                                httpClientComponent.makeOcpiRequest(url, localHeaders, request)
+                try {
+                    val modifiedRequest = request.copy(
+                            headers = request.headers.copy(receiver = recevingParty)
+                    )
+                    val response: OcpiHttpResponse<T> =
+                            when (routingService.getReceiverType(recevingParty)) {
+                                Receiver.LOCAL -> {
+                                    val (url, headers) =
+                                            routingService.prepareLocalPlatformRequest(modifiedRequest, false)
+                                    val statusName = currentContext.verificationStatus?.name
+                                    val localHeaders =
+                                            headers.copy(
+                                                    verificationStatus =
+                                                            if (statusName == null)
+                                                                    headers.verificationStatus
+                                                            else statusName
+                                            )
+                                    logger.info(
+                                            "[ForwardIntegrations] Routing {} {} to integration party {}/{}: {}",
+                                            request.method, module, recevingParty.country, recevingParty.id, url
+                                    )
+                                    asyncTaskService.forwardOcpiRequestToLinkedServices(
+                                            currentContext,
+                                            true
+                                    )
+                                    httpClientComponent.makeOcpiRequest(url, localHeaders, modifiedRequest)
+                                }
+                                Receiver.REMOTE -> {
+                                    val (url, headers, body) =
+                                            routingService.prepareRemotePlatformRequest(modifiedRequest, false)
+                                    logger.info(
+                                            "[ForwardIntegrations] Routing {} {} to remote integration party {}/{} via: {}/ocn/message",
+                                            request.method, module, recevingParty.country, recevingParty.id, url
+                                    )
+                                    asyncTaskService.forwardOcpiRequestToLinkedServices(
+                                            currentContext,
+                                            true
+                                    )
+                                    httpClientComponent.postOcnMessage(url, headers, body)
+                                }
                             }
-                            Receiver.REMOTE -> {
-                                val (url, headers, body) =
-                                        routingService.prepareRemotePlatformRequest(request, false)
-                                asyncTaskService.forwardOcpiRequestToLinkedServices(
-                                        currentContext,
-                                        true
-                                )
-                                httpClientComponent.postOcnMessage(url, headers, body)
-                            }
-                        }
+                    logger.info(
+                            "[ForwardIntegrations] SUCCESS — {} {} to {}/{} | HTTP {} | ocpi status: {}",
+                            request.method, module, recevingParty.country, recevingParty.id,
+                            response.statusCode, response.body?.statusCode
+                    )
+                } catch (e: Exception) {
+                    logger.error(
+                            "[ForwardIntegrations] FAILED — {} {} to {}/{} | error: {}",
+                            request.method, module, recevingParty.country, recevingParty.id, e.message
+                    )
+                }
             }
         }
 
@@ -392,109 +414,6 @@ class OcpiRequestHandler<T : Any>(
             }
         }
 
-        return this
-    }
-
-    /**
-     * Asynchronously forward a receiver-interface request to an additional configurable party
-     * (e.g. DE_OLI) in addition to the original receiver. Used for Tokens and Sessions modules.
-     * No-op when countryCode or partyId is null or blank.
-     */
-    fun forwardToPartyAsync(countryCode: String?, partyId: String?): OcpiRequestHandler<T> {
-        if (countryCode.isNullOrBlank() || partyId.isNullOrBlank()) return this
-
-        // Validate the sender synchronously BEFORE dispatching anything to the additional party,
-        // mirroring the checks forwardDefault() performs on the original receiver. Because the
-        // forwarding below runs in a fire-and-forget coroutine, skipping this would allow an
-        // unvalidated/unauthorized payload to reach the extra party even when forwardDefault()
-        // would later reject the request.
-        assertSenderValid()
-        when (routingService.getReceiverType(request.headers.receiver)) {
-            Receiver.LOCAL -> {
-                assertWhitelisted()
-                assertValidSignature()
-            }
-            Receiver.REMOTE -> assertValidSignature(false)
-        }
-
-        val currentContext = this
-        coroutineScope.launch {
-            try {
-                val targetParty = BasicRole(partyId, countryCode)
-
-                // Guard 1: target party must be locally known (registered in DB)
-                if (!routingService.isRoleKnown(targetParty)) {
-                    logger.warn(
-                        "[ForwardToParty] There is no {} {} currently in database, please make sure the handshake was properly done so that {} {} can receive forwarded Token and Sessions receiver requests",
-                        countryCode, partyId, countryCode, partyId
-                    )
-                    return@launch
-                }
-
-                // Guard 2: skip if the original ocpi-to receiver is on the same platform as the target
-                val originalReceiver = request.headers.receiver
-                if (routingService.isRoleKnown(originalReceiver)) {
-                    val originalPlatformId = routingService.getPlatformID(originalReceiver)
-                    val targetPlatformId = routingService.getPlatformID(targetParty)
-                    if (originalPlatformId == targetPlatformId) {
-                        logger.info(
-                            "[ForwardToParty] Skipping {}/{} — original receiver {}/{} is already on the same platform (platformId={})",
-                            countryCode, partyId, originalReceiver.country, originalReceiver.id, originalPlatformId
-                        )
-                        return@launch
-                    }
-                }
-
-                // Forward to target party, replacing the receiver header. The rewritten
-                // ocpi-to headers change the signed values, so re-sign the request (stashing
-                // the original receiver as a rewrite) — mirroring forwardAgain — otherwise the
-                // REMOTE path would send a signature that no longer matches the modified headers.
-                val modifiedRequest = request.copy(
-                    headers = request.headers.copy(receiver = targetParty)
-                )
-                val rewriteFields = mapOf(
-                    "$['headers']['ocpi-to-country-code']" to request.headers.receiver.country,
-                    "$['headers']['ocpi-to-party-id']" to request.headers.receiver.id
-                )
-                modifiedRequest.headers.signature =
-                    rewriteAndSign(modifiedRequest.toSignedValues(), rewriteFields)
-
-                val response: OcpiHttpResponse<T> =
-                    when (routingService.getReceiverType(targetParty)) {
-                        Receiver.LOCAL -> {
-                            val (url, headers) = routingService.prepareLocalPlatformRequest(modifiedRequest, false)
-                            val statusName = currentContext.verificationStatus?.name
-                            val localHeaders = headers.copy(
-                                verificationStatus = if (statusName == null) headers.verificationStatus else statusName
-                            )
-                            logger.info(
-                                "[ForwardToParty] Routing {} {} to {}/{}: {}",
-                                request.method, request.module, countryCode, partyId, url
-                            )
-                            httpClientComponent.makeOcpiRequest(url, localHeaders, modifiedRequest)
-                        }
-                        Receiver.REMOTE -> {
-                            val (url, headers, body) = routingService.prepareRemotePlatformRequest(modifiedRequest, false)
-                            logger.info(
-                                "[ForwardToParty] Routing {} {} to remote {}/{} via: {}/ocn/message",
-                                request.method, request.module, countryCode, partyId, url
-                            )
-                            httpClientComponent.postOcnMessage(url, headers, body)
-                        }
-                    }
-
-                logger.info(
-                    "[ForwardToParty] SUCCESS — {} {} to {}/{} | HTTP {} | ocpi status: {}",
-                    request.method, request.module, countryCode, partyId,
-                    response.statusCode, response.body?.statusCode
-                )
-            } catch (e: Exception) {
-                logger.error(
-                    "[ForwardToParty] FAILED — {} {} to {}/{} | error: {}",
-                    request.method, request.module, countryCode, partyId, e.message
-                )
-            }
-        }
         return this
     }
 

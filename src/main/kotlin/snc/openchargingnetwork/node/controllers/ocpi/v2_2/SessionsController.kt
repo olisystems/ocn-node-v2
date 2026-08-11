@@ -20,7 +20,6 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import snc.openchargingnetwork.node.components.OcpiRequestHandlerBuilder
-import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.ocpi.*
 import snc.openchargingnetwork.node.tools.filterNull
@@ -29,8 +28,7 @@ import snc.openchargingnetwork.node.tools.filterNull
 @RestController
 @RequestMapping("\${ocn.node.apiPrefix}")
 class SessionsController(
-    private val requestHandlerBuilder: OcpiRequestHandlerBuilder,
-    private val properties: NodeProperties
+    private val requestHandlerBuilder: OcpiRequestHandlerBuilder
 ) {
 
 
@@ -170,7 +168,7 @@ class SessionsController(
 
         return requestHandlerBuilder
             .build<Session>(requestVariables)
-            .forwardToPartyAsync(properties.sessionsAdditionalReceiverCountryCode, properties.sessionsAdditionalReceiverPartyId)
+            .forwardIntegrationsAsync(ModuleID.SESSIONS)
             .forwardDefault()
             .getResponse()
     }
@@ -205,7 +203,7 @@ class SessionsController(
 
         return requestHandlerBuilder
             .build<Unit>(requestVariables)
-            .forwardToPartyAsync(properties.sessionsAdditionalReceiverCountryCode, properties.sessionsAdditionalReceiverPartyId)
+            .forwardIntegrationsAsync(ModuleID.SESSIONS)
             .forwardDefault()
             .getResponse()
     }
@@ -240,7 +238,7 @@ class SessionsController(
 
         return requestHandlerBuilder
             .build<Unit>(requestVariables)
-            .forwardToPartyAsync(properties.sessionsAdditionalReceiverCountryCode, properties.sessionsAdditionalReceiverPartyId)
+            .forwardIntegrationsAsync(ModuleID.SESSIONS)
             .forwardDefault()
             .getResponse()
     }
