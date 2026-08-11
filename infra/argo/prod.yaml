@@ -9,12 +9,12 @@ spec:
   project: banula
   source:
     repoURL: https://github.com/olisystems/ocn-node-v2.git
-    targetRevision: v.1.0.0
+    targetRevision: v1.5.0
     path: infra/helm
     helm:
       parameters:
         - name: oli-app.image.tag
-          value: "v.1.0.0"
+          value: "v1.5.0"
       valueFiles:
         - values.yaml
         - values.prod.yaml
