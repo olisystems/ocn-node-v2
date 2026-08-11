@@ -11,3 +11,8 @@ oli-app:
       - secretName: banula-tls
         hosts:
           - banula.oli-system.com
+    features:
+      router:
+        routes:
+          exposeCommon: false
+          exposeAll: true
