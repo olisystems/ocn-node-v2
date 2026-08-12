@@ -292,6 +292,7 @@ class OcpiRequestHandler<T : Any>(
     }
 
     fun forwardIntegrationsAsync(module: ModuleID): OcpiRequestHandler<T> {
+        validateIncoming()
         val currentContext = this
         coroutineScope.launch {
             val receivingParties =
@@ -304,6 +305,12 @@ class OcpiRequestHandler<T : Any>(
                     val modifiedRequest = request.copy(
                             headers = request.headers.copy(receiver = recevingParty)
                     )
+                    val rewriteFields = mapOf(
+                            "$['headers']['ocpi-to-country-code']" to recevingParty.country,
+                            "$['headers']['ocpi-to-party-id']" to recevingParty.id
+                    )
+                    modifiedRequest.headers.signature =
+                            rewriteAndSign(modifiedRequest.toSignedValues(), rewriteFields)
                     val response: OcpiHttpResponse<T> =
                             when (routingService.getReceiverType(recevingParty)) {
                                 Receiver.LOCAL -> {
@@ -341,11 +348,19 @@ class OcpiRequestHandler<T : Any>(
                                     httpClientComponent.postOcnMessage(url, headers, body)
                                 }
                             }
-                    logger.info(
-                            "[ForwardIntegrations] SUCCESS — {} {} to {}/{} | HTTP {} | ocpi status: {}",
-                            request.method, module, recevingParty.country, recevingParty.id,
-                            response.statusCode, response.body?.statusCode
-                    )
+                    if (response.statusCode in 200..299) {
+                        logger.info(
+                                "[ForwardIntegrations] SUCCESS — {} {} to {}/{} | HTTP {} | ocpi status: {}",
+                                request.method, module, recevingParty.country, recevingParty.id,
+                                response.statusCode, response.body?.statusCode
+                        )
+                    } else {
+                        logger.error(
+                                "[ForwardIntegrations] FAILED — {} {} to {}/{} | HTTP {} | ocpi status: {}",
+                                request.method, module, recevingParty.country, recevingParty.id,
+                                response.statusCode, response.body?.statusCode
+                        )
+                    }
                 } catch (e: Exception) {
                     logger.error(
                             "[ForwardIntegrations] FAILED — {} {} to {}/{} | error: {}",
