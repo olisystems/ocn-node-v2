@@ -64,12 +64,4 @@ class NodeProperties {
 
     // If Enabled logs full headers of received requests on forwarding endpoints
     var logFullHeaders: Boolean = false
-
-    // Additional receiver party for Tokens receiver-interface requests (optional)
-    var tokensAdditionalReceiverCountryCode: String? = null
-    var tokensAdditionalReceiverPartyId: String? = null
-
-    // Additional receiver party for Sessions receiver-interface requests (optional)
-    var sessionsAdditionalReceiverCountryCode: String? = null
-    var sessionsAdditionalReceiverPartyId: String? = null
 }
