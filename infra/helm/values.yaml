@@ -24,29 +24,27 @@ oli-app:
     containerPort: 8080
     name: ocn-node-v2-service
 
+  # nginx ingress disabled — migrated to the Gateway below.
   ingress:
+    enabled: false
+  # Gateway API — OCN roaming hub. Full passthrough; every surface is
+  # self-secured in-app (/ocpi OCPI-token, /admin API-key), so no JWT. Per-env
+  # namespace + host in the overrides. DNS still points at nginx, so until
+  # cutover reach it via --resolve to the Envoy EIP.
+  gateway:
     enabled: true
-    className: "nginx"
-    features:
-      certManager:
-        enabled: false
-      sslRedirect:
-        enabled: true
-      rateLimiting:
-        enabled: true
-        rpm: 300
-        connections: 10
-      proxySettings:
-        enabled: true
-        bodySize: "8m"
-        bufferSize: "32k"
-      router:
-        enabled: true
-        prefix: "/ocn-v2"
-        stripPrefix: true
-        routes:
-          exposeCommon: false
-          exposeAll: false
+    parentRef:
+      name: banula-gateway
+      sectionName: https
+    router:
+      prefix: "/ocn-v2"
+      stripPrefix: true
+      routes:
+        exposeAll: true
+        exposeCommon: false
+    rateLimiting:
+      enabled: true
+      rpm: 300
 
   env:
     OCN_NODE_API: ""
