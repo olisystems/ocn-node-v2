@@ -17,6 +17,7 @@
 package snc.openchargingnetwork.node.models
 
 import io.ktor.http.*
+import java.util.TreeMap
 import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 import shareandcharge.openchargingnetwork.notary.SignableHeaders
@@ -31,8 +32,19 @@ data class SyncedHttpResponse(
     val body: String,
     )
 
+/**
+ * HTTP header names are case-insensitive (RFC 9110), and HTTP/2 carries them lowercased on the
+ * wire. Ktor's `Headers.toMap()` hands back a plain, case-sensitive Map that preserves whatever
+ * casing the upstream happened to send, so a lookup of "Location" silently misses a header
+ * delivered as "location". Wrapping the map here restores case-insensitive lookup for every
+ * consumer of [OcpiHttpResponse.headers].
+ */
+fun Map<String, String>.toCaseInsensitiveHeaders(): Map<String, String> =
+    TreeMap<String, String>(String.CASE_INSENSITIVE_ORDER).also { it.putAll(this) }
+
 data class OcpiHttpResponse<T : Any>(
     val statusCode: Int,
+    /** Case-insensitive when built via [toCaseInsensitiveHeaders] - see that function for why. */
     val headers: Map<String, String>,
     val body: OcpiResponse<T>? = null
 ) {

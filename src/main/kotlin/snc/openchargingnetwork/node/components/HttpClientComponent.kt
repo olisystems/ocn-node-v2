@@ -38,6 +38,7 @@ import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.OcnMessageHeaders
 import snc.openchargingnetwork.node.models.OcpiHttpResponse
 import snc.openchargingnetwork.node.models.SyncedHttpResponse
+import snc.openchargingnetwork.node.models.toCaseInsensitiveHeaders
 import snc.openchargingnetwork.node.models.exceptions.OcpiHubGenericException
 import snc.openchargingnetwork.node.models.exceptions.OcpiServerGenericException
 import snc.openchargingnetwork.node.models.exceptions.OcpiServerUnusableApiException
@@ -221,7 +222,7 @@ open class HttpClientComponent(private val properties: NodeProperties) {
                                 headers =
                                         response.headers.toMap().mapValues { (_, value) ->
                                                 value.toString()
-                                        },
+                                        }.toCaseInsensitiveHeaders(),
                                 body = parsedBody,
                         )
                 } catch (e: JsonParseException) {
@@ -499,7 +500,8 @@ open class HttpClientComponent(private val properties: NodeProperties) {
                         return OcpiHttpResponse(
                                 statusCode = response.statusCode.value,
                                 headers =
-                                        response.headers.toMap().mapValues { it.value.toString() },
+                                        response.headers.toMap().mapValues { it.value.toString() }
+                                                .toCaseInsensitiveHeaders(),
                                 body = mapper.readValue(response.body)
                         )
                 } catch (e: JsonParseException) {
