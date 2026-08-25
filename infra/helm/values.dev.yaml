@@ -1,7 +1,7 @@
 oli-app:
   fullnameOverride: "ocn-node-v2-dev"
   image:
-    tag: "develop-b82f468"
+    tag: "develop-273ab19"
   gateway:
     parentRef:
       namespace: oli-banula
