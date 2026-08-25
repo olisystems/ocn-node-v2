@@ -30,7 +30,7 @@ class OpenAPIConfig {
             .info(
                 Info()
                     .title("OCN Node")
-                    .version("ocn-v2")
+                    .version("ocn")
             )
     }
 }

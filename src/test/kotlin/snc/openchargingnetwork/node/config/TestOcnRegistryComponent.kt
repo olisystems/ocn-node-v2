@@ -54,7 +54,7 @@ class TestOcnRegistryComponent {
       logCurlCommands = false
       privateKey = "1111111111111111111111111111111111111111111111111111111111111111"
       url = "http://localhost:9999"
-      apiPrefix = "ocn-v2"
+      apiPrefix = "ocn"
     }
   }
 

@@ -26,7 +26,7 @@ import snc.openchargingnetwork.node.services.HubClientInfoService
  * triggering of sync operations and monitoring Uses event-driven architecture for broadcasting
  */
 @RestController
-@RequestMapping("\${ocn.node.apiPrefix}/admin/hub-client-info")
+@RequestMapping("\${ocn.node.apiPrefix}\${ocn.node.apiPrefixPublic}/admin/hub-client-info")
 class HubClientInfoManagementController(private val hubClientInfoService: HubClientInfoService) {
 
     /**

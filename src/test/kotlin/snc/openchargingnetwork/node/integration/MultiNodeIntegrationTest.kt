@@ -44,8 +44,8 @@ class MultiNodeIntegrationTest : BaseIntegrationTest() {
     val node1Url = getNodeUrl("node1")
     val node2Url = getNodeUrl("node2")
 
-    val node1Response = restTemplate.getForEntity("$node1Url/ocn-v2/health", String::class.java)
-    val node2Response = restTemplate.getForEntity("$node2Url/ocn-v2/health", String::class.java)
+    val node1Response = restTemplate.getForEntity("$node1Url/ocn/health", String::class.java)
+    val node2Response = restTemplate.getForEntity("$node2Url/ocn/health", String::class.java)
 
     assertThat(node1Response.statusCode.value()).isEqualTo(200)
     assertThat(node2Response.statusCode.value()).isEqualTo(200)
@@ -85,7 +85,7 @@ class MultiNodeIntegrationTest : BaseIntegrationTest() {
     // Make authenticated request to node1
     val response: ResponseEntity<String> =
             restTemplate.exchange(
-                    "$node1Url/ocn-v2/admin/platform",
+                    "$node1Url/ocn/admin/platform",
                     HttpMethod.POST,
                     entity,
                     String::class.java
@@ -108,8 +108,8 @@ class MultiNodeIntegrationTest : BaseIntegrationTest() {
     val node1Url = getNodeUrl("node1")
     val node2Url = getNodeUrl("node2")
 
-    val node1Health = restTemplate.getForEntity("$node1Url/ocn-v2/health", String::class.java)
-    val node2Health = restTemplate.getForEntity("$node2Url/ocn-v2/health", String::class.java)
+    val node1Health = restTemplate.getForEntity("$node1Url/ocn/health", String::class.java)
+    val node2Health = restTemplate.getForEntity("$node2Url/ocn/health", String::class.java)
 
     assertThat(node1Health.statusCode.value()).isEqualTo(200)
     assertThat(node2Health.statusCode.value()).isEqualTo(200)
@@ -122,7 +122,7 @@ class MultiNodeIntegrationTest : BaseIntegrationTest() {
 
     // Verify node is running
     val node1Url = getNodeUrl("node1")
-    val response = restTemplate.getForEntity("$node1Url/ocn-v2/health", String::class.java)
+    val response = restTemplate.getForEntity("$node1Url/ocn/health", String::class.java)
     assertThat(response.statusCode.value()).isEqualTo(200)
 
     // Stop the node
@@ -130,7 +130,7 @@ class MultiNodeIntegrationTest : BaseIntegrationTest() {
 
     // Verify node is no longer accessible
     try {
-      restTemplate.getForEntity("$node1Url/ocn-v2/versions", String::class.java)
+      restTemplate.getForEntity("$node1Url/ocn/versions", String::class.java)
       // If we reach here, the node is still running
       assertThat(false).isTrue() // This should not happen
     } catch (e: Exception) {

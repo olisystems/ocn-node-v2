@@ -87,7 +87,7 @@ class CustomModuleDispatchTest {
     fun `extractCustomModuleUrlPath returns relative path without scheme or prefix`() {
         assertThat(
                         extractCustomModuleUrlPath(
-                                "/ocn-v2/ocpi/custom/sender/example/extra/path",
+                                "/ocn/ocpi/custom/sender/example/extra/path",
                                 "sender",
                                 "example"
                         )
@@ -96,7 +96,7 @@ class CustomModuleDispatchTest {
 
         assertThat(
                         extractCustomModuleUrlPath(
-                                "/ocn-v2/ocpi/custom/receiver/mymodule",
+                                "/ocn/ocpi/custom/receiver/mymodule",
                                 "receiver",
                                 "mymodule"
                         )
@@ -107,7 +107,7 @@ class CustomModuleDispatchTest {
         // yields a clean relative suffix rather than leaving scheme/host attached.
         assertThat(
                         extractCustomModuleUrlPath(
-                                "http://localhost:8080/ocn-v2/ocpi/custom/sender/example/x",
+                                "http://localhost:8080/ocn/ocpi/custom/sender/example/x",
                                 "sender",
                                 "example"
                         )

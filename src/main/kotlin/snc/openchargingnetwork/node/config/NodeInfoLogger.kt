@@ -24,6 +24,7 @@ import java.io.File
 import snc.openchargingnetwork.node.plugins.core.CustomModule
 import snc.openchargingnetwork.node.plugins.core.OcpiProtocolAdapter
 import snc.openchargingnetwork.node.plugins.core.OcpiVersionContributor
+import snc.openchargingnetwork.node.tools.urlJoin
 @Component
 class NodeInfoLogger(
         private val properties: NodeProperties,
@@ -56,7 +57,7 @@ class NodeInfoLogger(
 
         println(
                 "\n${border.substring(0, 3)} NODE INFO ${border.substring(17)}\n" +
-                        " URL     | ${properties.url}/${properties.apiPrefix}\n" +
+                        " URL     | ${urlJoin(properties.url, properties.apiPrefix, properties.apiPrefixPublic)}\n" +
                         " ADDRESS | $addressText\n" +
                         " API KEY | ${properties.apikey}\n" +
                         " COUNTRY CODE | ${properties.countryCode}\n" +

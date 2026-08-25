@@ -21,7 +21,7 @@ import snc.openchargingnetwork.node.models.ocpi.*
 import snc.openchargingnetwork.node.services.CredentialsService
 import snc.openchargingnetwork.node.tools.*
 
-@RequestMapping("\${ocn.node.apiPrefix}/ocpi/2.2.1/credentials")
+@RequestMapping("\${ocn.node.apiPrefix}\${ocn.node.apiPrefixPublic}/ocpi/2.2.1/credentials")
 @RestController
 class CredentialsController(private val credentialsService: CredentialsService) {
 

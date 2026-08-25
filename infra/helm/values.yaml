@@ -42,14 +42,17 @@ oli-app:
         bufferSize: "32k"
       router:
         enabled: true
-        prefix: "/ocn-v2"
+        prefix: "/ocn"
         stripPrefix: true
         routes:
           exposeCommon: false
           exposeAll: false
 
   env:
+    # Ingress strips the "/ocn" router prefix, so the app serves at the root inside the pod.
     OCN_NODE_API: ""
+    # Path segment every public route sits under. /health and the springdoc endpoints stay at root.
+    OCN_NODE_API_PREFIX_PUBLIC: "/api/v2/public"
     OCN_NODE_ENABLE_SIGNING: "false"
     OCN_WEB_LOGGING_LEVEL: "TRACE"
     OCN_NODE_HAAS_ON: "true"

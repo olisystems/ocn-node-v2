@@ -62,7 +62,7 @@ class Verification(
 
     @EventListener(ApplicationReadyEvent::class)
     fun testPublicURL() {
-        val url = URI(urlJoin(this.properties.url, this.properties.apiPrefix)).toURL()
+        val url = URI(urlJoin(this.properties.url, this.properties.apiPrefix, this.properties.apiPrefixPublic)).toURL()
 
         val inetAddress =
                 try {

@@ -86,7 +86,7 @@ data class CreatePlatformRequest(
 private val logger = LoggerFactory.getLogger(AdminController::class.java)
 
 @RestController
-@RequestMapping("\${ocn.node.apiPrefix}/admin")
+@RequestMapping("\${ocn.node.apiPrefix}\${ocn.node.apiPrefixPublic}/admin")
 class AdminController(
         private val platformRepo: PlatformRepository,
         private val roleRepo: RoleRepository,
@@ -497,7 +497,7 @@ class AdminController(
                 RegistrationInfo(
                         id = platform.id!!,
                         token = tokenA,
-                        versions = urlJoin(properties.url, properties.apiPrefix, "/ocpi/versions")
+                        versions = urlJoin(properties.url, properties.apiPrefix, properties.apiPrefixPublic, "/ocpi/versions")
                 )
         return ResponseEntity.ok().body(responseBody)
     }

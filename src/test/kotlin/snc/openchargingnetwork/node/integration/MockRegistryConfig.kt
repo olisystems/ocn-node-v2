@@ -55,7 +55,7 @@ class MockRegistryConfig {
       logCurlCommands = false
       privateKey = "1111111111111111111111111111111111111111111111111111111111111111"
       url = "http://localhost:8080"
-      apiPrefix = "ocn-v2"
+      apiPrefix = "ocn"
     }
   }
 
@@ -70,7 +70,7 @@ class MockRegistryConfig {
                             partyAddress = "0x1234567890123456789012345678901234567890",
                             roles = listOf(Role.CPO),
                             name = "Test CPO",
-                            url = "http://localhost:8081/ocn-v2",
+                            url = "http://localhost:8081/ocn",
                             paymentStatus = PaymentStatus.PAID,
                             cvStatus = CvStatus.VERIFIED,
                             active = true,
@@ -88,7 +88,7 @@ class MockRegistryConfig {
                             partyAddress = "0x0987654321098765432109876543210987654321",
                             roles = listOf(Role.EMSP),
                             name = "Test EMS",
-                            url = "http://localhost:8082/ocn-v2",
+                            url = "http://localhost:8082/ocn",
                             paymentStatus = PaymentStatus.PAID,
                             cvStatus = CvStatus.VERIFIED,
                             active = true,
