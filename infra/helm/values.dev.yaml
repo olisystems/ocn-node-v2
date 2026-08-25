@@ -1,16 +1,9 @@
 oli-app:
   fullnameOverride: "ocn-node-v2-dev"
   image:
-    tag: "develop-38f06f9"
-  ingress:
+    tag: "develop-b82f468"
+  gateway:
+    parentRef:
+      namespace: oli-banula
     hosts:
-      - host: banula-dev.oli-system.com
-    tls:
-      - secretName: banula-dev-tls
-        hosts:
-          - banula-dev.oli-system.com
-    features:
-      router:
-        routes:
-          exposeCommon: false
-          exposeAll: true
+      - banula-dev.oli-system.com

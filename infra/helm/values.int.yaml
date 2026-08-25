@@ -1,7 +1,9 @@
 oli-app:
   fullnameOverride: "ocn-node-v2-int"
+
   image:
-    tag: "main-9653797"
+    tag: "main"
+
   # EDX plugin (int only): pull edx-v1 from OBS. Plugin props via SPRING_APPLICATION_JSON (base values).
   env:
     OCN_PLUGINS: "edx-v1"
@@ -16,15 +18,9 @@ oli-app:
       secretKeyRef:
         name: otc-obs-credentials
         key: secret_access_key
-  ingress:
+
+  gateway:
+    parentRef:
+      namespace: banula-int
     hosts:
-      - host: banula-int.oli-system.com
-    tls:
-      - secretName: banula-int-tls
-        hosts:
-          - banula-int.oli-system.com
-    features:
-      router:
-        routes:
-          exposeCommon: false
-          exposeAll: true
+      - banula-int.oli-system.com

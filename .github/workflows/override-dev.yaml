@@ -12,9 +12,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Compute short SHA
+      - name: Compute short SHA and safe tag
         id: sha
-        run: echo "short_sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+        run: |
+          echo "short_sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+          # Docker tags only allow [A-Za-z0-9_.-], so branch names like feat/foo need sanitizing
+          safe_ref=$(printf '%s' "$GITHUB_REF_NAME" | tr -c 'A-Za-z0-9_.-' '-' | cut -c1-128)
+          echo "safe_ref=$safe_ref" >> $GITHUB_OUTPUT
 
       - name: Login to SWR
         uses: docker/login-action@v3
@@ -38,7 +42,7 @@ jobs:
           cache-to: type=gha,mode=max
           tags: |
             swr.eu-de.otc.t-systems.com/oli_banula/ocnnodev2:latest
-            swr.eu-de.otc.t-systems.com/oli_banula/ocnnodev2:${{ github.ref_name }}
+            swr.eu-de.otc.t-systems.com/oli_banula/ocnnodev2:${{ steps.sha.outputs.safe_ref }}
             swr.eu-de.otc.t-systems.com/oli_banula/ocnnodev2:develop-${{ steps.sha.outputs.short_sha }}
             swr.eu-de.otc.t-systems.com/oli_banula/ocnnodev2:${{ steps.sha.outputs.short_sha }}
 
