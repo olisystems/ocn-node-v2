@@ -2,7 +2,9 @@ oli-app:
   fullnameOverride: "ocn-node-v2-dev"
   image:
     tag: "develop-b82f468"
+  # nginx ingress disabled - migrated to the Gateway below. int/prod still ride nginx.
   ingress:
+    enabled: false
     hosts:
       - host: banula-dev.oli-system.com
     tls:
@@ -14,3 +16,19 @@ oli-app:
         routes:
           exposeCommon: false
           exposeAll: true
+  # Gateway API. banula-dev.oli-system.com is served by the Envoy banula-gateway;
+  # without a route here the node is unreachable on that host at any path.
+  gateway:
+    enabled: true
+    parentRef:
+      name: banula-gateway
+      namespace: oli-banula # chart default is envoy-gateway-system - must override
+      sectionName: https
+    hosts:
+      - banula-dev.oli-system.com
+    router:
+      prefix: /ocn
+      stripPrefix: true
+      routes:
+        exposeAll: true # open catch-all: /health, swagger, /api/v2/public, /admin
+        exposeCommon: false
