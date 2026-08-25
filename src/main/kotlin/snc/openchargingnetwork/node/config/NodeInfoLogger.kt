@@ -30,6 +30,7 @@ class NodeInfoLogger(
         private val dataSourceProperties: DataSourceProperties,
         private val registryIndexerProperties: RegistryIndexerProperties,
         private val pluginProperties: PluginProperties,
+        private val haasProperties: HaasProperties,
         private val customModules: List<CustomModule>,
         private val protocolAdapters: List<OcpiProtocolAdapter>,
         private val versionContributors: List<OcpiVersionContributor>,
@@ -81,6 +82,12 @@ class NodeInfoLogger(
                 "${border.substring(0, 3)} PLUGINS ${border.substring(15)}\n" +
                         " LOADER PATH | ${pluginProperties.loaderPath}\n" +
                         " $pluginsText\n"
+        )
+
+        println(
+                "${border.substring(0, 3)} HAAS ${border.substring(12)}\n" +
+                        " ENABLED | ${haasProperties.enabled}\n" +
+                        " URL     | ${haasProperties.url}\n"
         )
 
         println(
