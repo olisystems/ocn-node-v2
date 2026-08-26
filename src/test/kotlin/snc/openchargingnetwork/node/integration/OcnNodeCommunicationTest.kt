@@ -102,9 +102,9 @@ class OcnNodeCommunicationTest : BaseIntegrationTest() {
 
     // 2. Test basic node communication by checking registry endpoints
     val node1Registry =
-            restTemplate.getForEntity("$node1Url/ocn/ocn/registry/all-parties", String::class.java)
+            restTemplate.getForEntity("$node1Url/ocn/api/v2/public/ocn/registry/all-parties", String::class.java)
     val node2Registry =
-            restTemplate.getForEntity("$node2Url/ocn/ocn/registry/all-parties", String::class.java)
+            restTemplate.getForEntity("$node2Url/ocn/api/v2/public/ocn/registry/all-parties", String::class.java)
 
     println("Node1 registry status: ${node1Registry.statusCode}")
     println("Node2 registry status: ${node2Registry.statusCode}")
@@ -140,7 +140,7 @@ class OcnNodeCommunicationTest : BaseIntegrationTest() {
     val entity = HttpEntity<String>(body, headers)
 
     return restTemplate.exchange(
-            "$nodeUrl/ocn/admin/platform",
+            "$nodeUrl/ocn/api/v2/public/admin/platform",
             HttpMethod.POST,
             entity,
             String::class.java
@@ -160,7 +160,7 @@ class OcnNodeCommunicationTest : BaseIntegrationTest() {
     val credentialsRequest =
             Credentials(
                     token = token,
-                    url = "$nodeUrl/ocn/ocpi/versions",
+                    url = "$nodeUrl/ocn/api/v2/public/ocpi/versions",
                     roles =
                             listOf(
                                     CredentialsRole(
@@ -182,7 +182,7 @@ class OcnNodeCommunicationTest : BaseIntegrationTest() {
     val entity = HttpEntity<String>(body, headers)
 
     return restTemplate.exchange(
-            "$nodeUrl/ocn/ocpi/2.2.1/credentials",
+            "$nodeUrl/ocn/api/v2/public/ocpi/2.2.1/credentials",
             HttpMethod.POST,
             entity,
             String::class.java
@@ -211,8 +211,8 @@ class OcnNodeCommunicationTest : BaseIntegrationTest() {
                     statusCode = OcpiStatus.SUCCESS.code,
                     data =
                             listOf(
-                                    Version("2.2", "$fromNode/ocn/ocpi/2.2.1"),
-                                    Version("2.2.1", "$fromNode/ocn/ocpi/2.2.1")
+                                    Version("2.2", "$fromNode/ocn/api/v2/public/ocpi/2.2.1"),
+                                    Version("2.2.1", "$fromNode/ocn/api/v2/public/ocpi/2.2.1")
                             )
             )
 
@@ -220,7 +220,7 @@ class OcnNodeCommunicationTest : BaseIntegrationTest() {
     val entity = HttpEntity<String>(body, headers)
 
     return restTemplate.exchange(
-            "$fromNode/ocn/ocn/message",
+            "$fromNode/ocn/api/v2/public/ocn/message",
             HttpMethod.POST,
             entity,
             String::class.java

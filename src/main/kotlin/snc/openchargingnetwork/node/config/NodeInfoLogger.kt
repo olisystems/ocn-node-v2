@@ -47,7 +47,8 @@ class NodeInfoLogger(
 
     @EventListener(ApplicationReadyEvent::class)
     fun log() {
-        val borderLength = calculateBorderLength(properties.url.length, properties.apikey.length)
+        val nodeUrl = urlJoin(properties.url, properties.apiPrefix, properties.apiPrefixPublic)
+        val borderLength = calculateBorderLength(nodeUrl.length, properties.apikey.length)
         val border = "=".repeat(borderLength)
 
         val addressText = getAddressText()
@@ -57,7 +58,7 @@ class NodeInfoLogger(
 
         println(
                 "\n${border.substring(0, 3)} NODE INFO ${border.substring(17)}\n" +
-                        " URL     | ${urlJoin(properties.url, properties.apiPrefix, properties.apiPrefixPublic)}\n" +
+                        " URL     | $nodeUrl\n" +
                         " ADDRESS | $addressText\n" +
                         " API KEY | ${properties.apikey}\n" +
                         " COUNTRY CODE | ${properties.countryCode}\n" +

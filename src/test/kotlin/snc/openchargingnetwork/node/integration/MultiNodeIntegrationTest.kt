@@ -85,7 +85,7 @@ class MultiNodeIntegrationTest : BaseIntegrationTest() {
     // Make authenticated request to node1
     val response: ResponseEntity<String> =
             restTemplate.exchange(
-                    "$node1Url/ocn/admin/platform",
+                    "$node1Url/ocn/api/v2/public/admin/platform",
                     HttpMethod.POST,
                     entity,
                     String::class.java
