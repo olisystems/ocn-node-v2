@@ -33,7 +33,7 @@ class CredentialsService(
     fun myCredentials(token: String): Credentials {
         return Credentials(
                 token = token,
-                url = urlJoin(properties.url, properties.apiPrefix, "/ocpi/versions"),
+                url = urlJoin(properties.url, properties.apiPrefix, properties.apiPrefixPublic, "/ocpi/versions"),
                 roles =
                         listOf(
                                 CredentialsRole(

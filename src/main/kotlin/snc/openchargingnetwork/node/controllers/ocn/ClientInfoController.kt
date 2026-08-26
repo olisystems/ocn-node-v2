@@ -11,7 +11,7 @@ import snc.openchargingnetwork.node.services.ModuleNotificationService
 import snc.openchargingnetwork.node.services.WalletService
 
 @RestController
-@RequestMapping("\${ocn.node.apiPrefix}/ocn/message/ocn/client-info")
+@RequestMapping("\${ocn.node.apiPrefix}\${ocn.node.apiPrefixPublic}/ocn/message/ocn/client-info")
 class ClientInfoController(
     private val hubClientInfoService: HubClientInfoService,
     private val moduleNotificationService: ModuleNotificationService,

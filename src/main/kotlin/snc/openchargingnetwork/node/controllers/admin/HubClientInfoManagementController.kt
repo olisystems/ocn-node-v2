@@ -16,9 +16,11 @@
 
 package snc.openchargingnetwork.node.controllers.admin
 
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import snc.openchargingnetwork.node.models.ocpi.ClientInfo
+import snc.openchargingnetwork.node.services.AdminAuthorizationService
 import snc.openchargingnetwork.node.services.HubClientInfoService
 
 /**
@@ -26,15 +28,28 @@ import snc.openchargingnetwork.node.services.HubClientInfoService
  * triggering of sync operations and monitoring Uses event-driven architecture for broadcasting
  */
 @RestController
-@RequestMapping("\${ocn.node.apiPrefix}/admin/hub-client-info")
-class HubClientInfoManagementController(private val hubClientInfoService: HubClientInfoService) {
+@RequestMapping("\${ocn.node.apiPrefix}\${ocn.node.apiPrefixPublic}/admin/hub-client-info")
+class HubClientInfoManagementController(
+        private val hubClientInfoService: HubClientInfoService,
+        private val adminAuthorizationService: AdminAuthorizationService
+) {
+
+    private fun unauthorized(): ResponseEntity<Map<String, String>> =
+            ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(mapOf("error" to "Invalid Authorization"))
 
     /**
      * Manually trigger a comprehensive hub client info sync This performs both pull (checking
      * registry) and push (broadcasting) operations
      */
     @PostMapping("/sync")
-    fun triggerHubClientInfoSync(): ResponseEntity<Map<String, String>> {
+    fun triggerHubClientInfoSync(
+            @RequestHeader("Authorization") authorization: String
+    ): ResponseEntity<Map<String, String>> {
+        if (!adminAuthorizationService.isAuthorized(authorization)) {
+            return unauthorized()
+        }
+
         return try {
             hubClientInfoService.syncHubClientInfo()
             ResponseEntity.ok(
@@ -56,7 +71,13 @@ class HubClientInfoManagementController(private val hubClientInfoService: HubCli
 
     /** Manually check for new parties from the registry (PULL operation) */
     @PostMapping("/check-new-parties")
-    fun checkForNewParties(): ResponseEntity<Map<String, String>> {
+    fun checkForNewParties(
+            @RequestHeader("Authorization") authorization: String
+    ): ResponseEntity<Map<String, String>> {
+        if (!adminAuthorizationService.isAuthorized(authorization)) {
+            return unauthorized()
+        }
+
         return try {
             val indexedParties = hubClientInfoService.getIndexedParties()
             hubClientInfoService.checkForNewPartiesFromRegistry(indexedParties)
@@ -80,7 +101,13 @@ class HubClientInfoManagementController(private val hubClientInfoService: HubCli
 
     /** Manually check for suspended parties (PULL operation) */
     @PostMapping("/check-suspended-updates")
-    fun checkForSuspendedUpdates(): ResponseEntity<Map<String, String>> {
+    fun checkForSuspendedUpdates(
+            @RequestHeader("Authorization") authorization: String
+    ): ResponseEntity<Map<String, String>> {
+        if (!adminAuthorizationService.isAuthorized(authorization)) {
+            return unauthorized()
+        }
+
         return try {
             val indexedParties = hubClientInfoService.getIndexedParties()
             hubClientInfoService.checkForSuspendedUpdates(indexedParties)
@@ -104,8 +131,13 @@ class HubClientInfoManagementController(private val hubClientInfoService: HubCli
 
     @PostMapping("/broadcast")
     fun broadcastHubClientInfo(
+            @RequestHeader("Authorization") authorization: String,
             @RequestBody clientInfo: ClientInfo
     ): ResponseEntity<Map<String, String>> {
+        if (!adminAuthorizationService.isAuthorized(authorization)) {
+            return unauthorized()
+        }
+
         return try {
             // Use event-driven approach - saving triggers the event system
             hubClientInfoService.saveClientInfo(clientInfo)
@@ -129,9 +161,14 @@ class HubClientInfoManagementController(private val hubClientInfoService: HubCli
     /** Renew client connection for a specific party */
     @PostMapping("/renew-connection")
     fun renewClientConnection(
+            @RequestHeader("Authorization") authorization: String,
             @RequestParam partyId: String,
             @RequestParam countryCode: String
     ): ResponseEntity<Map<String, String>> {
+        if (!adminAuthorizationService.isAuthorized(authorization)) {
+            return unauthorized()
+        }
+
         return try {
             val basicRole = snc.openchargingnetwork.node.models.ocpi.BasicRole(partyId, countryCode)
             hubClientInfoService.renewClientConnection(basicRole)

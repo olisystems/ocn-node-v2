@@ -27,7 +27,7 @@ import snc.openchargingnetwork.node.services.ModuleNotificationService
 import snc.openchargingnetwork.node.tools.filterNull
 
 @RestController
-@RequestMapping("\${ocn.node.apiPrefix}")
+@RequestMapping("\${ocn.node.apiPrefix}\${ocn.node.apiPrefixPublic}")
 class TariffsController(
     private val requestHandlerBuilder: OcpiRequestHandlerBuilder,
     private val moduleNotificationService: ModuleNotificationService,

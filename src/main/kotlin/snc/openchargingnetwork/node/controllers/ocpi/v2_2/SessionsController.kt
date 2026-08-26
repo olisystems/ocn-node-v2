@@ -26,7 +26,7 @@ import snc.openchargingnetwork.node.tools.filterNull
 
 
 @RestController
-@RequestMapping("\${ocn.node.apiPrefix}")
+@RequestMapping("\${ocn.node.apiPrefix}\${ocn.node.apiPrefixPublic}")
 class SessionsController(
     private val requestHandlerBuilder: OcpiRequestHandlerBuilder
 ) {

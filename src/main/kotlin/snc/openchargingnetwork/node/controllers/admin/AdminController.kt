@@ -43,6 +43,7 @@ import snc.openchargingnetwork.node.repositories.EndpointRepository
 import snc.openchargingnetwork.node.repositories.Ocpi211AdapterConfigRepository
 import snc.openchargingnetwork.node.repositories.PlatformRepository
 import snc.openchargingnetwork.node.repositories.RoleRepository
+import snc.openchargingnetwork.node.services.AdminAuthorizationService
 import snc.openchargingnetwork.node.services.CredentialsService
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
 import snc.openchargingnetwork.node.tools.getTimestamp
@@ -86,7 +87,7 @@ data class CreatePlatformRequest(
 private val logger = LoggerFactory.getLogger(AdminController::class.java)
 
 @RestController
-@RequestMapping("\${ocn.node.apiPrefix}/admin")
+@RequestMapping("\${ocn.node.apiPrefix}\${ocn.node.apiPrefixPublic}/admin")
 class AdminController(
         private val platformRepo: PlatformRepository,
         private val roleRepo: RoleRepository,
@@ -95,13 +96,12 @@ class AdminController(
         private val properties: NodeProperties,
         private val ocnRegistryComponent: OcnRegistryComponent,
         private val httpClientComponent: HttpClientComponent,
-        private val credentialsService: CredentialsService
+        private val credentialsService: CredentialsService,
+        private val adminAuthorizationService: AdminAuthorizationService
 ) {
 
-    fun isAuthorized(authorization: String): Boolean {
-        return authorization == "Token ${properties.apikey}" ||
-                authorization == "Token ${properties.apikey.toBs64String()}"
-    }
+    fun isAuthorized(authorization: String): Boolean =
+            adminAuthorizationService.isAuthorized(authorization)
 
     @PostMapping("/platform/{platformId}/start-handshake")
     @Transactional
@@ -497,7 +497,7 @@ class AdminController(
                 RegistrationInfo(
                         id = platform.id!!,
                         token = tokenA,
-                        versions = urlJoin(properties.url, properties.apiPrefix, "/ocpi/versions")
+                        versions = urlJoin(properties.url, properties.apiPrefix, properties.apiPrefixPublic, "/ocpi/versions")
                 )
         return ResponseEntity.ok().body(responseBody)
     }

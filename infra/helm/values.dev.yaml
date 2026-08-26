@@ -2,8 +2,19 @@ oli-app:
   fullnameOverride: "ocn-node-v2-dev"
   image:
     tag: "develop-cd60374"
+  # Gateway API. banula-dev.oli-system.com is served by the Envoy banula-gateway;
+  # without a route here the node is unreachable on that host at any path.
   gateway:
+    enabled: true
     parentRef:
-      namespace: oli-banula
+      name: banula-gateway
+      namespace: oli-banula # chart default is envoy-gateway-system - must override
+      sectionName: https
     hosts:
       - banula-dev.oli-system.com
+    router:
+      prefix: /ocn
+      stripPrefix: true
+      routes:
+        exposeAll: true # open catch-all: /health, swagger, /api/v2/public, /admin
+        exposeCommon: false

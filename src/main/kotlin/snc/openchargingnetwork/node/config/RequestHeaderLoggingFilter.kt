@@ -16,7 +16,12 @@ class RequestHeaderLoggingFilterConfig(private val properties: NodeProperties) {
     fun headerLoggingFilter(): FilterRegistrationBean<RequestHeaderLoggingFilter> {
         val registration = FilterRegistrationBean<RequestHeaderLoggingFilter>()
         registration.filter = RequestHeaderLoggingFilter(properties)
-        registration.addUrlPatterns("/ocpi/receiver/*", "/ocpi/sender/*", "/ocn/message")
+        val prefix = properties.publicPathPrefix()
+        registration.addUrlPatterns(
+            "${prefix}/ocpi/receiver/*",
+            "${prefix}/ocpi/sender/*",
+            "${prefix}/ocn/message"
+        )
         registration.order = 1
         return registration
     }

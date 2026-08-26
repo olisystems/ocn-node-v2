@@ -26,7 +26,7 @@ class TestToolHeaderInjectionFilterConfig(
     fun testToolHeaderInjectionFilter(): FilterRegistrationBean<TestToolHeaderInjectionFilter> {
         val registration = FilterRegistrationBean<TestToolHeaderInjectionFilter>()
         registration.filter = TestToolHeaderInjectionFilter(platformRepository, roleRepository)
-        val prefix = if (nodeProperties.apiPrefix.isNullOrBlank()) "" else "/${nodeProperties.apiPrefix}"
+        val prefix = nodeProperties.publicPathPrefix()
         registration.addUrlPatterns("${prefix}/ocpi/receiver/*", "${prefix}/ocpi/sender/*")
         registration.order = 0
         return registration

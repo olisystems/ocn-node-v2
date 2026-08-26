@@ -35,9 +35,10 @@ import snc.openchargingnetwork.node.models.GqlPartiesAndOpsData
 import snc.openchargingnetwork.node.models.Operator
 import snc.openchargingnetwork.node.models.Party
 import snc.openchargingnetwork.node.tools.toBs64String
+import snc.openchargingnetwork.node.tools.urlJoin
 
 @RestController
-@RequestMapping("\${ocn.node.apiPrefix}/ocn/registry")
+@RequestMapping("\${ocn.node.apiPrefix}\${ocn.node.apiPrefixPublic}/ocn/registry")
 class RegistryController(
         private val properties: NodeProperties,
         private val registryIndexerProperties: RegistryIndexerProperties,
@@ -48,7 +49,7 @@ class RegistryController(
     @GetMapping("/node-info")
     fun getMyNodeInfo() =
             mapOf(
-                    "url" to properties.url + "/" + properties.apiPrefix,
+                    "url" to urlJoin(properties.url, properties.apiPrefix, properties.apiPrefixPublic),
                     "address" to (
                             properties.publicAddress.takeIf { it?.isNotBlank() == true }
                                     ?: Credentials.create(properties.privateKey

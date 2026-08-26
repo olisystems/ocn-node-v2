@@ -35,6 +35,21 @@ class NodeProperties {
     // i.e., ocn-node/v2.1
     var apiPrefix: String? = null
 
+    // Path segment every public route sits under, after apiPrefix. Kept separate from apiPrefix so
+    // /health and the springdoc endpoints can stay at the root while everything else moves.
+    var apiPrefixPublic: String = "/api/v2/public"
+
+    /**
+     * Leading path shared by every public route, for building servlet filter URL patterns. Returns
+     * "" when neither prefix is set, otherwise e.g. "/ocn/api/v2/public" - never with a trailing
+     * slash, so callers can append a module path directly.
+     */
+    fun publicPathPrefix(): String {
+        val prefix = apiPrefix?.trim('/').orEmpty()
+        val public = apiPrefixPublic.trim('/')
+        return listOf(prefix, public).filter { it.isNotEmpty() }.joinToString("") { "/$it" }
+    }
+
     // Ethereum account to sign messages and txs
     var privateKey: String? = null
 

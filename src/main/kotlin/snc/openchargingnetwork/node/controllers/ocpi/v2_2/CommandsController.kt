@@ -23,7 +23,7 @@ import snc.openchargingnetwork.node.components.OcpiRequestHandlerBuilder
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.ocpi.*
 
-@RequestMapping("\${ocn.node.apiPrefix}")
+@RequestMapping("\${ocn.node.apiPrefix}\${ocn.node.apiPrefixPublic}")
 @RestController
 class CommandsController(private val requestHandlerBuilder: OcpiRequestHandlerBuilder) {
 
