@@ -15,12 +15,12 @@ spec:
       valueFiles:
         - values.yaml
         - values.dev.yaml
+        - images.dev.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: oli-banula
   syncPolicy:
     automated:
-      selfHeal: false
       prune: true
     syncOptions:
       - CreateNamespace=true
