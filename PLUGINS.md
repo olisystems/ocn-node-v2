@@ -25,7 +25,7 @@ Plugins extend the node with custom HTTP endpoints, custom OCPI modules, and OCP
    ```
 4. Call a plugin HTTP route (path depends on the plugin):
    ```bash
-   curl http://localhost:8080/ocn-v2/plugin/hello
+   curl http://localhost:8080/ocn/api/v2/public/plugin/hello
    ```
 
 Plugin configuration (env / properties) belongs with each plugin — the node only provides `loader.path` and the plugin SPI.
@@ -53,11 +53,11 @@ Boot discovers this when the plugin JAR is on `loader.path`.
 
 ### 2. Custom HTTP routes
 
-Use a normal `@RestController` under `${ocn.node.apiPrefix}/plugin`:
+Use a normal `@RestController` under `${ocn.node.apiPrefix}${ocn.node.apiPrefixPublic}/plugin`:
 
 ```kotlin
 @RestController
-@RequestMapping("\${ocn.node.apiPrefix}/plugin")
+@RequestMapping("\${ocn.node.apiPrefix}\${ocn.node.apiPrefixPublic}/plugin")
 class MyController {
     @GetMapping("/my-resource")
     fun handle() = ResponseEntity.ok("...")
@@ -81,7 +81,7 @@ class MyCustomModule : CustomModule {
 
 Incoming requests are authenticated the same way as forwarded OCPI traffic (known sender token/role, whitelist for local receivers, and OCN signature checks when enabled) before the handler runs.
 
-Requests to `{apiPrefix}/ocpi/custom/{sender|receiver}/mymodule[/...]` are handled locally when a bean is present; otherwise the node forwards as before.
+Requests to `{apiPrefix}{apiPrefixPublic}/ocpi/custom/{sender|receiver}/mymodule[/...]` are handled locally when a bean is present; otherwise the node forwards as before.
 
 ### 4. OCPI object events (CDR tap, etc.)
 

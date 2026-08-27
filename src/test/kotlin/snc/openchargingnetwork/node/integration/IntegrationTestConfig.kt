@@ -20,7 +20,7 @@ class IntegrationTestConfig {
       url = "http://localhost:8080"
       apikey = "integration-test-key"
       privateKey = "9df16a85d24a0dab6fb2bc5c57e1068ed47d56d7518e9b0eaf1712cae718ded6"
-      apiPrefix = "ocn-v2"
+      apiPrefix = "ocn"
     }
   }
 

@@ -33,7 +33,7 @@ import snc.openchargingnetwork.node.plugins.core.OcpiVersionContributor
 import snc.openchargingnetwork.node.tools.urlJoin
 
 @RestController
-@RequestMapping("\${ocn.node.apiPrefix}/ocpi")
+@RequestMapping("\${ocn.node.apiPrefix}\${ocn.node.apiPrefixPublic}/ocpi")
 class InternalVersionsController(
         private val platformAuthService: OcpiPlatformAuthService,
         private val versionContributors: List<OcpiVersionContributor>,
@@ -46,7 +46,7 @@ class InternalVersionsController(
     ): OcpiResponse<List<Version>> {
 
         platformAuthService.assertTokenAOrC(authorization)
-        val endpoint2_2_1 = urlJoin(properties.url, properties.apiPrefix, "/ocpi/2.2.1")
+        val endpoint2_2_1 = urlJoin(properties.url, properties.apiPrefix, properties.apiPrefixPublic, "/ocpi/2.2.1")
         val versions =
                 mutableListOf(Version("2.2.1", endpoint2_2_1))
         versions.addAll(versionContributors.flatMap { it.versions() })
@@ -84,7 +84,7 @@ class InternalVersionsController(
             Endpoint(
                     identifier = module.id,
                     role = it,
-                    url = urlJoin(properties.url, properties.apiPrefix, paths)
+                    url = urlJoin(properties.url, properties.apiPrefix, properties.apiPrefixPublic, paths)
             )
         }
     }
@@ -107,6 +107,7 @@ class InternalVersionsController(
                                         urlJoin(
                                                 properties.url,
                                                 properties.apiPrefix,
+                                                properties.apiPrefixPublic,
                                                 "/ocpi/2.2.1/${module.id}"
                                         )
                         )

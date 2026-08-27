@@ -54,7 +54,7 @@ class OcnNodeTestHelper {
                     "ocn.node.apikey" to "integration-test-key-$nodeId",
                     "ocn.node.privatekey" to
                             "9df16a85d24a0dab6fb2bc5c57e1068ed47d56d7518e9b0eaf1712cae718ded6",
-                    "ocn.node.apiPrefix" to "ocn-v2",
+                    "ocn.node.apiPrefix" to "ocn",
                     "ocn.hass.enabled" to "false",
                     "ocn.haas.url" to "http://localhost:9092/haas",
                     "logging.level.web" to "DEBUG",
@@ -185,7 +185,7 @@ class OcnNodeTestHelper {
 
               while (attempts < maxAttempts) {
                 try {
-                  val url = java.net.URL("http://127.0.0.1:$port/ocn-v2/health")
+                  val url = java.net.URL("http://127.0.0.1:$port/ocn/health")
                   val connection = url.openConnection() as java.net.HttpURLConnection
                   connection.connectTimeout = 1000
                   connection.readTimeout = 1000

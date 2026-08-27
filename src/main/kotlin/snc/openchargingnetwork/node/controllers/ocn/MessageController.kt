@@ -29,7 +29,7 @@ import snc.openchargingnetwork.node.services.VersionsService
 
 
 @RestController
-@RequestMapping("\${ocn.node.apiPrefix}/ocn/message")
+@RequestMapping("\${ocn.node.apiPrefix}\${ocn.node.apiPrefixPublic}/ocn/message")
 class MessageController(
     private val requestHandlerBuilder: OcpiRequestHandlerBuilder,
     private val versionsService: VersionsService

@@ -10,7 +10,7 @@ import snc.openchargingnetwork.node.models.ValidationResult
 import snc.openchargingnetwork.node.services.BanulaValidationService
 
 @ConditionalOnProperty(prefix = "ocn.features", name = ["banulaValidation"], havingValue = "true")
-@RequestMapping("\${ocn.node.apiPrefix}/banula/validation")
+@RequestMapping("\${ocn.node.apiPrefix}\${ocn.node.apiPrefixPublic}/banula/validation")
 @RestController
 class BanulaValidationController(private val validationService: BanulaValidationService) {
 

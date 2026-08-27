@@ -471,6 +471,7 @@ class OcpiRequestHandler<T : Any>(
                                             urlJoin(
                                                     properties.url,
                                                     properties.apiPrefix,
+                                                    properties.apiPrefixPublic,
                                                     proxyPath,
                                                     resourceID
                                             )

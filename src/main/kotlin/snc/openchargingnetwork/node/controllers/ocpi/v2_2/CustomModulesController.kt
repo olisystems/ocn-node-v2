@@ -11,7 +11,7 @@ import snc.openchargingnetwork.node.models.ocpi.*
 import snc.openchargingnetwork.node.plugins.core.CustomModule
 import snc.openchargingnetwork.node.plugins.core.CustomModuleRequest
 
-@RequestMapping("\${ocn.node.apiPrefix}/ocpi/custom/")
+@RequestMapping("\${ocn.node.apiPrefix}\${ocn.node.apiPrefixPublic}/ocpi/custom/")
 @RestController
 class CustomModulesController(
     private val requestHandlerBuilder: OcpiRequestHandlerBuilder,

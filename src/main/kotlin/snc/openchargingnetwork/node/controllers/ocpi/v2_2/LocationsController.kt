@@ -28,7 +28,7 @@ import snc.openchargingnetwork.node.services.ModuleNotificationService
 
 
 @RestController
-@RequestMapping("\${ocn.node.apiPrefix}")
+@RequestMapping("\${ocn.node.apiPrefix}\${ocn.node.apiPrefixPublic}")
 class LocationsController(
     private val requestHandlerBuilder: OcpiRequestHandlerBuilder,
     private val moduleNotificationService: ModuleNotificationService,
