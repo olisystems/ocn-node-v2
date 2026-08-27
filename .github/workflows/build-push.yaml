@@ -28,7 +28,7 @@ jobs:
           private-key: ${{ secrets.OLI_ARGO_SYNC_PRIVATE_KEY }}
 
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           token: ${{ steps.app-token.outputs.token }}
 
@@ -72,9 +72,9 @@ jobs:
           TAG: ${{ github.ref_name }}-${{ steps.sha.outputs.short_sha }}
         run: |
           if [ "${{ github.ref_name }}" = "develop" ]; then
-            yq -i '.oli-app.image.tag = env(TAG)' infra/helm/values.dev.yaml
+            yq -i '.oli-app.image.tag = env(TAG)' infra/helm/images.dev.yaml
           elif [ "${{ github.ref_name }}" = "main" ]; then
-            yq -i '.oli-app.image.tag = env(TAG)' infra/helm/values.int.yaml
+            yq -i '.oli-app.image.tag = env(TAG)' infra/helm/images.int.yaml
           fi
 
       - name: Commit and push
@@ -84,38 +84,3 @@ jobs:
           git add infra/helm/
           git commit -m "chore: update ${{ github.ref_name }} image to ${{ github.ref_name }}-${{ steps.sha.outputs.short_sha }}"
           git push
-
-      - name: Connect to VPN
-        if: github.ref_name == 'develop'
-        env:
-          VPN_CONFIG: ${{ secrets.VPN_CONFIG }}
-          VPN_PASS: ${{ secrets.VPN_PASS }}
-        run: |
-          sudo apt-get update && sudo apt-get install -y openvpn
-          printf '%s' "$VPN_CONFIG" > vpn.conf
-          printf '%s' "$VPN_PASS" > .vpn_pass
-          sudo openvpn --config vpn.conf --askpass .vpn_pass --log ovpn.log --daemon
-          for attempt in $(seq 1 30); do
-            if sudo grep -q "Initialization Sequence Completed" ovpn.log 2>/dev/null; then
-              echo "VPN connection established"
-              break
-            fi
-            sleep 2
-          done
-          if ! sudo grep -q "Initialization Sequence Completed" ovpn.log 2>/dev/null; then
-            echo "VPN failed to establish within timeout"
-            sudo tail -n 100 ovpn.log || true
-            exit 1
-          fi
-          rm -f vpn.conf .vpn_pass
-
-      - name: Configure kubectl and reset ArgoCD dev app
-        if: github.ref_name == 'develop'
-        env:
-          KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG }}
-        run: |
-          printf '%s' "$KUBECONFIG_CONTENT" > "$RUNNER_TEMP/kubeconfig.yaml"
-          chmod 600 "$RUNNER_TEMP/kubeconfig.yaml"
-          export KUBECONFIG="$RUNNER_TEMP/kubeconfig.yaml"
-          kubectl patch application ocn-node-v2-dev -n argocd --type merge \
-            -p '{"spec":{"source":{"targetRevision":"develop","helm":{"parameters":null}}}}'

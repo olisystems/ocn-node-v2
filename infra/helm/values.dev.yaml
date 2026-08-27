@@ -1,7 +1,5 @@
 oli-app:
   fullnameOverride: "ocn-node-v2-dev"
-  image:
-    tag: "develop-0ed26e7"
   # Gateway API. banula-dev.oli-system.com is served by the Envoy banula-gateway;
   # without a route here the node is unreachable on that host at any path.
   gateway:

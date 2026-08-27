@@ -2,6 +2,7 @@ name: Checks
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches:
       - main
       - develop
@@ -9,15 +10,24 @@ on:
     branches:
       - main
       - develop
+    # Argo write-back commits only touch infra/helm, and nothing consumes a
+    # push-triggered result. The pull_request trigger above is deliberately left
+    # unfiltered, so the Build and Test context reports on every PR, helm-only
+    # ones included.
+    paths-ignore:
+      - "infra/helm/**"
 
 jobs:
   build-and-test:
     name: Build and Test
+    # Draft PRs skip CI. ready_for_review is in the trigger types above so
+    # the required contexts actually report once the PR leaves draft.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Java
         uses: actions/setup-java@v4
