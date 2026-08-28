@@ -12,7 +12,6 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.ResponseEntity
 import snc.openchargingnetwork.node.components.OcpiRequestHandler
 import snc.openchargingnetwork.node.components.OcpiRequestHandlerBuilder
-import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.controllers.ocpi.v2_2.TokensController
 import snc.openchargingnetwork.node.models.ocpi.*
 import snc.openchargingnetwork.node.services.NodeObjectRoutingService
@@ -25,10 +24,9 @@ class TokensControllerTest {
         val requestHandlerBuilder = Mockito.mock(OcpiRequestHandlerBuilder::class.java)
         val requestHandler = Mockito.mock(OcpiRequestHandler::class.java) as OcpiRequestHandler<Unit>
         val nodeObjectRoutingService = Mockito.mock(NodeObjectRoutingService::class.java)
-        val properties = NodeProperties()
         whenever(requestHandlerBuilder.build<Unit>(any<OcpiRequestVariables>())).thenReturn(requestHandler)
-        whenever(requestHandler.forwardToPartyAsync(anyOrNull(), anyOrNull())).thenReturn(requestHandler)
-        val controller = TokensController(requestHandlerBuilder, nodeObjectRoutingService, properties)
+        whenever(requestHandler.forwardIntegrationsAsync(any())).thenReturn(requestHandler)
+        val controller = TokensController(requestHandlerBuilder, nodeObjectRoutingService)
         whenever(nodeObjectRoutingService.route<Unit>(any(), anyOrNull()))
             .thenReturn(ResponseEntity.ok(OcpiResponse(statusCode = OcpiStatus.SUCCESS.code)))
         val token =
@@ -61,6 +59,7 @@ class TokensControllerTest {
 
         val captor = argumentCaptor<OcpiRequestVariables>()
         verify(nodeObjectRoutingService).route<Unit>(captor.capture(), anyOrNull())
+        verify(requestHandler).forwardIntegrationsAsync(ModuleID.TOKENS)
         assertThat(captor.firstValue.module).isEqualTo(ModuleID.TOKENS)
         assertThat(captor.firstValue.method).isEqualTo(HttpMethod.PUT)
         assertThat(captor.firstValue.urlPath).isEqualTo("/DE/MSP/token-1")
