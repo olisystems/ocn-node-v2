@@ -1,7 +1,7 @@
 name: Reset Override
 
-# Clears any pin left behind by Override Dev, so a merge always lands in the
-# cluster.
+# Clears any pin left behind by Override Dev / Override Int, so a merge always
+# lands in the cluster.
 #
 # Deliberately no paths-ignore, unlike Build Image: this workflow makes no
 # commits, so it cannot re-trigger itself. Filtering on infra/helm here would
@@ -10,6 +10,7 @@ name: Reset Override
 on:
   push:
     branches:
+      - main
       - develop
 
 jobs:
@@ -44,6 +45,7 @@ jobs:
           rm -f vpn.conf .vpn_pass
 
       - name: Configure kubectl and reset ArgoCD dev app
+        if: github.ref_name == 'develop'
         env:
           KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG }}
         run: |
@@ -52,3 +54,16 @@ jobs:
           export KUBECONFIG="$RUNNER_TEMP/kubeconfig.yaml"
           kubectl patch application ocn-node-v2-dev -n argocd --type merge \
             -p '{"spec":{"source":{"targetRevision":"develop","helm":{"parameters":null}}}}'
+
+      # No sync is triggered: the int app has no automated policy and is synced
+      # by hand as usual.
+      - name: Configure kubectl and reset ArgoCD int app
+        if: github.ref_name == 'main'
+        env:
+          KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG }}
+        run: |
+          printf '%s' "$KUBECONFIG_CONTENT" > "$RUNNER_TEMP/kubeconfig.yaml"
+          chmod 600 "$RUNNER_TEMP/kubeconfig.yaml"
+          export KUBECONFIG="$RUNNER_TEMP/kubeconfig.yaml"
+          kubectl patch application ocn-node-v2-int -n argocd --type merge \
+            -p '{"spec":{"source":{"targetRevision":"main","helm":{"parameters":null}}}}'
