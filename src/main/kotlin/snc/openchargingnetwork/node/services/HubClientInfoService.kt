@@ -23,6 +23,7 @@ import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 import snc.openchargingnetwork.node.components.HttpClientComponent
 import snc.openchargingnetwork.node.components.OcnRegistryComponent
+import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.config.RegistryIndexerProperties
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.entities.NetworkClientInfoEntity
@@ -55,7 +56,8 @@ class HubClientInfoService(
         private val routingService: RoutingService,
         private val walletService: WalletService,
         private val ocnRulesService: OcnRulesService,
-        private val registryService: RegistryService
+        private val registryService: RegistryService,
+        private val nodeProperties: NodeProperties
 ) {
 
     companion object {
@@ -196,6 +198,8 @@ class HubClientInfoService(
             parties: Iterable<RoleEntity>,
             changedClientInfo: ClientInfo
     ) {
+        // Fail once before fan-out if hub identity is not configured.
+        val hubSender = requireConfiguredHubSender()
         for (party in parties) {
             try {
                 val platform = platformRepo.findById(party.platformID).get()
@@ -204,7 +208,8 @@ class HubClientInfoService(
                         party.partyID,
                         party.countryCode,
                         authToken,
-                        changedClientInfo
+                        changedClientInfo,
+                        hubSender
                 )
             } catch (e: Exception) {
                 // Skip parties where handshake is not complete (token is missing)
@@ -230,14 +235,9 @@ class HubClientInfoService(
             partyId: String,
             countryCode: String,
             authToken: String,
-            changedClientInfo: ClientInfo
+            changedClientInfo: ClientInfo,
+            hubSender: BasicRole = requireConfiguredHubSender()
     ) {
-        val sender =
-                BasicRole(
-                        id = "OCN",
-                        country = "CH"
-                ) // TODO: put node platformID and countryCode in a shared, configurable
-        // location
         val receiver = BasicRole(partyId, countryCode)
         val requestVariables =
                 OcpiRequestVariables(
@@ -249,7 +249,7 @@ class HubClientInfoService(
                                         authorization = "Token ${authToken.toBs64String()}",
                                         requestID = generateUUIDv4Token(),
                                         correlationID = generateUUIDv4Token(),
-                                        sender = sender,
+                                        sender = hubSender,
                                         receiver = receiver
                                 ),
                         body = changedClientInfo,
@@ -264,6 +264,16 @@ class HubClientInfoService(
         } catch (e: Exception) { // fire and forget; catch any error and log
             logger.warn("Error notifying $receiver of client info change: ${e.message}")
         }
+    }
+
+    private fun requireConfiguredHubSender(): BasicRole {
+        val hubCountryCode =
+                nodeProperties.countryCode
+                        ?: throw IllegalStateException("ocn.node.countryCode must be configured")
+        val hubPartyId =
+                nodeProperties.partyId
+                        ?: throw IllegalStateException("ocn.node.partyId must be configured")
+        return BasicRole(id = hubPartyId, country = hubCountryCode)
     }
 
     /** Send a notification of a ClientInfo change to other nodes on the network */
