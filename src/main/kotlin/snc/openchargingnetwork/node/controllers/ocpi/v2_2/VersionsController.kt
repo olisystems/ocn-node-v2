@@ -17,11 +17,8 @@ import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
 import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
 import snc.openchargingnetwork.node.models.ocpi.OcpiStatus
 import snc.openchargingnetwork.node.models.ocpi.Version
-import snc.openchargingnetwork.node.repositories.PlatformRepository
 import snc.openchargingnetwork.node.services.RoutingService
 import snc.openchargingnetwork.node.services.VersionsService
-import snc.openchargingnetwork.node.tools.extractToken
-import snc.openchargingnetwork.node.tools.fromBs64String
 import snc.openchargingnetwork.node.tools.urlJoin
 
 @RestController
@@ -30,7 +27,6 @@ class VersionsController(
     private val requestHandlerBuilder: OcpiRequestHandlerBuilder,
     private val versionsService: VersionsService,
     private val routingService: RoutingService,
-    private val platformRepository: PlatformRepository,
     private val nodeProperties: NodeProperties
 ) {
 
@@ -100,16 +96,17 @@ class VersionsController(
     }
 
     private fun localNodeVersions(authorization: String): OcpiResponse<List<Version>> {
-        val token = authorization.extractToken().fromBs64String()
-        val endpoint2_2_1 = urlJoin(nodeProperties.url, nodeProperties.apiPrefix, "/ocpi/2.2.1")
-        val versions = listOf(Version("2.2.1", endpoint2_2_1))
-        val response = OcpiResponse(OcpiStatus.SUCCESS.code, data = versions)
-
-        return when {
-            platformRepository.existsByAuth_TokenA(token) -> response
-            platformRepository.existsByAuth_TokenB(token) -> response
-            platformRepository.existsByAuth_TokenC(token) -> response
-            else -> throw OcpiClientInvalidParametersException("Invalid authorization token")
-        }
+        routingService.checkSenderKnown(authorization)
+        val endpoint2_2_1 =
+            urlJoin(
+                nodeProperties.url,
+                nodeProperties.apiPrefix,
+                nodeProperties.apiPrefixPublic,
+                "/ocpi/2.2.1"
+            )
+        return OcpiResponse(
+            OcpiStatus.SUCCESS.code,
+            data = listOf(Version("2.2.1", endpoint2_2_1))
+        )
     }
 }

@@ -2,6 +2,7 @@ package snc.openchargingnetwork.node.services
 
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.mockito.Mockito
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -72,5 +73,27 @@ class CredentialsServiceSameIdentityTest {
         assertThat(response.data?.roles?.single()?.countryCode).isEqualTo("DE")
         assertThat(response.data?.roles?.single()?.partyID).isEqualTo("BAN")
         verify(registryService).isRoleKnown(BasicRole("BAN", "DE"))
+    }
+
+    @Test
+    fun `myCredentials rejects blank node identity`() {
+        val service =
+            CredentialsService(
+                Mockito.mock(PlatformRepository::class.java),
+                Mockito.mock(RoleRepository::class.java),
+                Mockito.mock(EndpointRepository::class.java),
+                Mockito.mock(NetworkClientInfoRepository::class.java),
+                Mockito.mock(OcnRulesListRepository::class.java),
+                NodeProperties().apply {
+                    countryCode = "  "
+                    partyId = "BAN"
+                    url = "https://node.example.com"
+                },
+                Mockito.mock(RegistryService::class.java),
+                Mockito.mock(HttpClientComponent::class.java)
+            )
+
+        val error = assertThrows<IllegalStateException> { service.myCredentials("token") }
+        assertThat(error.message).isEqualTo("ocn.node.countryCode must be configured")
     }
 }

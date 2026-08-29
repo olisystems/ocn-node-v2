@@ -32,10 +32,10 @@ class CredentialsService(
 
     fun myCredentials(token: String): Credentials {
         val nodeCountryCode =
-                properties.countryCode
+                properties.countryCode?.takeIf { it.isNotBlank() }
                         ?: throw IllegalStateException("ocn.node.countryCode must be configured")
         val nodePartyId =
-                properties.partyId
+                properties.partyId?.takeIf { it.isNotBlank() }
                         ?: throw IllegalStateException("ocn.node.partyId must be configured")
 
         return Credentials(
