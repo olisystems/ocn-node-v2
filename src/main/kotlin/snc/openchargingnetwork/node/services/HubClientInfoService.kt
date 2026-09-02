@@ -62,12 +62,13 @@ class HubClientInfoService(
 
     companion object {
         private val logger = LoggerFactory.getLogger(HubClientInfoService::class.java)
+
+        /** Upper bound for a single page of client info records. */
+        const val MAX_CLIENT_INFO_PAGE_SIZE = 1000
     }
 
     /** Get a HubClientInfo list of local and known network connections */
     fun getList(fromAuthorization: String): List<ClientInfo> {
-        val clientInfoList = mutableListOf<ClientInfo>()
-
         val plainToken = fromAuthorization.extractToken().fromBs64String()
         val requestingPlatform =
                 platformRepo.findByAuth_TokenC(plainToken)
@@ -81,13 +82,68 @@ class HubClientInfoService(
             )
         }
 
+        return collectClientInfo(
+                include = { party -> ocnRulesService.isWhitelisted(requestingPlatform, party) },
+                networkStatus = { ConnectionStatus.PLANNED }
+        )
+    }
+
+    /**
+     * Get a page of the HubClientInfo list visible to the requesting platform (i.e. the same records
+     * [getList] returns, sliced with offset/limit).
+     */
+    fun getPaginatedList(fromAuthorization: String, offset: Int, limit: Int): PaginatedClientInfo {
+        return paginate(getList(fromAuthorization), offset, limit)
+    }
+
+    /**
+     * Get a page of every HubClientInfo record known to this node (local platform roles and network
+     * parties), without any whitelist filtering. Used by the admin API, which is not tied to a
+     * requesting platform.
+     */
+    fun getPaginatedClientInfo(offset: Int, limit: Int): PaginatedClientInfo {
+        return paginate(collectClientInfo(), offset, limit)
+    }
+
+    /**
+     * Sort the given records by country code, party ID and role - so paging through them is stable -
+     * and return the page starting at [offset] with at most [limit] records.
+     */
+    private fun paginate(all: List<ClientInfo>, offset: Int, limit: Int): PaginatedClientInfo {
+        val safeOffset = offset.coerceAtLeast(0)
+        val safeLimit = limit.coerceIn(1, MAX_CLIENT_INFO_PAGE_SIZE)
+
+        val sorted = all.sortedWith(compareBy({ it.countryCode }, { it.partyID }, { it.role.name }))
+
+        val from = safeOffset.coerceAtMost(sorted.size)
+        val to = (from + safeLimit).coerceAtMost(sorted.size)
+
+        return PaginatedClientInfo(
+                data = sorted.subList(from, to),
+                totalCount = sorted.size,
+                offset = safeOffset,
+                limit = safeLimit
+        )
+    }
+
+    /**
+     * Collect the client info of every local platform role and every known network party.
+     *
+     * @param include only parties matching this predicate are returned (defaults to all).
+     * @param networkStatus the status reported for network parties (defaults to the stored status).
+     */
+    private fun collectClientInfo(
+            include: (BasicRole) -> Boolean = { true },
+            networkStatus: (NetworkClientInfoEntity) -> ConnectionStatus = { it.status }
+    ): List<ClientInfo> {
+        val clientInfoList = mutableListOf<ClientInfo>()
+
         // add connected party roles
         for (platform in platformRepo.findAll()) {
             for (role in roleRepo.findAllByPlatformID(platform.id)) {
-                // only if whitelisted
                 val counterPartyBasicRole = BasicRole(id = role.partyID, country = role.countryCode)
 
-                if (ocnRulesService.isWhitelisted(requestingPlatform, counterPartyBasicRole)) {
+                if (include(counterPartyBasicRole)) {
                     clientInfoList.add(
                             ClientInfo(
                                     partyID = role.partyID,
@@ -103,14 +159,13 @@ class HubClientInfoService(
 
         // add network party roles
         for (role in networkClientInfoRepo.findAll()) {
-            // only if whitelisted
-            if (ocnRulesService.isWhitelisted(requestingPlatform, role.party)) {
+            if (include(role.party)) {
                 clientInfoList.add(
                         ClientInfo(
                                 partyID = role.party.id,
                                 countryCode = role.party.country,
                                 role = role.role,
-                                status = ConnectionStatus.PLANNED,
+                                status = networkStatus(role),
                                 lastUpdated = role.lastUpdated
                         )
                 )

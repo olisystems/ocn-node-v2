@@ -39,6 +39,24 @@ class HubClientInfoManagementController(
                     .body(mapOf("error" to "Invalid Authorization"))
 
     /**
+     * List every hub client info record known to this node (local platform roles and network
+     * parties), paginated with offset/limit.
+     */
+    @GetMapping
+    fun getHubClientInfoList(
+            @RequestHeader("Authorization") authorization: String,
+            @RequestParam(required = false, defaultValue = "0") offset: Int,
+            @RequestParam(required = false, defaultValue = "50") limit: Int
+    ): ResponseEntity<Any> {
+        if (!adminAuthorizationService.isAuthorized(authorization)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(mapOf("error" to "Invalid Authorization"))
+        }
+
+        return ResponseEntity.ok(hubClientInfoService.getPaginatedClientInfo(offset, limit))
+    }
+
+    /**
      * Manually trigger a comprehensive hub client info sync This performs both pull (checking
      * registry) and push (broadcasting) operations
      */

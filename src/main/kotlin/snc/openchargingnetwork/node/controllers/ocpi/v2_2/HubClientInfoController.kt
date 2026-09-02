@@ -53,6 +53,11 @@ class HubClientInfoController(
     private val moduleNotificationService: ModuleNotificationService,
 ) {
 
+    companion object {
+        /** Page size used when a caller does not send a limit. */
+        private const val DEFAULT_PAGE_SIZE = 50
+    }
+
     @GetMapping
     fun getHubClientInfo(
         @RequestHeader("authorization") authorization: String,
@@ -71,7 +76,13 @@ class HubClientInfoController(
 
         // Hub Client Info against this node does not need OCPI routing headers.
         if (isLocalHubReceiver(toCountryCode, toPartyID)) {
-            return handleInternalClientInfoRequest(fromCountryCode, fromPartyID, authorization)
+            return handleInternalClientInfoRequest(
+                fromCountryCode,
+                fromPartyID,
+                authorization,
+                offset,
+                limit
+            )
         }
 
         val sender = requireRoutingRole(fromPartyID, fromCountryCode, "OCPI-from")
@@ -229,31 +240,37 @@ class HubClientInfoController(
         fromCountryCode: String?,
         fromPartyID: String?,
         authorization: String,
+        offset: Int?,
+        limit: Int?
     ): ResponseEntity<OcpiResponse<Array<ClientInfo>>> {
-        // TODO: implement pagination
         if (!fromCountryCode.isNullOrBlank() && !fromPartyID.isNullOrBlank()) {
             routingService.checkSenderKnown(authorization, BasicRole(fromPartyID, fromCountryCode))
         } else {
             routingService.checkSenderKnown(authorization)
         }
-        // val params = PaginatedRequest(dateFrom, dateTo, offset, limit).encode()
-        val result = hubClientInfoService.getList(authorization).toTypedArray()
-        val count = result.size.toString()
+
+        val page =
+            hubClientInfoService.getPaginatedList(
+                fromAuthorization = authorization,
+                offset = offset ?: 0,
+                limit = limit ?: DEFAULT_PAGE_SIZE
+            )
 
         val headers = HttpHeaders()
-        headers["X-Total-Count"] = count
-        headers["X-Limit"] = count
+        headers["X-Total-Count"] = page.totalCount.toString()
+        headers["X-Limit"] = page.limit.toString()
+
+        val nextOffset = page.offset + page.data.size
+        if (nextOffset < page.totalCount) {
+            val nextUrl =
+                "${nodeProperties.url.trimEnd('/')}${nodeProperties.publicPathPrefix()}" +
+                    "/ocpi/2.2.1/hubclientinfo?offset=$nextOffset&limit=${page.limit}"
+            headers["Link"] = "<$nextUrl>; rel=\"next\""
+        }
 
         return ResponseEntity.ok()
             .headers(headers)
-            .body(
-                OcpiResponse(
-                    statusCode = 1000,
-                    statusMessage =
-                        "Pagination request parameters were ignored due to lack of their implementation on the OCN.",
-                    data = result
-                )
-            )
+            .body(OcpiResponse(statusCode = 1000, data = page.data.toTypedArray()))
     }
 
     private fun isLocalHubReceiver(toCountryCode: String?, toPartyID: String?): Boolean {
