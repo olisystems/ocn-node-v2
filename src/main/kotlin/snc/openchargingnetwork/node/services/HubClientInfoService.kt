@@ -106,14 +106,22 @@ class HubClientInfoService(
     }
 
     /**
-     * Sort the given records by country code, party ID and role - so paging through them is stable -
-     * and return the page starting at [offset] with at most [limit] records.
+     * Sort the given records so that connected parties come first, then by country code, party ID
+     * and role - so paging through them is stable - and return the page starting at [offset] with at
+     * most [limit] records.
+     *
+     * [ConnectionStatus] is declared CONNECTED, OFFLINE, PLANNED, SUSPENDED, so ordering by the enum
+     * itself puts the usable parties on top. This list is merged in memory from the local platform
+     * roles and the network client info table, so it cannot be ordered by the database directly; it
+     * is sorted before the page is cut, which keeps the order correct across pages.
      */
     private fun paginate(all: List<ClientInfo>, offset: Int, limit: Int): PaginatedClientInfo {
         val safeOffset = offset.coerceAtLeast(0)
         val safeLimit = limit.coerceIn(1, MAX_CLIENT_INFO_PAGE_SIZE)
 
-        val sorted = all.sortedWith(compareBy({ it.countryCode }, { it.partyID }, { it.role.name }))
+        val sorted =
+                all.sortedWith(
+                        compareBy({ it.status }, { it.countryCode }, { it.partyID }, { it.role.name }))
 
         val from = safeOffset.coerceAtMost(sorted.size)
         val to = (from + safeLimit).coerceAtMost(sorted.size)
@@ -129,6 +137,12 @@ class HubClientInfoService(
     /**
      * Collect the client info of every local platform role and every known network party.
      *
+     * A party registered locally on this node can also have a network client info record, because
+     * an older registry sync may have stored it before the party registered here. The local record
+     * is authoritative — it carries the real connection status of the platform — so network records
+     * for a party/role already covered by a local role are skipped rather than listed a second
+     * time.
+     *
      * @param include only parties matching this predicate are returned (defaults to all).
      * @param networkStatus the status reported for network parties (defaults to the stored status).
      */
@@ -137,11 +151,16 @@ class HubClientInfoService(
             networkStatus: (NetworkClientInfoEntity) -> ConnectionStatus = { it.status }
     ): List<ClientInfo> {
         val clientInfoList = mutableListOf<ClientInfo>()
+        val localPartyRoles = mutableSetOf<Triple<String, String, Role>>()
 
         // add connected party roles
         for (platform in platformRepo.findAll()) {
             for (role in roleRepo.findAllByPlatformID(platform.id)) {
                 val counterPartyBasicRole = BasicRole(id = role.partyID, country = role.countryCode)
+
+                // recorded even when filtered out below, so that a party which is local to this
+                // node is never also reported as a network party
+                localPartyRoles.add(clientInfoKey(role.countryCode, role.partyID, role.role))
 
                 if (include(counterPartyBasicRole)) {
                     clientInfoList.add(
@@ -157,9 +176,11 @@ class HubClientInfoService(
             }
         }
 
-        // add network party roles
+        // add network party roles that no local platform role already covers
         for (role in networkClientInfoRepo.findAll()) {
-            if (include(role.party)) {
+            val key = clientInfoKey(role.party.country, role.party.id, role.role)
+
+            if (key !in localPartyRoles && include(role.party)) {
                 clientInfoList.add(
                         ClientInfo(
                                 partyID = role.party.id,
@@ -174,6 +195,10 @@ class HubClientInfoService(
 
         return clientInfoList
     }
+
+    /** Case-insensitive identity of a client info record. */
+    private fun clientInfoKey(countryCode: String, partyID: String, role: Role) =
+            Triple(countryCode.uppercase(), partyID.uppercase(), role)
 
     /**
      * Get parties who should be sent a HubClientInfo Push notification (sans the changedPlatform if
@@ -376,6 +401,18 @@ class HubClientInfoService(
         for (party in parties) {
             for (role in party.roles) {
                 val partyId = BasicRole(party.partyId, party.countryCode)
+
+                // Parties registered on this node are already tracked through their platform
+                // roles. Storing a PLANNED network record for them would list the party twice and
+                // broadcast a status contradicting the one its platform reports.
+                if (roleRepo.existsByCountryCodeAndPartyIDAndRoleAllIgnoreCase(
+                                partyId.country,
+                                partyId.id,
+                                role
+                        )
+                ) {
+                    continue
+                }
 
                 // Check if this party/role combination already exists
                 if (!networkClientInfoRepo.existsByPartyAndRole(partyId, role)) {

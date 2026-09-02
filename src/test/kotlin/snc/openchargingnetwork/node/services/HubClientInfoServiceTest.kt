@@ -13,6 +13,7 @@ import snc.openchargingnetwork.node.components.OcnRegistryComponent
 import snc.openchargingnetwork.node.config.RegistryIndexerProperties
 import snc.openchargingnetwork.node.models.entities.Auth
 import snc.openchargingnetwork.node.models.entities.EndpointEntity
+import snc.openchargingnetwork.node.models.entities.NetworkClientInfoEntity
 import snc.openchargingnetwork.node.models.entities.PlatformEntity
 import snc.openchargingnetwork.node.models.entities.RoleEntity
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
@@ -287,6 +288,110 @@ class HubClientInfoServiceTest(
         val list2 = hubClientInfoService.getHubClientInfoList(testAuthorization)
 
         assertThat(list1).isEqualTo(list2)
+    }
+
+    @Test
+    fun `getPaginatedClientInfo should list a locally registered party only once`() {
+        // a stale network record for a party that is also registered locally (testRole = DE/TST/CPO)
+        networkClientInfoRepository.save(
+            NetworkClientInfoEntity(
+                party = BasicRole("TST", "DE").uppercase(),
+                role = Role.CPO,
+                status = ConnectionStatus.PLANNED,
+                lastUpdated = "2023-01-01T00:00:00Z"
+            )
+        )
+
+        val page = hubClientInfoService.getPaginatedClientInfo(0, 1000)
+
+        val tstCpo =
+            page.data.filter {
+                it.countryCode == "DE" && it.partyID == "TST" && it.role == Role.CPO
+            }
+        assertThat(tstCpo).hasSize(1)
+        // the local platform record wins over the network one
+        assertThat(tstCpo.first().status).isEqualTo(ConnectionStatus.CONNECTED)
+        assertThat(page.totalCount).isEqualTo(page.data.size)
+    }
+
+    @Test
+    fun `getPaginatedClientInfo should list connected parties first`() {
+        // testPlatform/testRole is DE/TST/CPO and CONNECTED; add parties in the other statuses
+        listOf(
+                Triple("PLN", Role.CPO, ConnectionStatus.PLANNED),
+                Triple("SUS", Role.CPO, ConnectionStatus.SUSPENDED),
+                Triple("OFF", Role.CPO, ConnectionStatus.OFFLINE)
+            )
+            .forEach { (partyId, role, status) ->
+                networkClientInfoRepository.save(
+                    NetworkClientInfoEntity(
+                        party = BasicRole(partyId, "DE").uppercase(),
+                        role = role,
+                        status = status,
+                        lastUpdated = "2023-01-01T00:00:00Z"
+                    )
+                )
+            }
+
+        val page = hubClientInfoService.getPaginatedClientInfo(0, 1000)
+        val statuses = page.data.map { it.status }
+
+        // connected block comes first, and the statuses never go "back up" the order
+        assertThat(statuses.first()).isEqualTo(ConnectionStatus.CONNECTED)
+        assertThat(statuses).isSortedAccordingTo(compareBy { it.ordinal })
+    }
+
+    @Test
+    fun `getPaginatedClientInfo should not return duplicate party role combinations`() {
+        networkClientInfoRepository.save(
+            NetworkClientInfoEntity(
+                party = BasicRole("TST", "DE").uppercase(),
+                role = Role.CPO,
+                status = ConnectionStatus.PLANNED,
+                lastUpdated = "2023-01-01T00:00:00Z"
+            )
+        )
+
+        val page = hubClientInfoService.getPaginatedClientInfo(0, 1000)
+
+        val keys = page.data.map { Triple(it.countryCode, it.partyID, it.role) }
+        assertThat(keys).doesNotHaveDuplicates()
+    }
+
+    @Test
+    fun `checkForNewPartiesFromRegistry should skip parties already registered locally`() {
+        // same party/role as testRole, so no network record should be created for it
+        val localParty =
+            snc.openchargingnetwork.node.models.Party(
+                id = "TST",
+                countryCode = "DE",
+                partyId = "TST",
+                partyAddress = "0x987654321",
+                roles = listOf(Role.CPO),
+                name = "Test Company",
+                url = "https://test.com",
+                paymentStatus =
+                    snc.openchargingnetwork.node.models.PaymentStatus.PAID,
+                cvStatus =
+                    snc.openchargingnetwork.node.models.CvStatus.VERIFIED,
+                active = true,
+                deleted = false,
+                operator =
+                    snc.openchargingnetwork.node.models.Operator(
+                        id = "OP1",
+                        domain = "https://op1.com"
+                    )
+            )
+
+        hubClientInfoService.checkForNewPartiesFromRegistry(listOf(localParty))
+
+        val networkRecord =
+            networkClientInfoRepository.findByPartyAndRole(
+                BasicRole("TST", "DE").uppercase(),
+                Role.CPO
+            )
+
+        assertThat(networkRecord).isNull()
     }
 
     @Test
