@@ -17,6 +17,7 @@
 package snc.openchargingnetwork.node.services
 
 import java.time.Instant
+import java.time.format.DateTimeParseException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpMethod
 import org.springframework.scheduling.annotation.Async
@@ -37,6 +38,7 @@ import snc.openchargingnetwork.node.repositories.RoleRepository
 import snc.openchargingnetwork.node.tools.extractToken
 import snc.openchargingnetwork.node.tools.fromBs64String
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
+import snc.openchargingnetwork.node.tools.getInstant
 import snc.openchargingnetwork.node.tools.getTimestamp
 import snc.openchargingnetwork.node.tools.toBs64String
 
@@ -90,10 +92,16 @@ class HubClientInfoService(
 
     /**
      * Get a page of the HubClientInfo list visible to the requesting platform (i.e. the same records
-     * [getList] returns, sliced with offset/limit).
+     * [getList] returns, optionally narrowed to a last_updated window and sliced with offset/limit).
      */
-    fun getPaginatedList(fromAuthorization: String, offset: Int, limit: Int): PaginatedClientInfo {
-        return paginate(getList(fromAuthorization), offset, limit)
+    fun getPaginatedList(
+            fromAuthorization: String,
+            offset: Int,
+            limit: Int,
+            dateFrom: Instant? = null,
+            dateTo: Instant? = null
+    ): PaginatedClientInfo {
+        return paginate(getList(fromAuthorization), offset, limit, dateFrom, dateTo)
     }
 
     /**
@@ -114,13 +122,25 @@ class HubClientInfoService(
      * itself puts the usable parties on top. This list is merged in memory from the local platform
      * roles and the network client info table, so it cannot be ordered by the database directly; it
      * is sorted before the page is cut, which keeps the order correct across pages.
+     *
+     * [dateFrom] and [dateTo] are the OCPI last_updated filters - inclusive lower bound, exclusive
+     * upper bound. They are applied before the page is cut, so totalCount describes the filtered
+     * set and paging through the Link header stays consistent.
      */
-    private fun paginate(all: List<ClientInfo>, offset: Int, limit: Int): PaginatedClientInfo {
+    private fun paginate(
+            all: List<ClientInfo>,
+            offset: Int,
+            limit: Int,
+            dateFrom: Instant? = null,
+            dateTo: Instant? = null
+    ): PaginatedClientInfo {
         val safeOffset = offset.coerceAtLeast(0)
         val safeLimit = limit.coerceIn(1, MAX_CLIENT_INFO_PAGE_SIZE)
 
+        val filtered = all.filter { withinLastUpdatedWindow(it, dateFrom, dateTo) }
+
         val sorted =
-                all.sortedWith(
+                filtered.sortedWith(
                         compareBy({ it.status }, { it.countryCode }, { it.partyID }, { it.role.name }))
 
         val from = safeOffset.coerceAtMost(sorted.size)
@@ -135,6 +155,35 @@ class HubClientInfoService(
     }
 
     /**
+     * Whether [clientInfo] falls inside the OCPI last_updated window - `date_from` inclusive,
+     * `date_to` exclusive. A record whose timestamp cannot be parsed is kept when no filter is
+     * given and dropped when one is, so a filtered response never contains a record whose position
+     * in the window is unknown.
+     */
+    private fun withinLastUpdatedWindow(
+            clientInfo: ClientInfo,
+            dateFrom: Instant?,
+            dateTo: Instant?
+    ): Boolean {
+        if (dateFrom == null && dateTo == null) {
+            return true
+        }
+
+        val lastUpdated =
+                try {
+                    getInstant(clientInfo.lastUpdated)
+                } catch (e: DateTimeParseException) {
+                    logger.warn(
+                            "Dropping client info ${clientInfo.countryCode}/${clientInfo.partyID}/${clientInfo.role} from a date-filtered page: unparsable last_updated '${clientInfo.lastUpdated}'"
+                    )
+                    return false
+                }
+
+        return (dateFrom == null || !lastUpdated.isBefore(dateFrom)) &&
+                (dateTo == null || lastUpdated.isBefore(dateTo))
+    }
+
+    /**
      * Collect the client info of every local platform role and every known network party.
      *
      * A party registered locally on this node can also have a network client info record, because
@@ -142,6 +191,13 @@ class HubClientInfoService(
      * is authoritative — it carries the real connection status of the platform — so network records
      * for a party/role already covered by a local role are skipped rather than listed a second
      * time.
+     *
+     * Neither source is guaranteed unique on its own either: two platforms can carry the same
+     * party/role, and the network client info table has no unique constraint on (party, role). So
+     * every identity that has already been emitted is remembered and the first record wins - local
+     * platform roles are read first, and within one source the repository order (lowest id first)
+     * decides, which is the same record [NetworkClientInfoRepository.findFirstByPartyAndRoleOrderByIdAsc]
+     * resolves to elsewhere.
      *
      * @param include only parties matching this predicate are returned (defaults to all).
      * @param networkStatus the status reported for network parties (defaults to the stored status).
@@ -152,17 +208,19 @@ class HubClientInfoService(
     ): List<ClientInfo> {
         val clientInfoList = mutableListOf<ClientInfo>()
         val localPartyRoles = mutableSetOf<Triple<String, String, Role>>()
+        val emitted = mutableSetOf<Triple<String, String, Role>>()
 
         // add connected party roles
         for (platform in platformRepo.findAll()) {
             for (role in roleRepo.findAllByPlatformID(platform.id)) {
                 val counterPartyBasicRole = BasicRole(id = role.partyID, country = role.countryCode)
+                val key = clientInfoKey(role.countryCode, role.partyID, role.role)
 
                 // recorded even when filtered out below, so that a party which is local to this
                 // node is never also reported as a network party
-                localPartyRoles.add(clientInfoKey(role.countryCode, role.partyID, role.role))
+                localPartyRoles.add(key)
 
-                if (include(counterPartyBasicRole)) {
+                if (include(counterPartyBasicRole) && emitted.add(key)) {
                     clientInfoList.add(
                             ClientInfo(
                                     partyID = role.partyID,
@@ -176,11 +234,12 @@ class HubClientInfoService(
             }
         }
 
-        // add network party roles that no local platform role already covers
-        for (role in networkClientInfoRepo.findAll()) {
+        // add network party roles that no local platform role already covers, oldest row first so
+        // the winner among duplicates is the same one on every call
+        for (role in networkClientInfoRepo.findAll().sortedBy { it.id }) {
             val key = clientInfoKey(role.party.country, role.party.id, role.role)
 
-            if (key !in localPartyRoles && include(role.party)) {
+            if (key !in localPartyRoles && include(role.party) && emitted.add(key)) {
                 clientInfoList.add(
                         ClientInfo(
                                 partyID = role.party.id,

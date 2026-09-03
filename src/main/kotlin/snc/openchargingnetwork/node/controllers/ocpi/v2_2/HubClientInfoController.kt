@@ -17,6 +17,10 @@
 package snc.openchargingnetwork.node.controllers.ocpi.v2_2
 
 import com.fasterxml.jackson.module.kotlin.readValue
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+import java.time.Instant
+import java.time.format.DateTimeParseException
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
@@ -39,6 +43,7 @@ import snc.openchargingnetwork.node.services.ModuleNotificationService
 import snc.openchargingnetwork.node.services.RoutingService
 import snc.openchargingnetwork.node.services.WalletService
 import snc.openchargingnetwork.node.tools.filterNull
+import snc.openchargingnetwork.node.tools.getInstant
 
 @RestController
 @RequestMapping("\${ocn.node.apiPrefix}\${ocn.node.apiPrefixPublic}/ocpi/2.2.1/hubclientinfo")
@@ -80,6 +85,8 @@ class HubClientInfoController(
                 fromCountryCode,
                 fromPartyID,
                 authorization,
+                dateFrom,
+                dateTo,
                 offset,
                 limit
             )
@@ -240,6 +247,8 @@ class HubClientInfoController(
         fromCountryCode: String?,
         fromPartyID: String?,
         authorization: String,
+        dateFrom: String?,
+        dateTo: String?,
         offset: Int?,
         limit: Int?
     ): ResponseEntity<OcpiResponse<Array<ClientInfo>>> {
@@ -253,7 +262,9 @@ class HubClientInfoController(
             hubClientInfoService.getPaginatedList(
                 fromAuthorization = authorization,
                 offset = offset ?: 0,
-                limit = limit ?: DEFAULT_PAGE_SIZE
+                limit = limit ?: DEFAULT_PAGE_SIZE,
+                dateFrom = parseDateFilter(dateFrom, "date_from"),
+                dateTo = parseDateFilter(dateTo, "date_to")
             )
 
         val headers = HttpHeaders()
@@ -262,9 +273,15 @@ class HubClientInfoController(
 
         val nextOffset = page.offset + page.data.size
         if (nextOffset < page.totalCount) {
+            // the next page must describe the same filtered set, so the date filters travel with it
+            val dateParams =
+                buildString {
+                    dateFrom?.let { append("&date_from=${encodeQueryParam(it)}") }
+                    dateTo?.let { append("&date_to=${encodeQueryParam(it)}") }
+                }
             val nextUrl =
                 "${nodeProperties.url.trimEnd('/')}${nodeProperties.publicPathPrefix()}" +
-                    "/ocpi/2.2.1/hubclientinfo?offset=$nextOffset&limit=${page.limit}"
+                    "/ocpi/2.2.1/hubclientinfo?offset=$nextOffset&limit=${page.limit}$dateParams"
             headers["Link"] = "<$nextUrl>; rel=\"next\""
         }
 
@@ -272,6 +289,23 @@ class HubClientInfoController(
             .headers(headers)
             .body(OcpiResponse(statusCode = 1000, data = page.data.toTypedArray()))
     }
+
+    /** Parse an OCPI date filter, rejecting anything that is not an ISO 8601 timestamp. */
+    private fun parseDateFilter(value: String?, paramName: String): Instant? {
+        if (value.isNullOrBlank()) {
+            return null
+        }
+        return try {
+            getInstant(value)
+        } catch (e: DateTimeParseException) {
+            throw OcpiClientInvalidParametersException(
+                "Invalid $paramName: '$value' is not a valid ISO 8601 timestamp"
+            )
+        }
+    }
+
+    private fun encodeQueryParam(value: String): String =
+        URLEncoder.encode(value, StandardCharsets.UTF_8)
 
     private fun isLocalHubReceiver(toCountryCode: String?, toPartyID: String?): Boolean {
         if (toCountryCode.isNullOrBlank() || toPartyID.isNullOrBlank()) {
