@@ -57,6 +57,13 @@ interface RoleRepository : JpaRepository<RoleEntity, Long> {
     fun findAllByPlatformID(platformID: Long?): Iterable<RoleEntity>
     fun deleteByPlatformID(platformID: Long?)
 
+    // used by the hub client info registry sync to skip parties already registered on this node
+    fun existsByCountryCodeAndPartyIDAndRoleAllIgnoreCase(
+            countryCode: String,
+            partyID: String,
+            role: Role
+    ): Boolean
+
     // Delete role by composite key (country_code + party_id + role) for deduplication
     fun deleteByCountryCodeAndPartyIDAndRoleAllIgnoreCase(
             countryCode: String,

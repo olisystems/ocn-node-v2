@@ -17,6 +17,7 @@
 package snc.openchargingnetwork.node.services
 
 import java.time.Instant
+import java.time.format.DateTimeParseException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpMethod
 import org.springframework.scheduling.annotation.Async
@@ -37,6 +38,7 @@ import snc.openchargingnetwork.node.repositories.RoleRepository
 import snc.openchargingnetwork.node.tools.extractToken
 import snc.openchargingnetwork.node.tools.fromBs64String
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
+import snc.openchargingnetwork.node.tools.getInstant
 import snc.openchargingnetwork.node.tools.getTimestamp
 import snc.openchargingnetwork.node.tools.toBs64String
 
@@ -62,12 +64,13 @@ class HubClientInfoService(
 
     companion object {
         private val logger = LoggerFactory.getLogger(HubClientInfoService::class.java)
+
+        /** Upper bound for a single page of client info records. */
+        const val MAX_CLIENT_INFO_PAGE_SIZE = 1000
     }
 
     /** Get a HubClientInfo list of local and known network connections */
     fun getList(fromAuthorization: String): List<ClientInfo> {
-        val clientInfoList = mutableListOf<ClientInfo>()
-
         val plainToken = fromAuthorization.extractToken().fromBs64String()
         val requestingPlatform =
                 platformRepo.findByAuth_TokenC(plainToken)
@@ -81,13 +84,143 @@ class HubClientInfoService(
             )
         }
 
+        return collectClientInfo(
+                include = { party -> ocnRulesService.isWhitelisted(requestingPlatform, party) },
+                networkStatus = { ConnectionStatus.PLANNED }
+        )
+    }
+
+    /**
+     * Get a page of the HubClientInfo list visible to the requesting platform (i.e. the same records
+     * [getList] returns, optionally narrowed to a last_updated window and sliced with offset/limit).
+     */
+    fun getPaginatedList(
+            fromAuthorization: String,
+            offset: Int,
+            limit: Int,
+            dateFrom: Instant? = null,
+            dateTo: Instant? = null
+    ): PaginatedClientInfo {
+        return paginate(getList(fromAuthorization), offset, limit, dateFrom, dateTo)
+    }
+
+    /**
+     * Get a page of every HubClientInfo record known to this node (local platform roles and network
+     * parties), without any whitelist filtering. Used by the admin API, which is not tied to a
+     * requesting platform.
+     */
+    fun getPaginatedClientInfo(offset: Int, limit: Int): PaginatedClientInfo {
+        return paginate(collectClientInfo(), offset, limit)
+    }
+
+    /**
+     * Sort the given records so that connected parties come first, then by country code, party ID
+     * and role - so paging through them is stable - and return the page starting at [offset] with at
+     * most [limit] records.
+     *
+     * [ConnectionStatus] is declared CONNECTED, OFFLINE, PLANNED, SUSPENDED, so ordering by the enum
+     * itself puts the usable parties on top. This list is merged in memory from the local platform
+     * roles and the network client info table, so it cannot be ordered by the database directly; it
+     * is sorted before the page is cut, which keeps the order correct across pages.
+     *
+     * [dateFrom] and [dateTo] are the OCPI last_updated filters - inclusive lower bound, exclusive
+     * upper bound. They are applied before the page is cut, so totalCount describes the filtered
+     * set and paging through the Link header stays consistent.
+     */
+    private fun paginate(
+            all: List<ClientInfo>,
+            offset: Int,
+            limit: Int,
+            dateFrom: Instant? = null,
+            dateTo: Instant? = null
+    ): PaginatedClientInfo {
+        val safeOffset = offset.coerceAtLeast(0)
+        val safeLimit = limit.coerceIn(1, MAX_CLIENT_INFO_PAGE_SIZE)
+
+        val filtered = all.filter { withinLastUpdatedWindow(it, dateFrom, dateTo) }
+
+        val sorted =
+                filtered.sortedWith(
+                        compareBy({ it.status }, { it.countryCode }, { it.partyID }, { it.role.name }))
+
+        val from = safeOffset.coerceAtMost(sorted.size)
+        val to = (from + safeLimit).coerceAtMost(sorted.size)
+
+        return PaginatedClientInfo(
+                data = sorted.subList(from, to),
+                totalCount = sorted.size,
+                offset = safeOffset,
+                limit = safeLimit
+        )
+    }
+
+    /**
+     * Whether [clientInfo] falls inside the OCPI last_updated window - `date_from` inclusive,
+     * `date_to` exclusive. A record whose timestamp cannot be parsed is kept when no filter is
+     * given and dropped when one is, so a filtered response never contains a record whose position
+     * in the window is unknown.
+     */
+    private fun withinLastUpdatedWindow(
+            clientInfo: ClientInfo,
+            dateFrom: Instant?,
+            dateTo: Instant?
+    ): Boolean {
+        if (dateFrom == null && dateTo == null) {
+            return true
+        }
+
+        val lastUpdated =
+                try {
+                    getInstant(clientInfo.lastUpdated)
+                } catch (e: DateTimeParseException) {
+                    logger.warn(
+                            "Dropping client info ${clientInfo.countryCode}/${clientInfo.partyID}/${clientInfo.role} from a date-filtered page: unparsable last_updated '${clientInfo.lastUpdated}'"
+                    )
+                    return false
+                }
+
+        return (dateFrom == null || !lastUpdated.isBefore(dateFrom)) &&
+                (dateTo == null || lastUpdated.isBefore(dateTo))
+    }
+
+    /**
+     * Collect the client info of every local platform role and every known network party.
+     *
+     * A party registered locally on this node can also have a network client info record, because
+     * an older registry sync may have stored it before the party registered here. The local record
+     * is authoritative — it carries the real connection status of the platform — so network records
+     * for a party/role already covered by a local role are skipped rather than listed a second
+     * time.
+     *
+     * Neither source is guaranteed unique on its own either: two platforms can carry the same
+     * party/role, and the network client info table has no unique constraint on (party, role). So
+     * every identity that has already been emitted is remembered and the first record wins - local
+     * platform roles are read first, and within one source the repository order (lowest id first)
+     * decides, which is the same record [NetworkClientInfoRepository.findFirstByPartyAndRoleOrderByIdAsc]
+     * resolves to elsewhere.
+     *
+     * @param include only parties matching this predicate are returned (defaults to all).
+     * @param networkStatus the status reported for network parties (defaults to the stored status).
+     */
+    private fun collectClientInfo(
+            include: (BasicRole) -> Boolean = { true },
+            networkStatus: (NetworkClientInfoEntity) -> ConnectionStatus = { it.status }
+    ): List<ClientInfo> {
+        val clientInfoList = mutableListOf<ClientInfo>()
+        val localPartyRoles = mutableSetOf<Triple<String, String, Role>>()
+        val emitted = mutableSetOf<Triple<String, String, Role>>()
+
         // add connected party roles
         for (platform in platformRepo.findAll()) {
             for (role in roleRepo.findAllByPlatformID(platform.id)) {
-                // only if whitelisted
                 val counterPartyBasicRole = BasicRole(id = role.partyID, country = role.countryCode)
+                val key = clientInfoKey(role.countryCode, role.partyID, role.role)
 
-                if (ocnRulesService.isWhitelisted(requestingPlatform, counterPartyBasicRole)) {
+                // recorded even when filtered out below, so that a party which is local to this
+                // node is never also reported as a network party
+                localPartyRoles.add(key)
+
+                if (include(counterPartyBasicRole) && emitted.add(key)) {
                     clientInfoList.add(
                             ClientInfo(
                                     partyID = role.partyID,
@@ -101,16 +234,18 @@ class HubClientInfoService(
             }
         }
 
-        // add network party roles
-        for (role in networkClientInfoRepo.findAll()) {
-            // only if whitelisted
-            if (ocnRulesService.isWhitelisted(requestingPlatform, role.party)) {
+        // add network party roles that no local platform role already covers, oldest row first so
+        // the winner among duplicates is the same one on every call
+        for (role in networkClientInfoRepo.findAll().sortedBy { it.id }) {
+            val key = clientInfoKey(role.party.country, role.party.id, role.role)
+
+            if (key !in localPartyRoles && include(role.party) && emitted.add(key)) {
                 clientInfoList.add(
                         ClientInfo(
                                 partyID = role.party.id,
                                 countryCode = role.party.country,
                                 role = role.role,
-                                status = ConnectionStatus.PLANNED,
+                                status = networkStatus(role),
                                 lastUpdated = role.lastUpdated
                         )
                 )
@@ -119,6 +254,10 @@ class HubClientInfoService(
 
         return clientInfoList
     }
+
+    /** Case-insensitive identity of a client info record. */
+    private fun clientInfoKey(countryCode: String, partyID: String, role: Role) =
+            Triple(countryCode.uppercase(), partyID.uppercase(), role)
 
     /**
      * Get parties who should be sent a HubClientInfo Push notification (sans the changedPlatform if
@@ -321,6 +460,18 @@ class HubClientInfoService(
         for (party in parties) {
             for (role in party.roles) {
                 val partyId = BasicRole(party.partyId, party.countryCode)
+
+                // Parties registered on this node are already tracked through their platform
+                // roles. Storing a PLANNED network record for them would list the party twice and
+                // broadcast a status contradicting the one its platform reports.
+                if (roleRepo.existsByCountryCodeAndPartyIDAndRoleAllIgnoreCase(
+                                partyId.country,
+                                partyId.id,
+                                role
+                        )
+                ) {
+                    continue
+                }
 
                 // Check if this party/role combination already exists
                 if (!networkClientInfoRepo.existsByPartyAndRole(partyId, role)) {

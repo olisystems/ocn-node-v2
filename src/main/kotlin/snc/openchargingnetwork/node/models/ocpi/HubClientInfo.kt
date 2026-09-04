@@ -25,3 +25,14 @@ data class ClientInfo(
     @JsonProperty("status") val status: ConnectionStatus,
     @JsonProperty("last_updated") val lastUpdated: String
 )
+
+/**
+ * A page of [ClientInfo] records, used by the endpoints that expose the node's hub client info list
+ * with offset/limit pagination.
+ */
+data class PaginatedClientInfo(
+    @JsonProperty("data") val data: List<ClientInfo>,
+    @JsonProperty("total_count") val totalCount: Int,
+    @JsonProperty("offset") val offset: Int,
+    @JsonProperty("limit") val limit: Int
+)

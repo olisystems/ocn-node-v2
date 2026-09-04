@@ -16,66 +16,25 @@
 
 package snc.openchargingnetwork.node.scheduledTasks
 
-import snc.openchargingnetwork.node.components.HttpClientComponent
-import snc.openchargingnetwork.node.config.NodeProperties
-import snc.openchargingnetwork.node.models.entities.PlatformEntity
-import snc.openchargingnetwork.node.models.exceptions.OcpiClientInvalidParametersException
-import snc.openchargingnetwork.node.models.exceptions.OcpiServerUnusableApiException
-import snc.openchargingnetwork.node.models.ocpi.ConnectionStatus
-import snc.openchargingnetwork.node.repositories.PlatformRepository
-import snc.openchargingnetwork.node.tools.getInstant
-import java.time.Instant
+import org.slf4j.LoggerFactory
+import snc.openchargingnetwork.node.services.StillAliveService
 
+/**
+ * Scheduled task checking whether the platforms registered on this node are still reachable. Only
+ * platforms that haven't been heard from within the configured still alive rate are pinged; use
+ * [StillAliveService.checkAllPlatforms] to check every platform on demand.
+ */
+class HubClientInfoStillAliveCheck(private val stillAliveService: StillAliveService) : Runnable {
 
-class HubClientInfoStillAliveCheck(
-    private val properties: NodeProperties,
-    private val httpClientComponent: HttpClientComponent,
-    private val platformRepo: PlatformRepository
-) : Runnable {
+    companion object {
+        private val logger = LoggerFactory.getLogger(HubClientInfoStillAliveCheck::class.java)
+    }
 
     override fun run() {
-        val checkExecutionInstant = Instant.now()
-        val lastUpdatedCutoff = checkExecutionInstant.minusMillis(properties.stillAliveRate)
-        val clients = platformRepo.findByStatusIn(listOf(ConnectionStatus.CONNECTED, ConnectionStatus.OFFLINE))
-        for (client in clients) {
-            updateClientStatus(client, lastUpdatedCutoff, checkExecutionInstant)
-        }
-    }
-
-    /**
-     * Update a client's connection status based on its availability if the status is stale
-     * (i.e., if the platform hasn't been heard from in the set amount of time)
-     */
-    private fun updateClientStatus(client: PlatformEntity, lastUpdatedCutoff: Instant, newUpdatedTime: Instant) {
-        val clientLastUpdated = getInstant(client.lastUpdated)
-        if (clientLastUpdated < lastUpdatedCutoff) {
-            val isConnected = isClientAvailable(client)
-            if (isConnected) {
-                client.renewConnection(newUpdatedTime)
-                platformRepo.save(client)
-            } else {
-                client.disconnect(newUpdatedTime)
-                platformRepo.save(client)
-            }
-        }
-    }
-
-    /**
-     * Ping a platform's Versions endpoint to determine its availability.
-     */
-    private fun isClientAvailable(client: PlatformEntity): Boolean {
         try {
-            if (client.versionsUrl == null) {
-                return false // Client isn't configured. Assume not available
-            }
-            val authToken = client.getAuthTokenToIncludeInRequestHeader()
-            // If no exception thrown during version request, assume that request was successful
-            httpClientComponent.getVersions(client.versionsUrl!!, authToken)
-            return true
-        } catch (e: OcpiServerUnusableApiException) {
-            return false
-        } catch (e: OcpiClientInvalidParametersException) {
-            return false
+            stillAliveService.checkStalePlatforms()
+        } catch (e: Exception) {
+            logger.error("Error during scheduled still alive check: ${e.message}", e)
         }
     }
 }
