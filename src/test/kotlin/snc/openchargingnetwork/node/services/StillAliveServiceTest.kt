@@ -1,5 +1,6 @@
 package snc.openchargingnetwork.node.services
 
+import java.util.Optional
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -11,8 +12,11 @@ import snc.openchargingnetwork.node.components.HttpClientComponent
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.entities.Auth
 import snc.openchargingnetwork.node.models.entities.PlatformEntity
+import snc.openchargingnetwork.node.models.entities.RoleEntity
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
+import snc.openchargingnetwork.node.models.ocpi.BusinessDetails
 import snc.openchargingnetwork.node.models.ocpi.ConnectionStatus
+import snc.openchargingnetwork.node.models.ocpi.Role
 import snc.openchargingnetwork.node.models.ocpi.Version
 import snc.openchargingnetwork.node.repositories.PlatformRepository
 import snc.openchargingnetwork.node.repositories.RoleRepository
@@ -56,6 +60,15 @@ class StillAliveServiceTest {
                                     tokenC = tokenC,
                                     handshakeSelfInitiated = handshakeSelfInitiated
                             )
+            )
+
+    private fun role(platformID: Long) =
+            RoleEntity(
+                    platformID = platformID,
+                    role = Role.CPO,
+                    businessDetails = BusinessDetails(name = "Test CPO"),
+                    partyID = "CST",
+                    countryCode = "DE"
             )
 
     private fun givenPlatforms(vararg platforms: PlatformEntity) {
@@ -140,6 +153,19 @@ class StillAliveServiceTest {
         assertThatThrownBy { service.checkParty(BasicRole(id = "CST", country = "DE")) }
                 .isInstanceOf(IllegalArgumentException::class.java)
                 .hasMessageContaining("not registered on this node")
+
+        verify(httpClientComponent, never()).getVersions(anyString(), anyString())
+    }
+
+    @Test
+    fun `checkParty should fail differently when the party's platform record is gone`() {
+        whenever(roleRepository.findFirstByCountryCodeAndPartyIDAllIgnoreCaseOrderByIdAsc("DE", "CST"))
+                .thenReturn(role(platformID = 7L))
+        whenever(platformRepository.findById(7L)).thenReturn(Optional.empty())
+
+        assertThatThrownBy { service.checkParty(BasicRole(id = "CST", country = "DE")) }
+                .isInstanceOf(IllegalStateException::class.java)
+                .hasMessageContaining("no longer exists")
 
         verify(httpClientComponent, never()).getVersions(anyString(), anyString())
     }

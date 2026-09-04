@@ -233,9 +233,10 @@ class HubClientInfoManagementController(
     }
 
     /**
-     * Run a still alive check for the platform the given party is registered on. Returns 404 when
-     * the party is not registered on this node - a network party known only from the registry has
-     * no platform to ping.
+     * Run a still alive check for the platform the given party is registered on. Returns 404 only
+     * when the party is not registered on this node - a network party known only from the registry
+     * has no platform to ping. A party whose platform record is missing is inconsistent local
+     * data, not an unknown party, so it falls through to the generic platform-failure response.
      */
     @PostMapping("/still-alive-check/{countryCode}/{partyId}")
     fun runStillAliveCheckForParty(
@@ -252,6 +253,7 @@ class HubClientInfoManagementController(
             val party = BasicRole(id = partyId, country = countryCode)
             ResponseEntity.ok(stillAliveService.checkParty(party))
         } catch (e: IllegalArgumentException) {
+            // only thrown when the party has no role on this node - see StillAliveService.checkParty
             ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(mapOf("status" to "error", "message" to (e.message ?: "Party not found")))
         } catch (e: Exception) {

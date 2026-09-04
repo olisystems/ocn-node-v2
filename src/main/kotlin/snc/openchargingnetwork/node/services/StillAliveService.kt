@@ -82,6 +82,8 @@ class StillAliveService(
      *
      * @throws IllegalArgumentException if the party is not registered on this node (e.g. it is a
      * network party this node only knows about from the registry).
+     * @throws IllegalStateException if the party is registered here but its platform record is
+     * gone - inconsistent local data, not an unknown party.
      */
     fun checkParty(party: BasicRole): PartyStillAliveResult {
         val role =
@@ -95,7 +97,7 @@ class StillAliveService(
 
         val platform =
                 platformRepo.findById(role.platformID).orElseThrow {
-                    IllegalArgumentException(
+                    IllegalStateException(
                             "Platform ${role.platformID} of ${party.country}/${party.id} no longer exists"
                     )
                 }
