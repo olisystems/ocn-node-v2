@@ -31,6 +31,7 @@ import snc.openchargingnetwork.node.repositories.*
 import snc.openchargingnetwork.node.scheduledTasks.HubClientInfoStillAliveCheck
 import snc.openchargingnetwork.node.scheduledTasks.OcpiHubClientInfoSyncTask
 import snc.openchargingnetwork.node.services.HubClientInfoService
+import snc.openchargingnetwork.node.services.StillAliveService
 
 @Configuration
 @EnableScheduling
@@ -58,14 +59,14 @@ class NodeBootstrap(
             private val httpClientComponent: HttpClientComponent,
             private val platformRepo: PlatformRepository,
             private val properties: NodeProperties,
-            private val hubClientInfoService: HubClientInfoService
+            private val hubClientInfoService: HubClientInfoService,
+            private val stillAliveService: StillAliveService
     ) {
 
          @Scheduled(fixedRateString = "\${ocn.node.stillAliveRate}")
          fun runStillAliveCheck() {
              if (properties.stillAliveEnabled) {
-                 val stillAliveTask =
-                         HubClientInfoStillAliveCheck(properties, httpClientComponent, platformRepo)
+                 val stillAliveTask = HubClientInfoStillAliveCheck(stillAliveService)
                  stillAliveTask.run()
              }
          }
