@@ -72,6 +72,14 @@ oli-app:
       configMapKeyRef:
         name: ocn-node-v2-config
         key: OCN_NODE_URL
+    OCN_NODE_COUNTRY_CODE:
+      configMapKeyRef:
+        name: ocn-node-v2-config
+        key: OCN_NODE_COUNTRY_CODE
+    OCN_NODE_PARTY_ID:
+      configMapKeyRef:
+        name: ocn-node-v2-config
+        key: OCN_NODE_PARTY_ID
     OCN_REGISTRY_INDEXER_URL:
       configMapKeyRef:
         name: ocn-node-v2-config
