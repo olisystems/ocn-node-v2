@@ -216,3 +216,6 @@ application-local-custom.properties
 
 # other local files
 local
+
+# local file logging (logback-spring.xml, local profile only)
+logs/
