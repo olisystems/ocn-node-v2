@@ -18,6 +18,8 @@ package snc.openchargingnetwork.node.config
 
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
+import org.springframework.core.Ordered
+import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 import org.web3j.crypto.Credentials
 import java.io.File
@@ -45,7 +47,9 @@ class NodeInfoLogger(
         return "${password.take(2)}$middle${password.takeLast(2)}"
     }
 
+    // Runs before the other ApplicationReadyEvent listeners so the NODE INFO banner is first.
     @EventListener(ApplicationReadyEvent::class)
+    @Order(Ordered.HIGHEST_PRECEDENCE)
     fun log() {
         val nodeUrl = urlJoin(properties.url, properties.apiPrefix, properties.apiPrefixPublic)
         val borderLength = calculateBorderLength(nodeUrl.length, properties.apikey.length)

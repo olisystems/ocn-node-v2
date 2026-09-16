@@ -45,6 +45,9 @@ import snc.openchargingnetwork.node.repositories.PlatformRepository
 import snc.openchargingnetwork.node.repositories.RoleRepository
 import snc.openchargingnetwork.node.services.AdminAuthorizationService
 import snc.openchargingnetwork.node.services.CredentialsService
+import snc.openchargingnetwork.node.services.RegistryStatus
+import snc.openchargingnetwork.node.services.RequiredPlatformStatus
+import snc.openchargingnetwork.node.services.RequiredPlatformVerificationService
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
 import snc.openchargingnetwork.node.tools.getTimestamp
 import snc.openchargingnetwork.node.tools.toBs64String
@@ -77,6 +80,16 @@ data class PlatformDto(
 
 data class PlatformWithRolesResponse(val platform: PlatformDto, val roles: List<PlatformRoleDto>)
 
+data class RequiredPlatformStatusResponse(
+        val state: String,
+        val party: String,
+        val platformId: Long? = null,
+        val platformStatus: String? = null,
+        val registryState: String? = null,
+        val roles: List<String> = emptyList(),
+        val message: String
+)
+
 data class CreatePlatformRequest(
         val tokenA: String? = null,
         val handshakeSelfInitiated: Boolean = false,
@@ -97,7 +110,8 @@ class AdminController(
         private val ocnRegistryComponent: OcnRegistryComponent,
         private val httpClientComponent: HttpClientComponent,
         private val credentialsService: CredentialsService,
-        private val adminAuthorizationService: AdminAuthorizationService
+        private val adminAuthorizationService: AdminAuthorizationService,
+        private val requiredPlatformVerificationService: RequiredPlatformVerificationService
 ) {
 
     fun isAuthorized(authorization: String): Boolean =
@@ -925,5 +939,102 @@ class AdminController(
             ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                     .body("Failed to refresh registry: ${ex.message}")
         }
+    }
+
+    /**
+     * Whether the party this node depends on (DE/BAN by default) is connected. Lets the dashboard
+     * re-check after the operator fixes things, instead of restarting the node to read the log.
+     */
+    @GetMapping("/required-platform")
+    fun getRequiredPlatformStatus(
+            @RequestHeader("Authorization") authorization: String
+    ): ResponseEntity<RequiredPlatformStatusResponse> {
+        if (!isAuthorized(authorization)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null)
+        }
+
+        val party =
+                "${requiredPlatformVerificationService.countryCode} ${requiredPlatformVerificationService.partyId}"
+        val response =
+                when (val status = requiredPlatformVerificationService.verify()) {
+                    is RequiredPlatformStatus.CheckDisabled ->
+                            RequiredPlatformStatusResponse(
+                                    state = "CHECK_DISABLED",
+                                    party = party,
+                                    message = "The required-platform check is disabled on this node."
+                            )
+                    is RequiredPlatformStatus.Connected ->
+                            RequiredPlatformStatusResponse(
+                                    state = "CONNECTED",
+                                    party = party,
+                                    platformId = status.platformId,
+                                    roles = status.roles,
+                                    message = "$party is connected to this node."
+                            )
+                    is RequiredPlatformStatus.HandshakeIncomplete ->
+                            RequiredPlatformStatusResponse(
+                                    state = "HANDSHAKE_INCOMPLETE",
+                                    party = party,
+                                    platformId = status.platformId,
+                                    platformStatus = status.status.name,
+                                    message =
+                                            "Platform #${status.platformId} for $party exists but its status is " +
+                                                    "${status.status}. Save Token A on the DE*BAN OCN Connection page " +
+                                                    "and press Perform Handshake."
+                            )
+                    is RequiredPlatformStatus.AwaitingHandshake ->
+                            RequiredPlatformStatusResponse(
+                                    state = "AWAITING_HANDSHAKE",
+                                    party = party,
+                                    platformId = status.platformIds.firstOrNull(),
+                                    message =
+                                            "A Platform exists on this node but has not been claimed by $party yet. " +
+                                                    "Do not create another one - copy its Token A from the OCN " +
+                                                    "Platforms page into the DE*BAN OCN Connection page and press " +
+                                                    "Perform Handshake."
+                            )
+                    is RequiredPlatformStatus.PlatformMissing ->
+                            when (val registry = status.registry) {
+                                is RegistryStatus.RegisteredToThisNode ->
+                                        RequiredPlatformStatusResponse(
+                                                state = "PLATFORM_MISSING",
+                                                party = party,
+                                                registryState = "REGISTERED_TO_THIS_NODE",
+                                                message =
+                                                        "No Platform is registered for $party on this node. Create it " +
+                                                                "on the OCN Platforms page, then run the handshake from " +
+                                                                "the DE*BAN OCN Connection page."
+                                        )
+                                is RegistryStatus.NotRegistered ->
+                                        RequiredPlatformStatusResponse(
+                                                state = "PARTY_NOT_REGISTERED",
+                                                party = party,
+                                                registryState = "NOT_REGISTERED",
+                                                message =
+                                                        "$party is not registered in the OCN Registry (blockchain). " +
+                                                                "Register the party before creating its Platform."
+                                        )
+                                is RegistryStatus.RegisteredToAnotherNode ->
+                                        RequiredPlatformStatusResponse(
+                                                state = "PLATFORM_MISSING",
+                                                party = party,
+                                                registryState = "REGISTERED_TO_ANOTHER_NODE",
+                                                message =
+                                                        "$party is registered in the OCN Registry but points at " +
+                                                                "${registry.domain}, not this node."
+                                        )
+                                is RegistryStatus.RegistryUnavailable ->
+                                        RequiredPlatformStatusResponse(
+                                                state = "PLATFORM_MISSING",
+                                                party = party,
+                                                registryState = "REGISTRY_UNAVAILABLE",
+                                                message =
+                                                        "No Platform is registered for $party on this node, and the " +
+                                                                "OCN Registry could not be reached to check its " +
+                                                                "registration: ${registry.reason}"
+                                        )
+                            }
+                }
+        return ResponseEntity.ok().body(response)
     }
 }
