@@ -80,6 +80,22 @@ oli-app:
       configMapKeyRef:
         name: ocn-node-v2-config
         key: OCN_NODE_PARTY_ID
+    OCN_REQUIRED_PLATFORM_CHECK_ENABLED:
+      configMapKeyRef:
+        name: ocn-node-v2-config
+        key: OCN_REQUIRED_PLATFORM_CHECK_ENABLED
+    OCN_REQUIRED_PLATFORM_COUNTRY_CODE:
+      configMapKeyRef:
+        name: ocn-node-v2-config
+        key: OCN_REQUIRED_PLATFORM_COUNTRY_CODE
+    OCN_REQUIRED_PLATFORM_PARTY_ID:
+      configMapKeyRef:
+        name: ocn-node-v2-config
+        key: OCN_REQUIRED_PLATFORM_PARTY_ID
+    OCN_REQUIRED_PLATFORM_DASHBOARD_URL:
+      configMapKeyRef:
+        name: ocn-node-v2-config
+        key: OCN_REQUIRED_PLATFORM_DASHBOARD_URL
     OCN_REGISTRY_INDEXER_URL:
       configMapKeyRef:
         name: ocn-node-v2-config
