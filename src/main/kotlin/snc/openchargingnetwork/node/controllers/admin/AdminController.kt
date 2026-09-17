@@ -947,7 +947,8 @@ class AdminController(
      */
     @GetMapping("/required-platform")
     fun getRequiredPlatformStatus(
-            @RequestHeader("Authorization") authorization: String
+            @RequestHeader(value = "Authorization", required = false, defaultValue = "")
+            authorization: String
     ): ResponseEntity<RequiredPlatformStatusResponse> {
         if (!isAuthorized(authorization)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null)

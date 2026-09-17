@@ -32,6 +32,16 @@ class RequiredPlatformStartupCheck(
 
     @EventListener(ApplicationReadyEvent::class)
     fun check() {
+        try {
+            report()
+        } catch (e: Exception) {
+            // An exception thrown from an ApplicationReadyEvent listener aborts SpringApplication.run,
+            // which is exactly the crash-loop this check is documented to avoid.
+            logger.error("[RequiredPlatform] check failed: {}", e.message, e)
+        }
+    }
+
+    private fun report() {
         val party = "${verificationService.countryCode} ${verificationService.partyId}"
 
         when (val status = verificationService.verify()) {
