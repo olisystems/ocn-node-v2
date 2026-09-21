@@ -3,7 +3,10 @@ oli-app:
 
   # EDX plugin (int only): pull edx-v1 from OBS. Plugin props via SPRING_APPLICATION_JSON (base values).
   env:
-    OCN_NODE_PUBLIC_ADDRESS: "0x4e6577b848FDFAe73EFc3adAd41964fC31CD34e7"
+    OCN_NODE_PUBLIC_ADDRESS:
+      configMapKeyRef:
+        name: ocn-node-v2-config
+        key: OCN_NODE_PUBLIC_ADDRESS
     OCN_PLUGINS: "edx-v1"
     OTC_ENDPOINT_URL: "https://obs.eu-de.otc.t-systems.com"
     OTC_DEFAULT_REGION: "eu-de"
