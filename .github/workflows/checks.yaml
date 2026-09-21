@@ -5,11 +5,9 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     branches:
       - main
-      - develop
   push:
     branches:
       - main
-      - develop
     # Argo write-back commits only touch infra/helm, and nothing consumes a
     # push-triggered result. The pull_request trigger above is deliberately left
     # unfiltered, so the Build and Test context reports on every PR, helm-only

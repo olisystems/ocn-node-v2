@@ -9,16 +9,21 @@ spec:
   project: banula
   source:
     repoURL: https://github.com/olisystems/ocn-node-v2.git
-    targetRevision: main
+    targetRevision: v1.7.0
     path: infra/helm
     helm:
+      parameters:
+        - name: oli-app.image.tag
+          value: "v1.7.0"
       valueFiles:
         - values.yaml
         - values.int.yaml
-        - images.int.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: banula-int
   syncPolicy:
+    # Both fields are rewritten by tag.yaml on a published release, so a tag is
+    # what deploys int. Prod takes the same tag but waits for a manual sync.
+    automated: {}
     syncOptions:
       - CreateNamespace=true

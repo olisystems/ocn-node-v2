@@ -1,9 +1,6 @@
 oli-app:
   fullnameOverride: "ocn-node-v2-prod"
 
-  image:
-    tag: "v1.4.5-rc"
-
   gateway:
     parentRef:
       namespace: banula-prod
