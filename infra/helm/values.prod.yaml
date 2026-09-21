@@ -4,6 +4,9 @@ oli-app:
   image:
     tag: "v1.4.5-rc"
 
+  env:
+    OCN_NODE_PUBLIC_ADDRESS: "0x4e6577b848FDFAe73EFc3adAd41964fC31CD34e7"
+
   gateway:
     parentRef:
       namespace: banula-prod
