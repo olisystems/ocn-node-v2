@@ -7,11 +7,10 @@ on:
   push:
     branches:
       - main
-      - develop
     # The write-back commit below only touches infra/helm, so ignoring that
     # path is what stops this workflow re-triggering itself. A skip-ci
     # directive in the commit message would also suppress the pull_request
-    # checks the branch rulesets require, leaving develop -> main PRs blocked.
+    # checks the branch rulesets require, leaving PRs blocked.
     paths-ignore:
       - "infra/helm/**"
 
@@ -70,12 +69,9 @@ jobs:
       - name: Update image tag in values file
         env:
           TAG: ${{ github.ref_name }}-${{ steps.sha.outputs.short_sha }}
+        # Dev only. Int and prod are pinned to a release tag by tag.yaml.
         run: |
-          if [ "${{ github.ref_name }}" = "develop" ]; then
-            yq -i '.oli-app.image.tag = env(TAG)' infra/helm/images.dev.yaml
-          elif [ "${{ github.ref_name }}" = "main" ]; then
-            yq -i '.oli-app.image.tag = env(TAG)' infra/helm/images.int.yaml
-          fi
+          yq -i '.oli-app.image.tag = env(TAG)' infra/helm/images.dev.yaml
 
       - name: Commit and push
         run: |

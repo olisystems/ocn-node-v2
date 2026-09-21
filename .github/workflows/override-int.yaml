@@ -30,7 +30,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # No :latest here, unlike Override Dev - latest tracks develop.
+      # No :latest here, unlike Override Dev - latest tracks main.
       - name: Build and push
         uses: docker/build-push-action@v6
         env:
@@ -43,7 +43,7 @@ jobs:
           cache-to: type=gha,mode=max
           tags: |
             swr.eu-de.otc.t-systems.com/oli_banula/ocnnodev2:${{ steps.sha.outputs.safe_ref }}
-            swr.eu-de.otc.t-systems.com/oli_banula/ocnnodev2:main-${{ steps.sha.outputs.short_sha }}
+            swr.eu-de.otc.t-systems.com/oli_banula/ocnnodev2:${{ steps.sha.outputs.safe_ref }}-${{ steps.sha.outputs.short_sha }}
             swr.eu-de.otc.t-systems.com/oli_banula/ocnnodev2:${{ steps.sha.outputs.short_sha }}
 
       - name: Connect to VPN
@@ -73,6 +73,7 @@ jobs:
         env:
           KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG }}
           BRANCH: ${{ github.ref_name }}
+          SAFE_REF: ${{ steps.sha.outputs.safe_ref }}
           SHORT_SHA: ${{ steps.sha.outputs.short_sha }}
         run: |
           printf '%s' "$KUBECONFIG_CONTENT" > "$RUNNER_TEMP/kubeconfig.yaml"
@@ -80,12 +81,6 @@ jobs:
           export KUBECONFIG="$RUNNER_TEMP/kubeconfig.yaml"
           patch=$(jq -nc \
             --arg rev "$BRANCH" \
-            --arg tag "main-$SHORT_SHA" \
+            --arg tag "$SAFE_REF-$SHORT_SHA" \
             '{spec:{source:{targetRevision:$rev,helm:{parameters:[{name:"oli-app.image.tag",value:$tag}]}}}}')
           kubectl patch application ocn-node-v2-int -n argocd --type merge -p "$patch"
-          # Unlike ocn-node-v2-dev, the int app has no automated sync policy, so
-          # the patch above would sit as OutOfSync until someone syncs by hand.
-          sync=$(jq -nc \
-            --arg rev "$BRANCH" \
-            '{operation:{initiatedBy:{username:"override-int"},sync:{revision:$rev}}}')
-          kubectl patch application ocn-node-v2-int -n argocd --type merge -p "$sync"

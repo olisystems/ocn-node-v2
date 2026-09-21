@@ -3,6 +3,10 @@ name: Reset Override
 # Clears any pin left behind by Override Dev / Override Int, so a merge always
 # lands in the cluster.
 #
+# Int is not reset on a merge: it belongs to the last release, not to main, and
+# a merge says nothing about it. Dispatch this workflow to put int back on the
+# release it should be running.
+#
 # Deliberately no paths-ignore, unlike Build Image: this workflow makes no
 # commits, so it cannot re-trigger itself. Filtering on infra/helm here would
 # reintroduce the bug where a helm-only merge skips the run and silently leaves
@@ -11,7 +15,7 @@ on:
   push:
     branches:
       - main
-      - develop
+  workflow_dispatch:
 
 jobs:
   reset:
@@ -21,6 +25,16 @@ jobs:
     if: github.actor != 'oli-argo-sync[bot]'
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          ref: main
+
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
       - name: Connect to VPN
         env:
           VPN_CONFIG: ${{ secrets.VPN_CONFIG }}
@@ -45,7 +59,6 @@ jobs:
           rm -f vpn.conf .vpn_pass
 
       - name: Configure kubectl and reset ArgoCD dev app
-        if: github.ref_name == 'develop'
         env:
           KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG }}
         run: |
@@ -53,17 +66,20 @@ jobs:
           chmod 600 "$RUNNER_TEMP/kubeconfig.yaml"
           export KUBECONFIG="$RUNNER_TEMP/kubeconfig.yaml"
           kubectl patch application ocn-node-v2-dev -n argocd --type merge \
-            -p '{"spec":{"source":{"targetRevision":"develop","helm":{"parameters":null}}}}'
+            -p '{"spec":{"source":{"targetRevision":"main","helm":{"parameters":null}}}}'
 
-      # No sync is triggered: the int app has no automated policy and is synced
-      # by hand as usual.
-      - name: Configure kubectl and reset ArgoCD int app
-        if: github.ref_name == 'main'
+      # Int's home is whatever release infra/argo/int.yaml points at, so read it
+      # from main rather than assuming a branch.
+      - name: Configure kubectl and reset ArgoCD int app to the current release
+        if: github.event_name == 'workflow_dispatch'
         env:
           KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG }}
         run: |
           printf '%s' "$KUBECONFIG_CONTENT" > "$RUNNER_TEMP/kubeconfig.yaml"
           chmod 600 "$RUNNER_TEMP/kubeconfig.yaml"
           export KUBECONFIG="$RUNNER_TEMP/kubeconfig.yaml"
-          kubectl patch application ocn-node-v2-int -n argocd --type merge \
-            -p '{"spec":{"source":{"targetRevision":"main","helm":{"parameters":null}}}}'
+          TAG=$(yq -r '.spec.source.targetRevision' infra/argo/int.yaml)
+          patch=$(jq -nc \
+            --arg rev "$TAG" \
+            '{spec:{source:{targetRevision:$rev,helm:{parameters:[{name:"oli-app.image.tag",value:$rev}]}}}}')
+          kubectl patch application ocn-node-v2-int -n argocd --type merge -p "$patch"
