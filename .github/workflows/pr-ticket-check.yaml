@@ -1,0 +1,13 @@
+name: PR Ticket Check
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  pr-ticket-check:
+    # This name is the status-check context the ruleset requires.
+    name: PR must reference a ticket
+    runs-on: ubuntu-latest
+    steps:
+      - uses: olisystems/actions/pr/ticket-check@main
