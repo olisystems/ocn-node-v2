@@ -10,4 +10,41 @@ jobs:
     name: PR must reference a ticket
     runs-on: ubuntu-latest
     steps:
-      - uses: olisystems/actions/pr/ticket-check@main
+      # Inlined instead of olisystems/actions/pr/ticket-check@main: this repo is
+      # public and cannot resolve an action from the private actions repo.
+      # Keep in sync with that action.
+      - name: Ensure the branch or title names a ticket
+        env:
+          # The action's default lives in its own file; a public repo cannot
+          # read it, so the org variable is the knob here. Set TICKET_PREFIX at
+          # org level when the prefix changes.
+          PREFIXES: ${{ vars.TICKET_PREFIX || 'OLISYS' }}
+          # Via env, not inlined: a PR title would otherwise run as shell.
+          HEAD_REF: ${{ github.head_ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          AUTHOR_TYPE: ${{ github.event.pull_request.user.type }}
+        run: |
+          set -uo pipefail
+
+          if [ "$AUTHOR_TYPE" = "Bot" ]; then
+            echo "Bot PR, no ticket expected."
+            exit 0
+          fi
+
+          alternation=$(printf '%s' "$PREFIXES" | tr -d '[:space:]' | tr ',' '|')
+          # The boundary stops NOTOLISYS-5 from satisfying OLISYS.
+          pattern="(^|[^A-Za-z0-9])(${alternation})-[0-9]+"
+
+          if printf '%s' "$HEAD_REF" | grep -qEi "$pattern"; then
+            echo "Ticket found in branch name: ${HEAD_REF}"
+            exit 0
+          fi
+
+          if printf '%s' "$PR_TITLE" | grep -qEi "$pattern"; then
+            echo "Ticket found in PR title."
+            exit 0
+          fi
+
+          first=${PREFIXES%%,*}
+          echo "::error::PR must reference a ticket. Expected something like ${first}-1234 in the branch name or the PR title. Got branch '${HEAD_REF}'."
+          exit 1
