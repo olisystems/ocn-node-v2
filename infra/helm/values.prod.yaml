@@ -5,7 +5,10 @@ oli-app:
     tag: "v1.4.5-rc"
 
   env:
-    OCN_NODE_PUBLIC_ADDRESS: "0x4e6577b848FDFAe73EFc3adAd41964fC31CD34e7"
+    OCN_NODE_PUBLIC_ADDRESS:
+      configMapKeyRef:
+        name: ocn-node-v2-config
+        key: OCN_NODE_PUBLIC_ADDRESS
 
   gateway:
     parentRef:
