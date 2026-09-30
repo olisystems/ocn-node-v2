@@ -5,6 +5,7 @@ metadata:
   namespace: argocd
   labels:
     repo: ocn-node-v2
+    env: prod
 spec:
   project: banula
   source:
