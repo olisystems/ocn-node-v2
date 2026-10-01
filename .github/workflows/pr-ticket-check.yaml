@@ -13,7 +13,7 @@ jobs:
       # Inlined instead of olisystems/actions/pr/ticket-check@main: this repo is
       # public and cannot resolve an action from the private actions repo.
       # Keep in sync with that action.
-      - name: Ensure the branch or title names a ticket
+      - name: Ensure the branch and title both name a ticket
         env:
           # The action's default lives in its own file; a public repo cannot
           # read it, so the org variable is the knob here. Set TICKET_PREFIX at
@@ -22,7 +22,9 @@ jobs:
           # Via env, not inlined: a PR title would otherwise run as shell.
           HEAD_REF: ${{ github.head_ref }}
           PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           AUTHOR_TYPE: ${{ github.event.pull_request.user.type }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -uo pipefail
 
@@ -31,20 +33,38 @@ jobs:
             exit 0
           fi
 
+          # A re-run replays the original event payload, so its title is the one
+          # the PR had when the run was first triggered. Read the live title so
+          # fixing the title and re-running is enough; keep the payload title
+          # only if the API is unreachable.
+          if live_title=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq .title 2>/dev/null); then
+            PR_TITLE=$live_title
+          else
+            echo "::warning::Could not read the current PR title; checking the title from the triggering event."
+          fi
+
           alternation=$(printf '%s' "$PREFIXES" | tr -d '[:space:]' | tr ',' '|')
           # The boundary stops NOTOLISYS-5 from satisfying OLISYS.
           pattern="(^|[^A-Za-z0-9])(${alternation})-[0-9]+"
 
+          # Both, not either: the branch name is what git history keeps once the
+          # PR is gone, and the title is what the release notes and the board
+          # read back. One without the other leaves a gap somewhere.
+          missing=""
           if printf '%s' "$HEAD_REF" | grep -qEi "$pattern"; then
             echo "Ticket found in branch name: ${HEAD_REF}"
-            exit 0
+          else
+            missing="branch name '${HEAD_REF}'"
           fi
 
           if printf '%s' "$PR_TITLE" | grep -qEi "$pattern"; then
             echo "Ticket found in PR title."
-            exit 0
+          else
+            missing="${missing:+${missing} and the }PR title"
           fi
 
-          first=${PREFIXES%%,*}
-          echo "::error::PR must reference a ticket. Expected something like ${first}-1234 in the branch name or the PR title. Got branch '${HEAD_REF}'."
-          exit 1
+          if [ -n "$missing" ]; then
+            first=${PREFIXES%%,*}
+            echo "::error::PR must reference a ticket in both the branch name and the PR title. Expected something like ${first}-1234 in the ${missing}."
+            exit 1
+          fi
