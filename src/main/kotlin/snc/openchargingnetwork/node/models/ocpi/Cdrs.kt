@@ -60,6 +60,7 @@ data class CdrLocation(
     @JsonProperty("address") val address: String,
     @JsonProperty("city") val city: String,
     @JsonProperty("postal_code") val postalCode: String? = null,
+    @JsonProperty("state") val state: String? = null,
     @JsonProperty("country") val countryCode: String,
     @JsonProperty("coordinates") val coordinates: GeoLocation,
     @JsonProperty("evse_uid") val evseUID: String,
