@@ -49,9 +49,15 @@ import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
 import snc.openchargingnetwork.node.models.ocpi.Version
 import snc.openchargingnetwork.node.models.ocpi.VersionDetail
 import snc.openchargingnetwork.node.tools.CurlLogger
+import snc.openchargingnetwork.node.tools.TraceKeys
+import snc.openchargingnetwork.node.tools.X_CORRELATION_ID
+import snc.openchargingnetwork.node.tools.X_REQUEST_ID
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
+import snc.openchargingnetwork.node.tools.recordOutboundRequest
 import snc.openchargingnetwork.node.tools.toBs64String
 import snc.openchargingnetwork.node.tools.urlJoin
+import snc.openchargingnetwork.node.tools.withCorrelationId
+import snc.openchargingnetwork.node.tools.withMdc
 
 @Component
 open class HttpClientComponent(private val properties: NodeProperties) {
@@ -99,6 +105,18 @@ open class HttpClientComponent(private val properties: NodeProperties) {
                 const val OCN_MESSAGE_ENDPOINT = "/ocn/message"
         }
 
+        private fun Map<String, String>.requestIdHeader(): String? =
+                entries.firstOrNull { it.key.equals(X_REQUEST_ID, ignoreCase = true) }?.value
+
+        /** X-Correlation-ID / X-Request-ID for a call made outside the regular OCPI forwarding path. */
+        private inline fun <R> withOutboundTraceHeaders(block: (Map<String, String>) -> R): R =
+                withCorrelationId { correlationId ->
+                        val requestId = generateUUIDv4Token()
+                        withMdc(TraceKeys.OUT_REQUEST_ID, requestId) {
+                                block(mapOf(X_CORRELATION_ID to correlationId, X_REQUEST_ID to requestId))
+                        }
+                }
+
         /** General purpose Http Request wrapper around async call from Ktor Client */
         open fun sendHttpRequest(
                 endpoint: String,
@@ -107,6 +125,7 @@ open class HttpClientComponent(private val properties: NodeProperties) {
                 headers: Map<String, String> = mapOf(),
                 queryParams: Map<String, String> = mapOf()
         ): SyncedHttpResponse {
+                recordOutboundRequest(headers.requestIdHeader(), endpoint)
                 return runBlocking {
                         val response =
                                 client.request(endpoint) {
@@ -183,6 +202,20 @@ open class HttpClientComponent(private val properties: NodeProperties) {
                 typeClass: Class<T>? = null
         ): OcpiHttpResponse<T> {
                 val stringHeaders = headers.mapNotNull { (key, value) -> value?.let { key to it } }.toMap()
+                val outRequestId = stringHeaders.requestIdHeader()
+                return withMdc(TraceKeys.OUT_REQUEST_ID, outRequestId) {
+                        sendOcpiRequest(method, url, stringHeaders, queryParams, body, typeClass)
+                }
+        }
+
+        private fun <T : Any> sendOcpiRequest(
+                method: HttpMethod,
+                url: String,
+                stringHeaders: Map<String, String>,
+                queryParams: Map<String, Any?>?,
+                body: String?,
+                typeClass: Class<T>?
+        ): OcpiHttpResponse<T> {
                 val stringQueryParams =
                         queryParams?.mapValues { (_, value) -> value.toString() } ?: mapOf()
 
@@ -260,7 +293,6 @@ open class HttpClientComponent(private val properties: NodeProperties) {
 
                 // includes or excludes routing headers based on module type (functional or
                 // configuration)
-                // TODO: credentials and versions must also include X-Request-ID/X-Correlation-ID
                 val headersMap =
                         ocnHeaders.toMap(
                                 routingHeaders =
@@ -300,14 +332,11 @@ open class HttpClientComponent(private val properties: NodeProperties) {
          * missing or invalid version data, or if there is an error during request execution or
          * response parsing.
          */
-        open fun getVersions(url: String, authorization: String): List<Version> {
+        open fun getVersions(url: String, authorization: String): List<Version> = withOutboundTraceHeaders { traceHeaders ->
                 try {
+                        logger.info("[Outbound] GET versions {}", url)
                         val headers =
-                                mapOf(
-                                        "Authorization" to "Token ${authorization.toBs64String()}",
-                                        "X-Correlation-ID" to generateUUIDv4Token(),
-                                        "X-Request-ID" to generateUUIDv4Token()
-                                )
+                                mapOf("Authorization" to "Token ${authorization.toBs64String()}") + traceHeaders
 
                         CurlLogger.logCurlCommand(
                                 HttpMethod.GET,
@@ -339,7 +368,7 @@ open class HttpClientComponent(private val properties: NodeProperties) {
                                         throw OcpiServerUnusableApiException(
                                                 "No version data received"
                                         )
-                                else -> return body.data
+                                else -> body.data
                         }
                 } catch (e: JsonProcessingException) {
                         throw OcpiServerUnusableApiException(
@@ -352,17 +381,13 @@ open class HttpClientComponent(private val properties: NodeProperties) {
                 }
         }
 
-        open fun checkVersionsHealth(url: String): List<Version> {
+        open fun checkVersionsHealth(url: String): List<Version> = withOutboundTraceHeaders { traceHeaders ->
                 try {
                         val response =
                                 sendHttpRequest(
                                         endpoint = url,
                                         method = HttpMethod.GET,
-                                        headers =
-                                                mapOf(
-                                                        "X-Correlation-ID" to generateUUIDv4Token(),
-                                                        "X-Request-ID" to generateUUIDv4Token()
-                                                )
+                                        headers = traceHeaders
                                 )
 
                         val body: OcpiResponse<List<Version>> = mapper.readValue(response.body)
@@ -380,7 +405,7 @@ open class HttpClientComponent(private val properties: NodeProperties) {
                                         throw OcpiServerUnusableApiException(
                                                 "No version data received"
                                         )
-                                else -> return body.data
+                                else -> body.data
                         }
                 } catch (e: JsonProcessingException) {
                         throw OcpiServerUnusableApiException(
@@ -406,14 +431,11 @@ open class HttpClientComponent(private val properties: NodeProperties) {
          *        missing or invalid version detail data, or if there is an error during response parsing or request execution.
          * ```
          */
-        open fun getVersionDetail(url: String, authorization: String): VersionDetail {
+        open fun getVersionDetail(url: String, authorization: String): VersionDetail = withOutboundTraceHeaders { traceHeaders ->
                 try {
+                        logger.info("[Outbound] GET version details {}", url)
                         val headers =
-                                mapOf(
-                                        "Authorization" to "Token ${authorization.toBs64String()}",
-                                        "X-Correlation-ID" to generateUUIDv4Token(),
-                                        "X-Request-ID" to generateUUIDv4Token()
-                                )
+                                mapOf("Authorization" to "Token ${authorization.toBs64String()}") + traceHeaders
 
                         CurlLogger.logCurlCommand(
                                 HttpMethod.GET,
@@ -445,7 +467,7 @@ open class HttpClientComponent(private val properties: NodeProperties) {
                                         throw OcpiServerUnusableApiException(
                                                 "No version detail data received"
                                         )
-                                else -> return body.data
+                                else -> body.data
                         }
                 } catch (e: JsonProcessingException) {
                         throw OcpiServerUnusableApiException(
@@ -475,6 +497,15 @@ open class HttpClientComponent(private val properties: NodeProperties) {
         ): OcpiHttpResponse<T> {
                 val fullUrl = urlJoin(url, OCN_MESSAGE_ENDPOINT)
 
+                return withMdc(TraceKeys.OUT_REQUEST_ID, headers.requestID) { sendOcnMessage(url, fullUrl, headers, body) }
+        }
+
+        private fun <T : Any> sendOcnMessage(
+                url: String,
+                fullUrl: String,
+                headers: OcnMessageHeaders,
+                body: String
+        ): OcpiHttpResponse<T> {
                 CurlLogger.logCurlCommand(
                         HttpMethod.POST,
                         fullUrl,
