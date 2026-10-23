@@ -148,6 +148,16 @@ oli-app:
       secretKeyRef:
         name: postgres-secret
         key: ocn_node_v2_postgres_password
+    # Settings for the OpenTelemetry Java agent. The agent loads only where
+    # JDK_JAVA_OPTIONS attaches it (values.<env>.yaml). JAVA_TOOL_OPTIONS above
+    # stays for the JVM flags.
+    OTEL_SERVICE_NAME: "ocn-node-v2"
+    OTEL_EXPORTER_OTLP_ENDPOINT: "http://alloy.monitoring.svc:4318"
+    OTEL_INSTRUMENTATION_LOGBACK_APPENDER_EXPERIMENTAL_CAPTURE_MDC_ATTRIBUTES: "correlation_id,request_id,out_request_id,ocpi_from,ocpi_to"
+    # Repository and Hibernate session spans wrap each query 2-3 levels deep;
+    # the JDBC client spans already carry the statement and timing.
+    OTEL_INSTRUMENTATION_SPRING_DATA_ENABLED: "false"
+    OTEL_INSTRUMENTATION_HIBERNATE_ENABLED: "false"
 
   resources:
     requests:
