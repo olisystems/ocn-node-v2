@@ -35,7 +35,7 @@ object CurlLogger {
             append("curl -X ${method.name()}")
             append(" '$url'")
 
-            headers.forEach { (key, value) ->
+            headers.withMaskedAuthorization().forEach { (key, value) ->
                 if (value != null) {
                     append(" -H '$key: $value'")
                 }

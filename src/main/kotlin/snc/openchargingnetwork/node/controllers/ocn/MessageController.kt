@@ -16,6 +16,7 @@
 
 package snc.openchargingnetwork.node.controllers.ocn
 
+import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import snc.openchargingnetwork.node.components.OcpiRequestHandlerBuilder
@@ -23,6 +24,8 @@ import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
 import snc.openchargingnetwork.node.models.ocpi.OcpiStatus
 import snc.openchargingnetwork.node.services.NodeObjectRoutingService
 import snc.openchargingnetwork.node.services.VersionsService
+import snc.openchargingnetwork.node.tools.putOcnMessageRequestId
+import snc.openchargingnetwork.node.tools.putTraceContext
 
 
 @RestController
@@ -33,6 +36,10 @@ class MessageController(
     private val nodeObjectRoutingService: NodeObjectRoutingService
 ) {
 
+    companion object {
+        private val logger = LoggerFactory.getLogger(MessageController::class.java)
+    }
+
     @PostMapping
     fun postMessage(
         @RequestHeader("X-Request-ID") requestID: String,
@@ -41,6 +48,15 @@ class MessageController(
     ): ResponseEntity<OcpiResponse<Any>> {
         val ocpiRequest = requestHandlerBuilder
             .build<Any>(body);
+
+        // The transport X-Request-ID only identifies the node-to-node hop; the embedded OCPI headers
+        // carry the IDs the originating platform sent, which is what links this hop to the others.
+        putTraceContext(ocpiRequest.request.headers)
+        putOcnMessageRequestId(requestID)
+        logger.info(
+            "[OCN Message] Received {} {} | ocn_message_request_id: {}",
+            ocpiRequest.request.method, ocpiRequest.request.resolveModuleId(), requestID
+        )
 
         if(ocpiRequest.request.resolveModuleId() == "versions") {
             val receiver = ocpiRequest.request.headers.receiver;

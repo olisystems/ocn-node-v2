@@ -408,6 +408,7 @@ class RoutingServiceTest(
         // The token should be Base64 encoded in the authorization header (format: "Token <base64-encoded-token>")
         assertThat(headers.authorization).isEqualTo("Token ${"testtokenb".toBs64String()}")
         assertThat(headers.requestID).isNotEqualTo("test-request-id") // Should be regenerated
+        assertThat(headers.correlationID).isEqualTo("test-correlation-id")
     }
 
     @Test

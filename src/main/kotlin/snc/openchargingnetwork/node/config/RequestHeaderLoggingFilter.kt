@@ -8,6 +8,7 @@ import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.filter.OncePerRequestFilter
+import snc.openchargingnetwork.node.tools.withMaskedAuthorization
 
 @Configuration
 class RequestHeaderLoggingFilterConfig(private val properties: NodeProperties) {
@@ -22,7 +23,7 @@ class RequestHeaderLoggingFilterConfig(private val properties: NodeProperties) {
             "${prefix}/ocpi/sender/*",
             "${prefix}/ocn/message"
         )
-        registration.order = 1
+        registration.order = 2
         return registration
     }
 }
@@ -47,7 +48,7 @@ class RequestHeaderLoggingFilter(private val properties: NodeProperties) : OnceP
                 "Incoming request | method: {} | uri: {} | headers: {}",
                 request.method,
                 request.requestURI,
-                headers
+                headers.withMaskedAuthorization()
             )
         }
         filterChain.doFilter(request, response)

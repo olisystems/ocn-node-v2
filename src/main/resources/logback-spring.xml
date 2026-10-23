@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
+    <!-- Optional MDC keys render only when set, keeping lines outside a request compact. -->
+    <property name="TRACE" value="[cid=%X{correlation_id:-} rid=%X{request_id:-}%replace(%X{out_request_id}){'^(.+)$', ' orid=$1'}%replace(%X{ocpi_from}){'^(.+)$', ' from=$1'}%replace(%X{ocpi_to}){'^(.+)$', ' to=$1'}]"/>
+
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) [%thread] %cyan(%logger{36}) - %msg%n</pattern>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) [%thread] ${TRACE} %cyan(%logger{36}) - %msg%n</pattern>
         </encoder>
     </appender>
 
@@ -19,7 +22,7 @@
                 <totalSizeCap>200MB</totalSizeCap>
             </rollingPolicy>
             <encoder>
-                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n</pattern>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] ${TRACE} %logger{36} - %msg%n</pattern>
             </encoder>
         </appender>
 

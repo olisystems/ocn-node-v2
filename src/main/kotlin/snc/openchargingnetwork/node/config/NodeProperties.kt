@@ -73,8 +73,8 @@ class NodeProperties {
     // If Enabled runs the enhanced hub client info sync task (includes pull + push operations)
     var hubClientInfoSyncEnabled: Boolean = false
 
-    // If Enabled logs full curl commands for forwarded OCPI requests (includes tokens/sensitive
-    // data)
+    // If Enabled logs full curl commands for forwarded OCPI requests (Authorization is masked, but
+    // bodies may still contain sensitive data)
     var logCurlCommands: Boolean = false
 
     // If Enabled logs full headers of received requests on forwarding endpoints
