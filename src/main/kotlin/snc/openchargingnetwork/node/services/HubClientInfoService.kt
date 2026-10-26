@@ -340,20 +340,23 @@ class HubClientInfoService(
     ) {
         // Fail once before fan-out if hub identity is not configured.
         val hubSender = requireConfiguredHubSender()
-        for (party in parties) {
-            try {
-                val platform = platformRepo.findById(party.platformID).get()
-                val authToken = platform.getAuthTokenToIncludeInRequestHeader()
-                notifyPartyOfClientInfoChange(
-                        party.partyID,
-                        party.countryCode,
-                        authToken,
-                        changedClientInfo,
-                        hubSender
-                )
-            } catch (e: Exception) {
-                // Skip parties where handshake is not complete (token is missing)
-                logger.warn("Skipping ClientInfo notification for party ${party.partyID}: ${e.message}")
+        // One correlation ID for the whole broadcast, so every receiver can be linked to it.
+        withCorrelationId {
+            for (party in parties) {
+                try {
+                    val platform = platformRepo.findById(party.platformID).get()
+                    val authToken = platform.getAuthTokenToIncludeInRequestHeader()
+                    notifyPartyOfClientInfoChange(
+                            party.partyID,
+                            party.countryCode,
+                            authToken,
+                            changedClientInfo,
+                            hubSender
+                    )
+                } catch (e: Exception) {
+                    // Skip parties where handshake is not complete (token is missing)
+                    logger.warn("Skipping ClientInfo notification for party ${party.partyID}: ${e.message}")
+                }
             }
         }
     }

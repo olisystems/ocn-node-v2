@@ -133,20 +133,23 @@ class ModuleNotificationService(
         method: HttpMethod = HttpMethod.PUT,
         queryParams: Map<String, Any?>? = null
     ) {
-        for (party in parties) {
-            val platform = platformRepo.findById(party.platformID).orElse(null)
-            if (platform != null) {
-                notifyPartyOfModuleChange(
-                    moduleId = moduleId,
-                    partyId = party.partyID,
-                    countryCode = party.countryCode,
-                    authToken = platform.getAuthTokenToIncludeInRequestHeader(),
-                    changedData = changedData,
-                    urlPath = urlPath,
-                    sender = sender,
-                    method = method,
-                    queryParams = queryParams
-                )
+        // One correlation ID for the whole broadcast, so every receiver can be linked to it.
+        withCorrelationId {
+            for (party in parties) {
+                val platform = platformRepo.findById(party.platformID).orElse(null)
+                if (platform != null) {
+                    notifyPartyOfModuleChange(
+                        moduleId = moduleId,
+                        partyId = party.partyID,
+                        countryCode = party.countryCode,
+                        authToken = platform.getAuthTokenToIncludeInRequestHeader(),
+                        changedData = changedData,
+                        urlPath = urlPath,
+                        sender = sender,
+                        method = method,
+                        queryParams = queryParams
+                    )
+                }
             }
         }
     }

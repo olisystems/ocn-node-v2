@@ -117,8 +117,8 @@ inline fun <R> withCorrelationId(block: (correlationId: String) -> R): R {
 fun maskAuthorization(value: String): String {
     val scheme = value.substringBefore(' ', missingDelimiterValue = "")
     val credential = value.substringAfter(' ').trim()
-    // Short credentials would be mostly revealed by their last four characters.
-    val masked = "****" + if (credential.length > 8) credential.takeLast(4) else ""
+    // Keep the last four characters only where they are a small share of the credential.
+    val masked = "****" + if (credential.length >= 16) credential.takeLast(4) else ""
     return if (scheme.isEmpty()) masked else "$scheme $masked"
 }
 
