@@ -18,6 +18,9 @@ version = "ocn-v2"
 
 
 extra["snippetsDir"] = file("build/generated-snippets")
+// The API version bundled by the OpenTelemetry Java agent 2.31.1: the agent only bridges API versions
+// up to its own. Overrides Spring Boot's managed 1.43.0 for the whole io.opentelemetry family.
+extra["opentelemetry.version"] = "1.65.0"
 
 java {
 	toolchain {
@@ -56,6 +59,7 @@ dependencies {
 	// Project-Specific
 	implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-slf4j:1.10.2")
 	implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
 	implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
 	implementation("org.web3j:core:5.0.0")
@@ -64,6 +68,8 @@ dependencies {
 	kapt("org.springframework.boot:spring-boot-configuration-processor")
 	implementation("io.ktor:ktor-client-core:3.1.3")
 	implementation("io.ktor:ktor-client-cio:3.1.3")
+	implementation("io.opentelemetry:opentelemetry-api")
+	testImplementation("io.opentelemetry:opentelemetry-sdk-testing")
 
 	// Swagger/OpenAPI
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.7.0")
@@ -101,6 +107,8 @@ tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
 		"-Dloader.main=snc.openchargingnetwork.node.ApplicationKt",
 		"-Dspring.devtools.restart.enabled=false",
 	)
+	// Only the application JVM gets the agent; the Gradle daemon and CI builds stay uninstrumented.
+	System.getenv("OTEL_JAVAAGENT_JAR")?.takeIf { it.isNotBlank() }?.let { jvmArgs("-javaagent:$it") }
 	doFirst {
 		pluginsDir.asFile.mkdirs()
 		val pluginJars =

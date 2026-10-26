@@ -31,6 +31,7 @@ import snc.openchargingnetwork.node.repositories.PlatformRepository
 import snc.openchargingnetwork.node.repositories.RoleRepository
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
 import snc.openchargingnetwork.node.tools.toBs64String
+import snc.openchargingnetwork.node.tools.withCorrelationId
 
 /**
  * Generic service for handling module notifications to connected parties This service manages OCPI
@@ -132,20 +133,23 @@ class ModuleNotificationService(
         method: HttpMethod = HttpMethod.PUT,
         queryParams: Map<String, Any?>? = null
     ) {
-        for (party in parties) {
-            val platform = platformRepo.findById(party.platformID).orElse(null)
-            if (platform != null) {
-                notifyPartyOfModuleChange(
-                    moduleId = moduleId,
-                    partyId = party.partyID,
-                    countryCode = party.countryCode,
-                    authToken = platform.getAuthTokenToIncludeInRequestHeader(),
-                    changedData = changedData,
-                    urlPath = urlPath,
-                    sender = sender,
-                    method = method,
-                    queryParams = queryParams
-                )
+        // One correlation ID for the whole broadcast, so every receiver can be linked to it.
+        withCorrelationId {
+            for (party in parties) {
+                val platform = platformRepo.findById(party.platformID).orElse(null)
+                if (platform != null) {
+                    notifyPartyOfModuleChange(
+                        moduleId = moduleId,
+                        partyId = party.partyID,
+                        countryCode = party.countryCode,
+                        authToken = platform.getAuthTokenToIncludeInRequestHeader(),
+                        changedData = changedData,
+                        urlPath = urlPath,
+                        sender = sender,
+                        method = method,
+                        queryParams = queryParams
+                    )
+                }
             }
         }
     }
@@ -304,32 +308,34 @@ class ModuleNotificationService(
         method: HttpMethod = HttpMethod.PUT,
         queryParams: Map<String, Any?>? = null
     ) {
-        val receiver = BasicRole(partyId, countryCode)
-        val requestVariables =
-            OcpiRequestVariables(
-                module = moduleId,
-                interfaceRole = InterfaceRole.RECEIVER,
-                method = method,
-                headers =
-                    OcnHeaders(
-                        authorization = "Token ${authToken.toBs64String()}",
-                        requestID = generateUUIDv4Token(),
-                        correlationID = generateUUIDv4Token(),
-                        sender = sender,
-                        receiver = receiver
-                    ),
-                body = changedData,
-                urlPath = urlPath,
-                queryParams = queryParams
-            )
+        withCorrelationId { correlationId ->
+            val receiver = BasicRole(partyId, countryCode)
+            val requestVariables =
+                OcpiRequestVariables(
+                    module = moduleId,
+                    interfaceRole = InterfaceRole.RECEIVER,
+                    method = method,
+                    headers =
+                        OcnHeaders(
+                            authorization = "Token ${authToken.toBs64String()}",
+                            requestID = generateUUIDv4Token(),
+                            correlationID = correlationId,
+                            sender = sender,
+                            receiver = receiver
+                        ),
+                    body = changedData,
+                    urlPath = urlPath,
+                    queryParams = queryParams
+                )
 
-        val (url, headers) =
-            routingService.prepareLocalPlatformRequest(requestVariables, proxied = false)
+            val (url, headers) =
+                routingService.prepareLocalPlatformRequest(requestVariables, proxied = false)
 
-        try {
-            httpClientComponent.makeOcpiRequest<Unit>(url, headers, requestVariables)
-        } catch (e: Exception) { // fire and forget; catch any error and log
-            logger.warn("Error notifying $receiver of ${moduleId.id} change: ${e.message}")
+            try {
+                httpClientComponent.makeOcpiRequest<Unit>(url, headers, requestVariables)
+            } catch (e: Exception) { // fire and forget; catch any error and log
+                logger.warn("Error notifying $receiver of ${moduleId.id} change: ${e.message}")
+            }
         }
     }
 }

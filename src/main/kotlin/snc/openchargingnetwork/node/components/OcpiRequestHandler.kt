@@ -18,6 +18,7 @@ package snc.openchargingnetwork.node.components
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.slf4j.MDCContext
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
@@ -36,6 +37,8 @@ import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
 import snc.openchargingnetwork.node.models.ocpi.OcpiStatus
 import snc.openchargingnetwork.node.services.*
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
+import snc.openchargingnetwork.node.tools.tagOcpiRoute
+import snc.openchargingnetwork.node.tools.withMaskedAuthorization
 import snc.openchargingnetwork.node.tools.urlJoin
 
 /** Spring boot component that instantiates RequestHandler objects. */
@@ -141,6 +144,10 @@ class OcpiRequestHandler<T : Any>(
         private var logger: Logger = LoggerFactory.getLogger(OcpiRequestHandler::class.java)
     }
 
+    init {
+        tagOcpiRoute(request.resolveModuleId(), request.interfaceRole.id)
+    }
+
     /** Validate a request that the node will broadcast instead of forwarding to one receiver. */
     fun validateIncomingForBroadcast(): OcpiRequestHandler<T> {
         logFullHeaders()
@@ -211,7 +218,10 @@ class OcpiRequestHandler<T : Any>(
                         val (url, headers) =
                                 routingService.prepareLocalPlatformRequest(request, proxied)
                         forwardUrl = url
-                        logger.info("[Forward] Sending directly to local platform: {}", url)
+                        logger.info(
+                            "[Forward] Sending directly to local platform: {} | request_id: {} -> out_request_id: {}",
+                            url, request.headers.requestID, headers.requestID
+                        )
                         val statusName = this.verificationStatus?.name
                         val localHeaders =
                                 headers.copy(
@@ -242,7 +252,10 @@ class OcpiRequestHandler<T : Any>(
                         val (url, headers, body) =
                                 routingService.prepareRemotePlatformRequest(request, proxied)
                         forwardUrl = url
-                        logger.info("[Forward] Sending via remote OCN node: {}/ocn/message", url)
+                        logger.info(
+                            "[Forward] Sending via remote OCN node: {}/ocn/message | request_id: {} -> out_request_id: {}",
+                            url, request.headers.requestID, headers.requestID
+                        )
                         try {
                             httpClientComponent.postOcnMessage(url, headers, body)
                         } catch (e: Exception) {
@@ -274,7 +287,7 @@ class OcpiRequestHandler<T : Any>(
     }
 
     fun forwardHaasAsync(): OcpiRequestHandler<T> {
-        coroutineScope.launch {
+        coroutineScope.launch(MDCContext()) {
             try {
                 if (haasProperties.enabled) {
                     val uri = request.urlPath?.removePrefix("/")
@@ -312,7 +325,7 @@ class OcpiRequestHandler<T : Any>(
     fun forwardIntegrationsAsync(module: ModuleID): OcpiRequestHandler<T> {
         validateIncoming()
         val currentContext = this
-        coroutineScope.launch {
+        coroutineScope.launch(MDCContext()) {
             val receivingParties =
                     integrationsRoutingService.getIntegrationReceivingParties(
                             module,
@@ -343,8 +356,8 @@ class OcpiRequestHandler<T : Any>(
                                                             else statusName
                                             )
                                     logger.info(
-                                            "[ForwardIntegrations] Routing {} {} to integration party {}/{}: {}",
-                                            request.method, module, recevingParty.country, recevingParty.id, url
+                                            "[ForwardIntegrations] Routing {} {} to integration party {}/{}: {} | out_request_id: {}",
+                                            request.method, module, recevingParty.country, recevingParty.id, url, headers.requestID
                                     )
                                     asyncTaskService.forwardOcpiRequestToLinkedServices(
                                             currentContext,
@@ -356,8 +369,8 @@ class OcpiRequestHandler<T : Any>(
                                     val (url, headers, body) =
                                             routingService.prepareRemotePlatformRequest(modifiedRequest, false)
                                     logger.info(
-                                            "[ForwardIntegrations] Routing {} {} to remote integration party {}/{} via: {}/ocn/message",
-                                            request.method, module, recevingParty.country, recevingParty.id, url
+                                            "[ForwardIntegrations] Routing {} {} to remote integration party {}/{} via: {}/ocn/message | out_request_id: {}",
+                                            request.method, module, recevingParty.country, recevingParty.id, url, headers.requestID
                                     )
                                     asyncTaskService.forwardOcpiRequestToLinkedServices(
                                             currentContext,
@@ -393,7 +406,7 @@ class OcpiRequestHandler<T : Any>(
 
     fun forwardSenderIntegrationsAsync(module: ModuleID): OcpiRequestHandler<T> {
         val currentContext = this
-        coroutineScope.launch {
+        coroutineScope.launch(MDCContext()) {
             val receivingParties =
                     integrationsRoutingService.getSenderIntegrationReceivingParties(
                             module,
@@ -418,8 +431,8 @@ class OcpiRequestHandler<T : Any>(
                                                             else statusName
                                             )
                                     logger.info(
-                                            "[ForwardSender] Routing {} {} to integration party {}/{}: {}",
-                                            request.method, module, receivingParty.country, receivingParty.id, url
+                                            "[ForwardSender] Routing {} {} to integration party {}/{}: {} | out_request_id: {}",
+                                            request.method, module, receivingParty.country, receivingParty.id, url, headers.requestID
                                     )
                                     httpClientComponent.makeOcpiRequest(url, localHeaders, modifiedRequest)
                                 }
@@ -427,8 +440,8 @@ class OcpiRequestHandler<T : Any>(
                                     val (url, headers, body) =
                                             routingService.prepareRemotePlatformRequest(modifiedRequest, false)
                                     logger.info(
-                                            "[ForwardSender] Routing {} {} to remote integration party {}/{} via: {}/ocn/message",
-                                            request.method, module, receivingParty.country, receivingParty.id, url
+                                            "[ForwardSender] Routing {} {} to remote integration party {}/{} via: {}/ocn/message | out_request_id: {}",
+                                            request.method, module, receivingParty.country, receivingParty.id, url, headers.requestID
                                     )
                                     httpClientComponent.postOcnMessage(url, headers, body)
                                 }
@@ -656,7 +669,7 @@ class OcpiRequestHandler<T : Any>(
     private fun logFullHeaders() {
         if (properties.logFullHeaders) {
             logger.info(
-                    "Full headers on received request | method: ${request.method} | module: ${request.module} | interfaceRole: ${request.interfaceRole} | urlPath: ${request.urlPath} | headers: ${request.headers.toMap()}"
+                    "Full headers on received request | method: ${request.method} | module: ${request.module} | interfaceRole: ${request.interfaceRole} | urlPath: ${request.urlPath} | headers: ${request.headers.toMap().withMaskedAuthorization()}"
             )
         }
     }

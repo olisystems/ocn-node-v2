@@ -41,6 +41,7 @@ import snc.openchargingnetwork.node.tools.generateUUIDv4Token
 import snc.openchargingnetwork.node.tools.getInstant
 import snc.openchargingnetwork.node.tools.getTimestamp
 import snc.openchargingnetwork.node.tools.toBs64String
+import snc.openchargingnetwork.node.tools.withCorrelationId
 
 /**
  * Enhanced HubClientInfoService with both push and pull models for party discovery and updates This
@@ -339,20 +340,23 @@ class HubClientInfoService(
     ) {
         // Fail once before fan-out if hub identity is not configured.
         val hubSender = requireConfiguredHubSender()
-        for (party in parties) {
-            try {
-                val platform = platformRepo.findById(party.platformID).get()
-                val authToken = platform.getAuthTokenToIncludeInRequestHeader()
-                notifyPartyOfClientInfoChange(
-                        party.partyID,
-                        party.countryCode,
-                        authToken,
-                        changedClientInfo,
-                        hubSender
-                )
-            } catch (e: Exception) {
-                // Skip parties where handshake is not complete (token is missing)
-                logger.warn("Skipping ClientInfo notification for party ${party.partyID}: ${e.message}")
+        // One correlation ID for the whole broadcast, so every receiver can be linked to it.
+        withCorrelationId {
+            for (party in parties) {
+                try {
+                    val platform = platformRepo.findById(party.platformID).get()
+                    val authToken = platform.getAuthTokenToIncludeInRequestHeader()
+                    notifyPartyOfClientInfoChange(
+                            party.partyID,
+                            party.countryCode,
+                            authToken,
+                            changedClientInfo,
+                            hubSender
+                    )
+                } catch (e: Exception) {
+                    // Skip parties where handshake is not complete (token is missing)
+                    logger.warn("Skipping ClientInfo notification for party ${party.partyID}: ${e.message}")
+                }
             }
         }
     }
@@ -377,31 +381,33 @@ class HubClientInfoService(
             changedClientInfo: ClientInfo,
             hubSender: BasicRole = requireConfiguredHubSender()
     ) {
-        val receiver = BasicRole(partyId, countryCode)
-        val requestVariables =
-                OcpiRequestVariables(
-                        module = ModuleID.HUB_CLIENT_INFO,
-                        interfaceRole = InterfaceRole.RECEIVER,
-                        method = HttpMethod.PUT,
-                        headers =
-                                OcnHeaders(
-                                        authorization = "Token ${authToken.toBs64String()}",
-                                        requestID = generateUUIDv4Token(),
-                                        correlationID = generateUUIDv4Token(),
-                                        sender = hubSender,
-                                        receiver = receiver
-                                ),
-                        body = changedClientInfo,
-                        urlPath = "${changedClientInfo.countryCode}/${changedClientInfo.partyID}"
-                )
+        withCorrelationId { correlationId ->
+            val receiver = BasicRole(partyId, countryCode)
+            val requestVariables =
+                    OcpiRequestVariables(
+                            module = ModuleID.HUB_CLIENT_INFO,
+                            interfaceRole = InterfaceRole.RECEIVER,
+                            method = HttpMethod.PUT,
+                            headers =
+                                    OcnHeaders(
+                                            authorization = "Token ${authToken.toBs64String()}",
+                                            requestID = generateUUIDv4Token(),
+                                            correlationID = correlationId,
+                                            sender = hubSender,
+                                            receiver = receiver
+                                    ),
+                            body = changedClientInfo,
+                            urlPath = "${changedClientInfo.countryCode}/${changedClientInfo.partyID}"
+                    )
 
-        val (url, headers) =
-                routingService.prepareLocalPlatformRequest(requestVariables, proxied = false)
+            val (url, headers) =
+                    routingService.prepareLocalPlatformRequest(requestVariables, proxied = false)
 
-        try {
-            httpClientComponent.makeOcpiRequest<Unit>(url, headers, requestVariables)
-        } catch (e: Exception) { // fire and forget; catch any error and log
-            logger.warn("Error notifying $receiver of client info change: ${e.message}")
+            try {
+                httpClientComponent.makeOcpiRequest<Unit>(url, headers, requestVariables)
+            } catch (e: Exception) { // fire and forget; catch any error and log
+                logger.warn("Error notifying $receiver of client info change: ${e.message}")
+            }
         }
     }
 

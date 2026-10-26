@@ -1,5 +1,22 @@
 oli-app:
   fullnameOverride: "ocn-node-v2-dev"
+  env:
+    JDK_JAVA_OPTIONS: "-javaagent:/otel/javaagent.jar"
+    OTEL_RESOURCE_ATTRIBUTES: "deployment.environment.name=dev,service.namespace=transit"
+  # Copies the OpenTelemetry Java agent into the pod; JDK_JAVA_OPTIONS loads it.
+  initContainers:
+    - name: otel-agent
+      image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-java:2.32.0
+      command: ["cp", "/javaagent.jar", "/otel/javaagent.jar"]
+      volumeMounts:
+        - name: otel-agent
+          mountPath: /otel
+  volumes:
+    - name: otel-agent
+      emptyDir: {}
+  volumeMounts:
+    - name: otel-agent
+      mountPath: /otel
   # Gateway API. banula-dev.oli-system.com is served by the Envoy banula-gateway;
   # without a route here the node is unreachable on that host at any path.
   gateway:
