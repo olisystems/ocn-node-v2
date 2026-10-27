@@ -331,10 +331,17 @@ class ModuleNotificationService(
             val (url, headers) =
                 routingService.prepareLocalPlatformRequest(requestVariables, proxied = false)
 
+            // Fire and forget: the sender already got its answer, so a rejection can only be logged.
             try {
-                httpClientComponent.makeOcpiRequest<Unit>(url, headers, requestVariables)
-            } catch (e: Exception) { // fire and forget; catch any error and log
-                logger.warn("Error notifying $receiver of ${moduleId.id} change: ${e.message}")
+                val response = httpClientComponent.makeOcpiRequest<Unit>(url, headers, requestVariables)
+                if (!response.isOcpiSuccess()) {
+                    logger.error(
+                        "$receiver rejected the ${moduleId.id} change: HTTP ${response.statusCode}, " +
+                            "OCPI ${response.body?.statusCode} ${response.body?.statusMessage.orEmpty()}"
+                    )
+                }
+            } catch (e: Exception) {
+                logger.error("Error notifying $receiver of ${moduleId.id} change: ${e.message}")
             }
         }
     }

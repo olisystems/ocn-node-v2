@@ -268,7 +268,7 @@ class OcpiRequestHandler<T : Any>(
                     }
                 }
 
-        if (response.statusCode in 200..299) {
+        if (response.isOcpiSuccess()) {
             logger.info("[Forward] SUCCESS — {} {} to {} | HTTP {}", request.method, request.module, receiverLabel, response.statusCode)
         } else {
             logger.error(
@@ -379,7 +379,7 @@ class OcpiRequestHandler<T : Any>(
                                     httpClientComponent.postOcnMessage(url, headers, body)
                                 }
                             }
-                    if (response.statusCode in 200..299) {
+                    if (response.isOcpiSuccess()) {
                         logger.info(
                                 "[ForwardIntegrations] SUCCESS — {} {} to {}/{} | HTTP {} | ocpi status: {}",
                                 request.method, module, recevingParty.country, recevingParty.id,
@@ -387,9 +387,9 @@ class OcpiRequestHandler<T : Any>(
                         )
                     } else {
                         logger.error(
-                                "[ForwardIntegrations] FAILED — {} {} to {}/{} | HTTP {} | ocpi status: {}",
+                                "[ForwardIntegrations] FAILED — {} {} to {}/{} | HTTP {} | ocpi status: {} | message: {}",
                                 request.method, module, recevingParty.country, recevingParty.id,
-                                response.statusCode, response.body?.statusCode
+                                response.statusCode, response.body?.statusCode, response.body?.statusMessage
                         )
                     }
                 } catch (e: Exception) {
@@ -446,11 +446,19 @@ class OcpiRequestHandler<T : Any>(
                                     httpClientComponent.postOcnMessage(url, headers, body)
                                 }
                             }
-                    logger.info(
-                            "[ForwardSender] SUCCESS — {} {} to {}/{} | HTTP {} | ocpi status: {}",
-                            request.method, module, receivingParty.country, receivingParty.id,
-                            response.statusCode, response.body?.statusCode
-                    )
+                    if (response.isOcpiSuccess()) {
+                        logger.info(
+                                "[ForwardSender] SUCCESS — {} {} to {}/{} | HTTP {} | ocpi status: {}",
+                                request.method, module, receivingParty.country, receivingParty.id,
+                                response.statusCode, response.body?.statusCode
+                        )
+                    } else {
+                        logger.error(
+                                "[ForwardSender] FAILED — {} {} to {}/{} | HTTP {} | ocpi status: {} | message: {}",
+                                request.method, module, receivingParty.country, receivingParty.id,
+                                response.statusCode, response.body?.statusCode, response.body?.statusMessage
+                        )
+                    }
                 } catch (e: Exception) {
                     logger.error(
                             "[ForwardSender] FAILED — {} {} to {}/{} | error: {}",
