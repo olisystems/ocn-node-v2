@@ -16,14 +16,23 @@
 
 package snc.openchargingnetwork.node.services
 
+import java.util.concurrent.Callable
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.core.task.AsyncTaskExecutor
 import org.springframework.http.HttpMethod
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 import snc.openchargingnetwork.node.components.HttpClientComponent
 import snc.openchargingnetwork.node.config.NodeProperties
+import snc.openchargingnetwork.node.models.BroadcastDelivery
+import snc.openchargingnetwork.node.models.BroadcastDelivery.Outcome
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.entities.PlatformEntity
+import snc.openchargingnetwork.node.models.exceptions.OcpiHubGenericException
 import snc.openchargingnetwork.node.models.entities.RoleEntity
 import snc.openchargingnetwork.node.models.ocpi.*
 import snc.openchargingnetwork.node.repositories.EndpointRepository
@@ -46,7 +55,9 @@ class ModuleNotificationService(
     private val httpClientComponent: HttpClientComponent,
     private val routingService: RoutingService,
     private val ocnRulesService: OcnRulesService,
-    private val nodeProperties: NodeProperties
+    private val nodeProperties: NodeProperties,
+    // Spring Boot's @Async executor, which copies the MDC (correlation ID) into its threads.
+    @Qualifier("applicationTaskExecutor") private val taskExecutor: AsyncTaskExecutor
 ) {
 
     companion object {
@@ -183,9 +194,70 @@ class ModuleNotificationService(
         logger.info("Completed async notification of ${moduleId.id} change (custom sender)")
     }
 
-    /** Broadcast an object push while preserving its HTTP method, path and query parameters. */
-    @Async
-    fun broadcastObjectRequestAsync(request: OcpiRequestVariables) {
+    /**
+     * Broadcast an object push while preserving its HTTP method, path and query parameters, and
+     * report what each receiver answered so the sender learns about rejections. Receivers are
+     * called in parallel; those that have not answered within [NodeProperties.broadcastWaitMillis]
+     * are reported as pending, and their outcome is logged when it arrives.
+     */
+    fun broadcastObjectRequest(request: OcpiRequestVariables): List<BroadcastDelivery> {
+        val parties = broadcastReceivers(request)
+        // Hub Broadcast Push must advertise the hub identity in OCPI-from-* headers.
+        val hubCountryCode =
+            nodeProperties.countryCode
+                ?: throw IllegalStateException("ocn.node.countryCode must be configured")
+        val hubPartyId =
+            nodeProperties.partyId
+                ?: throw IllegalStateException("ocn.node.partyId must be configured")
+        val hubSender = BasicRole(id = hubPartyId, country = hubCountryCode)
+
+        // Set before submitting, so the executor copies one correlation ID to every receiver.
+        val deliveries = withCorrelationId {
+            parties.mapNotNull { party ->
+                val platform = platformRepo.findById(party.platformID).orElse(null) ?: return@mapNotNull null
+                val receiver = BasicRole(party.partyID, party.countryCode)
+                val authToken = platform.getAuthTokenToIncludeInRequestHeader()
+                receiver to
+                    taskExecutor.submitCompletable(Callable {
+                        notifyPartyOfModuleChange(
+                            moduleId = request.module,
+                            partyId = party.partyID,
+                            countryCode = party.countryCode,
+                            authToken = authToken,
+                            changedData = request.body,
+                            urlPath = request.urlPath?.removePrefix("/") ?: "",
+                            sender = hubSender,
+                            method = request.method,
+                            queryParams = request.queryParams
+                        )
+                    })
+            }
+        }
+
+        val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(nodeProperties.broadcastWaitMillis)
+        return deliveries.map { (receiver, delivery) -> awaitDelivery(receiver, delivery, deadline) }
+    }
+
+    private fun awaitDelivery(
+        receiver: BasicRole,
+        delivery: CompletableFuture<BroadcastDelivery>,
+        deadline: Long
+    ): BroadcastDelivery {
+        return try {
+            delivery.get(maxOf(0L, deadline - System.nanoTime()), TimeUnit.NANOSECONDS)
+        } catch (e: TimeoutException) {
+            delivery.whenComplete { late, _ ->
+                logger.info("Late broadcast answer from {}: {}", receiver, late?.describe() ?: "failed")
+            }
+            BroadcastDelivery(receiver, Outcome.PENDING)
+        } catch (e: Exception) {
+            logger.error("Broadcast to {} failed: {}", receiver, e.message)
+            BroadcastDelivery(receiver, Outcome.UNREACHABLE)
+        }
+    }
+
+    /** Parties that should receive a hub broadcast of [request], without its object owner. */
+    private fun broadcastReceivers(request: OcpiRequestVariables): List<RoleEntity> {
         val requestSender = request.headers.sender
         val objectOwner = resolveObjectOwner(request)
         // Prefer object owner (path/body country_code + party_id) so a hub re-broadcast
@@ -216,24 +288,7 @@ class ModuleNotificationService(
             )
         }
 
-        // Hub Broadcast Push must advertise the hub identity in OCPI-from-* headers.
-        val hubCountryCode =
-            nodeProperties.countryCode
-                ?: throw IllegalStateException("ocn.node.countryCode must be configured")
-        val hubPartyId =
-            nodeProperties.partyId
-                ?: throw IllegalStateException("ocn.node.partyId must be configured")
-        val hubSender = BasicRole(id = hubPartyId, country = hubCountryCode)
-
-        notifyPartiesOfModuleChange(
-            moduleId = request.module,
-            parties = parties,
-            changedData = request.body,
-            urlPath = request.urlPath?.removePrefix("/") ?: "",
-            sender = hubSender,
-            method = request.method,
-            queryParams = request.queryParams
-        )
+        return parties
     }
 
     /**
@@ -307,8 +362,8 @@ class ModuleNotificationService(
         sender: BasicRole,
         method: HttpMethod = HttpMethod.PUT,
         queryParams: Map<String, Any?>? = null
-    ) {
-        withCorrelationId { correlationId ->
+    ): BroadcastDelivery {
+        return withCorrelationId { correlationId ->
             val receiver = BasicRole(partyId, countryCode)
             val requestVariables =
                 OcpiRequestVariables(
@@ -328,20 +383,33 @@ class ModuleNotificationService(
                     queryParams = queryParams
                 )
 
-            val (url, headers) =
-                routingService.prepareLocalPlatformRequest(requestVariables, proxied = false)
-
-            // Fire and forget: the sender already got its answer, so a rejection can only be logged.
+            // Notifications only log a failure; the hub broadcast also reports it to the sender.
             try {
+                val (url, headers) =
+                    routingService.prepareLocalPlatformRequest(requestVariables, proxied = false)
                 val response = httpClientComponent.makeOcpiRequest<Unit>(url, headers, requestVariables)
-                if (!response.isOcpiSuccess()) {
+                if (response.isOcpiSuccess()) {
+                    BroadcastDelivery(receiver, Outcome.DELIVERED, response.statusCode, response.body?.statusCode)
+                } else {
                     logger.error(
                         "$receiver rejected the ${moduleId.id} change: HTTP ${response.statusCode}, " +
                             "OCPI ${response.body?.statusCode} ${response.body?.statusMessage.orEmpty()}"
                     )
+                    BroadcastDelivery(
+                        receiver,
+                        Outcome.REJECTED,
+                        response.statusCode,
+                        response.body?.statusCode,
+                        response.body?.statusMessage
+                    )
                 }
             } catch (e: Exception) {
                 logger.error("Error notifying $receiver of ${moduleId.id} change: ${e.message}")
+                // The exception text can name the receiver's URL, which the sender must not see.
+                val reason =
+                    if (e is OcpiHubGenericException) "answered without a valid OCPI body"
+                    else "could not be reached"
+                BroadcastDelivery(receiver, Outcome.UNREACHABLE, message = reason)
             }
         }
     }

@@ -6,6 +6,9 @@ import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Service
 import snc.openchargingnetwork.node.components.OcpiRequestHandlerBuilder
 import snc.openchargingnetwork.node.config.NodeProperties
+import snc.openchargingnetwork.node.models.BroadcastDelivery
+import snc.openchargingnetwork.node.models.BroadcastDelivery.Outcome
+import snc.openchargingnetwork.node.models.exceptions.OcpiBroadcastDeliveryException
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
 import snc.openchargingnetwork.node.models.ocpi.InterfaceRole
 import snc.openchargingnetwork.node.models.ocpi.ModuleID
@@ -26,8 +29,10 @@ import snc.openchargingnetwork.node.models.ocpi.OcpiStatus
  *    a. Validate the inbound request for broadcast.
  *    b. If a same-identity hub backend is connected and the sender is another party,
  *       forward once to that backend so it can persist the object.
- *    c. Async-broadcast to all parties with the module RECEIVER enabled.
- *    d. Return OCPI success to the caller (broadcast continues in the background).
+ *    c. Broadcast to all parties with the module RECEIVER enabled, in parallel, waiting up to
+ *       ocn.node.broadcastWaitMillis for their answers.
+ *    d. Return OCPI success only if the backend and every receiver accepted it; otherwise an
+ *       error naming each receiver that rejected it or has not answered yet.
  */
 @Service
 class NodeObjectRoutingService(
@@ -78,6 +83,8 @@ class NodeObjectRoutingService(
             handler.validateIncomingFromOcnForBroadcast(sendingNodeSignature)
         }
 
+        val deliveries = mutableListOf<BroadcastDelivery>()
+
         // Optional persist step: if a platform is registered as the hub identity itself
         // (same country/party as the node), forward the object there before broadcast so
         // NSP/TM/etc. can store it. Skip when the sender already is the hub identity.
@@ -89,11 +96,13 @@ class NodeObjectRoutingService(
                 receiver.country,
                 receiver.id
             )
-            if (sendingNodeSignature == null) {
-                handler.forwardDefault()
-            } else {
-                handler.forwardFromOcn(sendingNodeSignature)
-            }
+            val response =
+                if (sendingNodeSignature == null) {
+                    handler.forwardDefault().getResponse()
+                } else {
+                    handler.forwardFromOcn(sendingNodeSignature).getResponse()
+                }
+            deliveries += hubHandlerDelivery(receiver, response)
         }
 
         // Fan-out to every connected party that has this module as RECEIVER.
@@ -104,10 +113,52 @@ class NodeObjectRoutingService(
             receiver.country,
             receiver.id
         )
-        moduleNotificationService.broadcastObjectRequestAsync(request)
+        deliveries += moduleNotificationService.broadcastObjectRequest(request)
 
-        // Caller gets success once routing/broadcast is accepted; recipients are notified async.
-        return ResponseEntity.ok(OcpiResponse<T>(statusCode = OcpiStatus.SUCCESS.code))
+        return broadcastResponse(request, deliveries)
+    }
+
+    private fun hubHandlerDelivery(receiver: BasicRole, response: ResponseEntity<out OcpiResponse<*>>): BroadcastDelivery {
+        val body = response.body
+        val outcome =
+            if (response.statusCode.is2xxSuccessful && body?.statusCode in 1000..1999) Outcome.DELIVERED
+            else Outcome.REJECTED
+        return BroadcastDelivery(receiver, outcome, response.statusCode.value(), body?.statusCode, body?.statusMessage)
+    }
+
+    /**
+     * Success only when every receiver accepted the object. A single receiver's rejection keeps
+     * its own status; with several receivers any failure is a 3000 naming each one, and receivers
+     * that have not answered yet make it a 4002 (timeout on forwarded request).
+     */
+    private fun <T : Any> broadcastResponse(
+        request: OcpiRequestVariables,
+        deliveries: List<BroadcastDelivery>
+    ): ResponseEntity<OcpiResponse<T>> {
+        val unfinished = deliveries.filter { it.outcome != Outcome.DELIVERED }
+        if (unfinished.isEmpty()) {
+            return ResponseEntity.ok(OcpiResponse<T>(statusCode = OcpiStatus.SUCCESS.code))
+        }
+
+        val statusCode =
+            when {
+                deliveries.size == 1 -> {
+                    val only = deliveries.single()
+                    when (only.outcome) {
+                        Outcome.REJECTED -> only.ocpiStatus?.takeIf { it >= 2000 } ?: OcpiStatus.SERVER_ERROR.code
+                        Outcome.UNREACHABLE -> OcpiStatus.HUB_CONNECTION_PROBLEM.code
+                        else -> OcpiStatus.HUB_REQUEST_TIMEOUT.code
+                    }
+                }
+                unfinished.any { it.failed } -> OcpiStatus.SERVER_ERROR.code
+                else -> OcpiStatus.HUB_REQUEST_TIMEOUT.code
+            }
+        val delivered = deliveries.size - unfinished.size
+        val message =
+            "Broadcast of ${request.method} ${request.module.id} reached $delivered of ${deliveries.size} receivers: " +
+                unfinished.joinToString("; ") { it.describe() }
+        logger.error("[NodeObjectRoute] {}", message)
+        throw OcpiBroadcastDeliveryException(message, statusCode)
     }
 
     /** Whether [role] is this OCN node's configured hub identity. */

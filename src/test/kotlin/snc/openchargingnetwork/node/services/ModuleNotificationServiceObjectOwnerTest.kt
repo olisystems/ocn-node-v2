@@ -4,6 +4,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito
+import org.springframework.core.task.SimpleAsyncTaskExecutor
 import org.springframework.http.HttpMethod
 import snc.openchargingnetwork.node.components.HttpClientComponent
 import snc.openchargingnetwork.node.config.NodeProperties
@@ -34,7 +35,8 @@ class ModuleNotificationServiceObjectOwnerTest {
                     NodeProperties().apply {
                         countryCode = "DE"
                         partyId = "BAN"
-                    }
+                    },
+                taskExecutor = SimpleAsyncTaskExecutor()
             )
     }
 

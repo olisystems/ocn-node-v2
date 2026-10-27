@@ -94,6 +94,14 @@ class OcpiHubGenericException(
     val ocpiStatus: OcpiStatus = OcpiStatus.HUB_GENERIC_ERROR
 ) : Exception(message)
 
+// A hub broadcast that some receivers rejected or have not answered yet. With a single receiver
+// the status is that receiver's own code, so it is not limited to the OcpiStatus values.
+class OcpiBroadcastDeliveryException(
+    message: String,
+    val statusCode: Int,
+    val httpStatus: HttpStatus = HttpStatus.OK
+) : Exception(message)
+
 // OCN errors (between nodes)
 
 class InvalidOcnSignatureException(message: String) : Exception(message)

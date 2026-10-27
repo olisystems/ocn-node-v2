@@ -79,4 +79,9 @@ class NodeProperties {
 
     // If Enabled logs full headers of received requests on forwarding endpoints
     var logFullHeaders: Boolean = false
+
+    // How long a hub broadcast waits for its receivers before answering the sender. Receivers still
+    // busy after that are reported as pending and keep going in the background. Keep it below the
+    // senders' own read timeouts (emsp-backend gives up after 10s).
+    var broadcastWaitMillis: Long = 8000
 }
