@@ -230,6 +230,18 @@ class ExceptionHandler(private val properties: NodeProperties) {
                     httpRequest = httpRequest
             )
 
+    @ExceptionHandler(OcpiBroadcastDeliveryException::class)
+    fun handleOcpiBroadcastDeliveryException(
+            e: OcpiBroadcastDeliveryException,
+            httpRequest: HttpServletRequest
+    ): ResponseEntity<OcpiResponse<Unit>> {
+        val body = OcpiResponse<Unit>(statusCode = e.statusCode, statusMessage = e.message)
+        if (isSigningEnabled()) {
+            body.signature = signError(body)
+        }
+        return ResponseEntity.status(e.httpStatus).body(body)
+    }
+
     @ExceptionHandler(OcpiHubConnectionProblemException::class)
     fun handleOcpiHubConnectionProblemException(e: OcpiHubConnectionProblemException, httpRequest: HttpServletRequest) =
             ocpiErrorToResponseEntity(

@@ -7,6 +7,7 @@ import org.mockito.ArgumentMatchers.anyBoolean
 import org.mockito.ArgumentMatchers.anyLong
 import org.mockito.Mockito
 import org.slf4j.MDC
+import org.springframework.core.task.SimpleAsyncTaskExecutor
 import snc.openchargingnetwork.node.components.HttpClientComponent
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.OcnHeaders
@@ -41,7 +42,8 @@ class BroadcastCorrelationIdTest {
             nodeProperties = NodeProperties().apply {
                 countryCode = "DE"
                 partyId = "BAN"
-            }
+            },
+            taskExecutor = SimpleAsyncTaskExecutor()
         )
 
     @AfterEach
