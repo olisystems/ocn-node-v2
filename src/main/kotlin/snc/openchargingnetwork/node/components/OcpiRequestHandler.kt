@@ -332,6 +332,7 @@ class OcpiRequestHandler<T : Any>(
                             request.headers.receiver
                     )
             for (recevingParty in receivingParties) {
+                var outRequestId: String? = null
                 try {
                     val modifiedRequest = request.copy(
                             headers = request.headers.copy(receiver = recevingParty)
@@ -347,6 +348,7 @@ class OcpiRequestHandler<T : Any>(
                                 Receiver.LOCAL -> {
                                     val (url, headers) =
                                             routingService.prepareLocalPlatformRequest(modifiedRequest, false)
+                                    outRequestId = headers.requestID
                                     val statusName = currentContext.verificationStatus?.name
                                     val localHeaders =
                                             headers.copy(
@@ -368,6 +370,7 @@ class OcpiRequestHandler<T : Any>(
                                 Receiver.REMOTE -> {
                                     val (url, headers, body) =
                                             routingService.prepareRemotePlatformRequest(modifiedRequest, false)
+                                    outRequestId = headers.requestID
                                     logger.info(
                                             "[ForwardIntegrations] Routing {} {} to remote integration party {}/{} via: {}/ocn/message | out_request_id: {}",
                                             request.method, module, recevingParty.country, recevingParty.id, url, headers.requestID
@@ -379,24 +382,9 @@ class OcpiRequestHandler<T : Any>(
                                     httpClientComponent.postOcnMessage(url, headers, body)
                                 }
                             }
-                    if (response.isOcpiSuccess()) {
-                        logger.info(
-                                "[ForwardIntegrations] SUCCESS — {} {} to {}/{} | HTTP {} | ocpi status: {}",
-                                request.method, module, recevingParty.country, recevingParty.id,
-                                response.statusCode, response.body?.statusCode
-                        )
-                    } else {
-                        logger.error(
-                                "[ForwardIntegrations] FAILED — {} {} to {}/{} | HTTP {} | ocpi status: {} | message: {}",
-                                request.method, module, recevingParty.country, recevingParty.id,
-                                response.statusCode, response.body?.statusCode, response.body?.statusMessage
-                        )
-                    }
+                    logger.logIntegrationCopy("ForwardIntegrations", request, recevingParty, outRequestId, response)
                 } catch (e: Exception) {
-                    logger.error(
-                            "[ForwardIntegrations] FAILED — {} {} to {}/{} | error: {}",
-                            request.method, module, recevingParty.country, recevingParty.id, e.message
-                    )
+                    logger.logIntegrationCopyError("ForwardIntegrations", request, recevingParty, outRequestId, e)
                 }
             }
         }
@@ -413,6 +401,7 @@ class OcpiRequestHandler<T : Any>(
                             request.headers.sender
                     )
             for (receivingParty in receivingParties) {
+                var outRequestId: String? = null
                 try {
                     val modifiedRequest = request.copy(
                             headers = request.headers.copy(receiver = receivingParty)
@@ -422,6 +411,7 @@ class OcpiRequestHandler<T : Any>(
                                 Receiver.LOCAL -> {
                                     val (url, headers) =
                                             routingService.prepareLocalPlatformRequest(modifiedRequest, false)
+                                    outRequestId = headers.requestID
                                     val statusName = currentContext.verificationStatus?.name
                                     val localHeaders =
                                             headers.copy(
@@ -439,6 +429,7 @@ class OcpiRequestHandler<T : Any>(
                                 Receiver.REMOTE -> {
                                     val (url, headers, body) =
                                             routingService.prepareRemotePlatformRequest(modifiedRequest, false)
+                                    outRequestId = headers.requestID
                                     logger.info(
                                             "[ForwardSender] Routing {} {} to remote integration party {}/{} via: {}/ocn/message | out_request_id: {}",
                                             request.method, module, receivingParty.country, receivingParty.id, url, headers.requestID
@@ -446,24 +437,9 @@ class OcpiRequestHandler<T : Any>(
                                     httpClientComponent.postOcnMessage(url, headers, body)
                                 }
                             }
-                    if (response.isOcpiSuccess()) {
-                        logger.info(
-                                "[ForwardSender] SUCCESS — {} {} to {}/{} | HTTP {} | ocpi status: {}",
-                                request.method, module, receivingParty.country, receivingParty.id,
-                                response.statusCode, response.body?.statusCode
-                        )
-                    } else {
-                        logger.error(
-                                "[ForwardSender] FAILED — {} {} to {}/{} | HTTP {} | ocpi status: {} | message: {}",
-                                request.method, module, receivingParty.country, receivingParty.id,
-                                response.statusCode, response.body?.statusCode, response.body?.statusMessage
-                        )
-                    }
+                    logger.logIntegrationCopy("ForwardSender", request, receivingParty, outRequestId, response)
                 } catch (e: Exception) {
-                    logger.error(
-                            "[ForwardSender] FAILED — {} {} to {}/{} | error: {}",
-                            request.method, module, receivingParty.country, receivingParty.id, e.message
-                    )
+                    logger.logIntegrationCopyError("ForwardSender", request, receivingParty, outRequestId, e)
                 }
             }
         }
