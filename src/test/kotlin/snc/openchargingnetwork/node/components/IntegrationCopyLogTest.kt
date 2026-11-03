@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.http.HttpMethod
 import snc.openchargingnetwork.node.models.OcnHeaders
 import snc.openchargingnetwork.node.models.OcpiHttpResponse
+import snc.openchargingnetwork.node.models.exceptions.OcpiHubGenericException
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
 import snc.openchargingnetwork.node.models.ocpi.InterfaceRole
 import snc.openchargingnetwork.node.models.ocpi.ModuleID
@@ -70,6 +71,36 @@ class IntegrationCopyLogTest {
         assertEquals(Level.ERROR, event.level)
         assertEquals(
                 "[ForwardSender] FAILED — integration copy of PATCH sessions/DE/ABC/SIMUL1*1*315 to DE/OLI was not delivered | error: IOException: Connection refused | out_request_id: null | not reported to sender DE/ABC",
+                event.formattedMessage
+        )
+    }
+
+    @Test
+    fun `receiver's message cannot add a line to the log`() {
+        val forged = "EOF\r\n2026-11-03 00:00:00.000 INFO  [main] forged - copy delivered"
+        val event = capture {
+            it.logIntegrationCopy("ForwardIntegrations", request, target, "orid-1", response(3000, forged))
+        }
+
+        assertEquals(
+                "[ForwardIntegrations] FAILED — integration copy of PATCH sessions/DE/ABC/SIMUL1*1*315 to DE/OLI was rejected | HTTP 200 | ocpi status: 3000 | message: EOF\\r\\n2026-11-03 00:00:00.000 INFO  [main] forged - copy delivered | out_request_id: orid-1 | not reported to sender DE/ABC",
+                event.formattedMessage
+        )
+    }
+
+    @Test
+    fun `exception message is kept to one line and cut when long`() {
+        // Jackson puts a newline in its own messages; the rest stands in for a quoted answer.
+        val head = "Could not parse JSON response: Unrecognized token 'x'\n at [Source: REDACTED]\u0000"
+        val cause = OcpiHubGenericException(head + "y".repeat(600))
+
+        val event = capture { it.logIntegrationCopyError("ForwardSender", request, target, null, cause) }
+
+        val logged =
+                "Could not parse JSON response: Unrecognized token 'x'\\n at [Source: REDACTED]\\u0000" +
+                        "y".repeat(500 - head.length) + "... [truncated]"
+        assertEquals(
+                "[ForwardSender] FAILED — integration copy of PATCH sessions/DE/ABC/SIMUL1*1*315 to DE/OLI was not delivered | error: OcpiHubGenericException: $logged | out_request_id: null | not reported to sender DE/ABC",
                 event.formattedMessage
         )
     }

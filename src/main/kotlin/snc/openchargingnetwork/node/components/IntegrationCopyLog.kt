@@ -29,7 +29,7 @@ internal fun Logger.logIntegrationCopy(
         error(
                 "[{}] FAILED — integration copy of {} {} to {} was rejected | HTTP {} | ocpi status: {} | message: {} | out_request_id: {} | not reported to sender {}",
                 tag, request.method, request.objectPath(), target.label(), response.statusCode,
-                response.body?.statusCode, response.body?.statusMessage, outRequestId,
+                response.body?.statusCode, response.body?.statusMessage?.forLogLine(), outRequestId,
                 request.headers.sender.label()
         )
     }
@@ -44,9 +44,32 @@ internal fun Logger.logIntegrationCopyError(
 ) {
     error(
             "[{}] FAILED — integration copy of {} {} to {} was not delivered | error: {}: {} | out_request_id: {} | not reported to sender {}",
-            tag, request.method, request.objectPath(), target.label(), cause::class.simpleName, cause.message,
+            tag, request.method, request.objectPath(), target.label(), cause::class.simpleName, cause.message?.forLogLine(),
             outRequestId, request.headers.sender.label()
     )
+}
+
+/** Longest receiver-supplied text (status or exception message) these lines include. */
+private const val MAX_LOGGED_TEXT = 500
+
+/**
+ * The receiver controls its status message, and an exception message can quote its answer, so
+ * both are kept to one line: control characters and Unicode line separators are escaped (a raw
+ * newline would start a line that looks like a separate log entry), and long text is cut.
+ */
+private fun String.forLogLine(): String {
+    val text = if (length > MAX_LOGGED_TEXT) "${take(MAX_LOGGED_TEXT)}... [truncated]" else this
+    return buildString(text.length) {
+        for (c in text) {
+            when {
+                c == '\n' -> append("\\n")
+                c == '\r' -> append("\\r")
+                c == '\t' -> append("\\t")
+                c.isISOControl() || c == '\u2028' || c == '\u2029' -> append("\\u%04x".format(c.code))
+                else -> append(c)
+            }
+        }
+    }
 }
 
 private fun OcpiRequestVariables.objectPath(): String =
