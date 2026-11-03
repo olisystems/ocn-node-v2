@@ -14,7 +14,7 @@ data class BroadcastDelivery(
         DELIVERED,
         /** The receiver answered with an HTTP or OCPI error. */
         REJECTED,
-        /** No usable answer: the call failed, or the body was not OCPI. */
+        /** No usable answer: the call failed or was skipped, or the body was not OCPI. */
         UNREACHABLE,
         /** No answer before the broadcast stopped waiting; the delivery is still running. */
         PENDING

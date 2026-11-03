@@ -14,8 +14,10 @@ import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.whenever
 import org.slf4j.MDC
+import org.springframework.core.task.AsyncTaskExecutor
 import org.springframework.core.task.SimpleAsyncTaskExecutor
 import org.springframework.http.HttpMethod
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import snc.openchargingnetwork.node.components.HttpClientComponent
 import snc.openchargingnetwork.node.config.MdcTaskDecorator
 import snc.openchargingnetwork.node.config.NodeProperties
@@ -44,7 +46,10 @@ class HubBroadcastDeliveryTest {
     private val httpClient = Mockito.mock(HttpClientComponent::class.java)
     private val sentCorrelationIds = Collections.synchronizedList(mutableListOf<String>())
 
-    private val service =
+    // Same MDC copying as the production broadcast executor.
+    private val service = newService(SimpleAsyncTaskExecutor().apply { setTaskDecorator(MdcTaskDecorator()) })
+
+    private fun newService(taskExecutor: AsyncTaskExecutor) =
         Mockito.spy(
             ModuleNotificationService(
                 platformRepo = platformRepo,
@@ -58,8 +63,7 @@ class HubBroadcastDeliveryTest {
                     partyId = "BAN"
                     broadcastWaitMillis = 300
                 },
-                // Same MDC copying as the production @Async executor.
-                taskExecutor = SimpleAsyncTaskExecutor().apply { setTaskDecorator(MdcTaskDecorator()) }
+                taskExecutor = taskExecutor
             )
         )
 
@@ -69,7 +73,7 @@ class HubBroadcastDeliveryTest {
         sentCorrelationIds.clear()
     }
 
-    private fun receivers(vararg partyIds: String) {
+    private fun receivers(vararg partyIds: String, service: ModuleNotificationService = this.service) {
         doReturn(partyIds.map { RoleEntity(1L, Role.CPO, BusinessDetails(it), it, "DE") })
             .whenever(service)
             .getPartiesToNotifyOfModuleChange(any(), anyOrNull(), any(), any())
@@ -136,6 +140,29 @@ class HubBroadcastDeliveryTest {
         assertThat(tookMillis).isLessThan(1200)
         assertThat(deliveries["ABC"]!!.outcome).isEqualTo(Outcome.DELIVERED)
         assertThat(deliveries["SLO"]!!.outcome).isEqualTo(Outcome.PENDING)
+    }
+
+    @Test
+    fun `a full broadcast executor skips only the receivers it cannot take`() {
+        // One thread and no queue: the slow receiver holds the thread, so the next one is turned away.
+        val executor = ThreadPoolTaskExecutor().apply {
+            corePoolSize = 1
+            maxPoolSize = 1
+            queueCapacity = 0
+            initialize()
+        }
+        try {
+            val service = newService(executor)
+            receivers("SLO", "ABC", service = service)
+
+            val deliveries = service.broadcastObjectRequest(tokenPush()).associateBy { it.receiver.id }
+
+            assertThat(deliveries["SLO"]!!.outcome).isEqualTo(Outcome.PENDING)
+            assertThat(deliveries["ABC"]!!.outcome).isEqualTo(Outcome.UNREACHABLE)
+            assertThat(deliveries["ABC"]!!.describe()).isEqualTo("DE/ABC was skipped because the hub is too busy")
+        } finally {
+            executor.shutdown()
+        }
     }
 
     @Test

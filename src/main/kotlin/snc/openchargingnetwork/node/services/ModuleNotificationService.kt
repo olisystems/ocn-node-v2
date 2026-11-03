@@ -18,6 +18,7 @@ package snc.openchargingnetwork.node.services
 
 import java.util.concurrent.Callable
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import org.slf4j.LoggerFactory
@@ -27,6 +28,7 @@ import org.springframework.http.HttpMethod
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 import snc.openchargingnetwork.node.components.HttpClientComponent
+import snc.openchargingnetwork.node.config.BroadcastExecutorConfig
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.BroadcastDelivery
 import snc.openchargingnetwork.node.models.BroadcastDelivery.Outcome
@@ -56,8 +58,8 @@ class ModuleNotificationService(
     private val routingService: RoutingService,
     private val ocnRulesService: OcnRulesService,
     private val nodeProperties: NodeProperties,
-    // Spring Boot's @Async executor, which copies the MDC (correlation ID) into its threads.
-    @Qualifier("applicationTaskExecutor") private val taskExecutor: AsyncTaskExecutor
+    // Runs one delivery per broadcast receiver and copies the MDC (correlation ID) into its threads.
+    @Qualifier(BroadcastExecutorConfig.BROADCAST_TASK_EXECUTOR) private val taskExecutor: AsyncTaskExecutor
 ) {
 
     companion object {
@@ -218,7 +220,7 @@ class ModuleNotificationService(
                 val receiver = BasicRole(party.partyID, party.countryCode)
                 val authToken = platform.getAuthTokenToIncludeInRequestHeader()
                 receiver to
-                    taskExecutor.submitCompletable(Callable {
+                    submitDelivery(receiver) {
                         notifyPartyOfModuleChange(
                             moduleId = request.module,
                             partyId = party.partyID,
@@ -230,12 +232,32 @@ class ModuleNotificationService(
                             method = request.method,
                             queryParams = request.queryParams
                         )
-                    })
+                    }
             }
         }
 
         val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(nodeProperties.broadcastWaitMillis)
         return deliveries.map { (receiver, delivery) -> awaitDelivery(receiver, delivery, deadline) }
+    }
+
+    /** Starts [delivery] on the broadcast executor. A full queue skips only this receiver. */
+    private fun submitDelivery(
+        receiver: BasicRole,
+        delivery: () -> BroadcastDelivery
+    ): CompletableFuture<BroadcastDelivery> {
+        return try {
+            taskExecutor.submitCompletable(Callable(delivery))
+        } catch (e: RejectedExecutionException) {
+            logger.error(
+                "Broadcast to {} skipped, no free broadcast thread or queue slot " +
+                    "(ocn.node.broadcastPoolSize / broadcastQueueCapacity): {}",
+                receiver,
+                e.message
+            )
+            CompletableFuture.completedFuture(
+                BroadcastDelivery(receiver, Outcome.UNREACHABLE, message = "was skipped because the hub is too busy")
+            )
+        }
     }
 
     private fun awaitDelivery(
