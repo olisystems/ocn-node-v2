@@ -8,7 +8,11 @@ import org.junit.jupiter.api.Test
 import org.slf4j.MDC
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.boot.autoconfigure.AutoConfigurations
+import org.springframework.boot.autoconfigure.task.TaskExecutionAutoConfiguration
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.util.AopTestUtils
@@ -53,6 +57,38 @@ class BroadcastExecutorConfigTest(
             release.countDown()
         }
     }
+
+    @Test
+    fun `a negative queue capacity or an empty pool stops the node from starting`() {
+        settings("ocn.node.broadcastQueueCapacity=-1").run { context ->
+            assertThat(context.startupFailure)
+                    .rootCause()
+                    .hasMessage("ocn.node.broadcastQueueCapacity must be 0 or more, was -1")
+        }
+        settings("ocn.node.broadcastPoolSize=0").run { context ->
+            assertThat(context.startupFailure)
+                    .rootCause()
+                    .hasMessage("ocn.node.broadcastPoolSize must be at least 1, was 0")
+        }
+    }
+
+    @Test
+    fun `a queue capacity of 0 means no queue`() {
+        settings("ocn.node.broadcastQueueCapacity=0").run { context ->
+            assertThat(context.getBean(BroadcastExecutorConfig.BROADCAST_TASK_EXECUTOR, ThreadPoolTaskExecutor::class.java).queueCapacity)
+                    .isEqualTo(0)
+        }
+    }
+
+    /** Only the executor beans and the properties they read, started with [properties]. */
+    private fun settings(vararg properties: String) =
+            ApplicationContextRunner()
+                    .withConfiguration(AutoConfigurations.of(TaskExecutionAutoConfiguration::class.java))
+                    .withUserConfiguration(BroadcastExecutorConfig::class.java, NodePropertiesConfig::class.java)
+                    .withPropertyValues(*properties)
+
+    @EnableConfigurationProperties(NodeProperties::class)
+    private class NodePropertiesConfig
 
     @Test
     fun `broadcast executor propagates the correlation id`() {

@@ -44,12 +44,20 @@ class BroadcastExecutorConfig {
     fun broadcastTaskExecutor(
         builder: ThreadPoolTaskExecutorBuilder,
         properties: NodeProperties
-    ): ThreadPoolTaskExecutor =
-        builder
+    ): ThreadPoolTaskExecutor {
+        require(properties.broadcastPoolSize >= 1) {
+            "ocn.node.broadcastPoolSize must be at least 1, was ${properties.broadcastPoolSize}"
+        }
+        // Spring takes any capacity below 1 to mean no queue, so a negative value would not fail.
+        require(properties.broadcastQueueCapacity >= 0) {
+            "ocn.node.broadcastQueueCapacity must be 0 or more, was ${properties.broadcastQueueCapacity}"
+        }
+        return builder
             .corePoolSize(properties.broadcastPoolSize)
             .maxPoolSize(properties.broadcastPoolSize)
             .allowCoreThreadTimeOut(true)
             .queueCapacity(properties.broadcastQueueCapacity)
             .threadNamePrefix("broadcast-")
             .build()
+    }
 }
