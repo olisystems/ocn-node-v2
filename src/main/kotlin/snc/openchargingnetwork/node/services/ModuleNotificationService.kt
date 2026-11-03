@@ -199,10 +199,13 @@ class ModuleNotificationService(
     /**
      * Broadcast an object push while preserving its HTTP method, path and query parameters, and
      * report what each receiver answered so the sender learns about rejections. Receivers are
-     * called in parallel; those that have not answered within [NodeProperties.broadcastWaitMillis]
-     * are reported as pending, and their outcome is logged when it arrives.
+     * called in parallel; those that have not answered [NodeProperties.broadcastWaitMillis] after
+     * this call started are reported as pending, and their outcome is logged when it arrives.
      */
     fun broadcastObjectRequest(request: OcpiRequestVariables): List<BroadcastDelivery> {
+        // Started before the database lookups below, so they count against the wait: this returns
+        // within broadcastWaitMillis unless the lookups alone take longer.
+        val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(nodeProperties.broadcastWaitMillis)
         val parties = broadcastReceivers(request)
         // Hub Broadcast Push must advertise the hub identity in OCPI-from-* headers.
         val hubCountryCode =
@@ -236,7 +239,6 @@ class ModuleNotificationService(
             }
         }
 
-        val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(nodeProperties.broadcastWaitMillis)
         return deliveries.map { (receiver, delivery) -> awaitDelivery(receiver, delivery, deadline) }
     }
 

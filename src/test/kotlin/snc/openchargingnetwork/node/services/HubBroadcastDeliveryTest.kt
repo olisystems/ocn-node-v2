@@ -11,7 +11,7 @@ import org.mockito.ArgumentMatchers.anyLong
 import org.mockito.Mockito
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
-import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.whenever
 import org.slf4j.MDC
 import org.springframework.core.task.AsyncTaskExecutor
@@ -49,7 +49,7 @@ class HubBroadcastDeliveryTest {
     // Same MDC copying as the production broadcast executor.
     private val service = newService(SimpleAsyncTaskExecutor().apply { setTaskDecorator(MdcTaskDecorator()) })
 
-    private fun newService(taskExecutor: AsyncTaskExecutor) =
+    private fun newService(taskExecutor: AsyncTaskExecutor, broadcastWaitMillis: Long = 300) =
         Mockito.spy(
             ModuleNotificationService(
                 platformRepo = platformRepo,
@@ -61,7 +61,7 @@ class HubBroadcastDeliveryTest {
                 nodeProperties = NodeProperties().apply {
                     countryCode = "DE"
                     partyId = "BAN"
-                    broadcastWaitMillis = 300
+                    this.broadcastWaitMillis = broadcastWaitMillis
                 },
                 taskExecutor = taskExecutor
             )
@@ -73,9 +73,16 @@ class HubBroadcastDeliveryTest {
         sentCorrelationIds.clear()
     }
 
-    private fun receivers(vararg partyIds: String, service: ModuleNotificationService = this.service) {
-        doReturn(partyIds.map { RoleEntity(1L, Role.CPO, BusinessDetails(it), it, "DE") })
-            .whenever(service)
+    private fun receivers(
+        vararg partyIds: String,
+        service: ModuleNotificationService = this.service,
+        selectionMillis: Long = 0
+    ) {
+        val roles = partyIds.map { RoleEntity(1L, Role.CPO, BusinessDetails(it), it, "DE") }
+        doAnswer {
+            Thread.sleep(selectionMillis)
+            roles
+        }.whenever(service)
             .getPartiesToNotifyOfModuleChange(any(), anyOrNull(), any(), any())
         whenever(platformRepo.findById(anyLong()))
             .thenReturn(Optional.of(PlatformEntity(auth = Auth(tokenB = "token-b"))))
@@ -138,6 +145,22 @@ class HubBroadcastDeliveryTest {
         val tookMillis = (System.nanoTime() - started) / 1_000_000
 
         assertThat(tookMillis).isLessThan(1200)
+        assertThat(deliveries["ABC"]!!.outcome).isEqualTo(Outcome.DELIVERED)
+        assertThat(deliveries["SLO"]!!.outcome).isEqualTo(Outcome.PENDING)
+    }
+
+    @Test
+    fun `time spent selecting receivers counts against the wait`() {
+        val service = newService(SimpleAsyncTaskExecutor(), broadcastWaitMillis = 1200)
+        // Selection runs database queries; here it takes most of the wait.
+        receivers("ABC", "SLO", service = service, selectionMillis = 900)
+
+        val started = System.nanoTime()
+        val deliveries = service.broadcastObjectRequest(tokenPush()).associateBy { it.receiver.id }
+        val tookMillis = (System.nanoTime() - started) / 1_000_000
+
+        // Counting the wait from after the selection would take about 2100 ms.
+        assertThat(tookMillis).isLessThan(1600)
         assertThat(deliveries["ABC"]!!.outcome).isEqualTo(Outcome.DELIVERED)
         assertThat(deliveries["SLO"]!!.outcome).isEqualTo(Outcome.PENDING)
     }
