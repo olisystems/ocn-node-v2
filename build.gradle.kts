@@ -54,6 +54,7 @@ dependencies {
 	testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
 	testImplementation("org.springframework.restdocs:spring-restdocs-mockmvc")
 	testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
+	testImplementation("io.ktor:ktor-client-mock:3.1.3")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
 	// Project-Specific
