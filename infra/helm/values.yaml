@@ -193,7 +193,9 @@ oli-app:
 
   # Alert rules, rendered as one PrometheusRule by oli-app. Off until an env file
   # sets alerts.enabled. Rules that need the OpenTelemetry agent live in the env
-  # files that load it.
+  # files that load it. A series can already hold events on its first sample,
+  # which increase() misses, so the event rules count a series with no samples
+  # in the hour before their window by its whole value.
   alerts:
     labels:
       project: transit
@@ -201,6 +203,7 @@ oli-app:
       OcnNodeDown:
         expr: >-
           kube_deployment_status_replicas_available{namespace="{{ .Release.Namespace }}", deployment="{{ include "oli-app.fullname" . }}"} < 1
+          or absent(kube_deployment_status_replicas_available{namespace="{{ .Release.Namespace }}", deployment="{{ include "oli-app.fullname" . }}"})
         for: 2m
         labels:
           severity: critical
@@ -209,8 +212,11 @@ oli-app:
       OcnNodeOOMKilled:
         expr: >-
           kube_pod_container_status_last_terminated_reason{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+", reason="OOMKilled"} == 1
-          and on (namespace, pod, container)
-          increase(kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+"}[15m]) > 0
+          and on (namespace, pod, container) (
+            (kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+"}
+              unless last_over_time(kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+"}[1h] offset 15m))
+            or increase(kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+"}[15m])
+          ) > 0
         annotations:
           summary: "ocn-node-v2 pod {{ $labels.pod }} restarted after running out of memory"
       OcnNodeMemoryNearLimit:
