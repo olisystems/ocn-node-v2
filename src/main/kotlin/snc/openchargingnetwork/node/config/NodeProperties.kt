@@ -80,6 +80,17 @@ class NodeProperties {
     // If Enabled logs full headers of received requests on forwarding endpoints
     var logFullHeaders: Boolean = false
 
+    // Outbound HTTP client: TCP connect timeout. The node reaches its parties through public
+    // hostnames and a connect occasionally stalls past the former implicit 5 s.
+    var httpConnectTimeoutMs: Long = 20_000
+
+    // Outbound HTTP client: retries after a failed connect (request never sent, so safe for every
+    // method). 0 disables retrying. Read/socket timeouts and HTTP error statuses are never retried.
+    var httpConnectRetries: Int = 2
+
+    // Outbound HTTP client: wait before retry n is n * this value
+    var httpConnectRetryDelayMs: Long = 500
+
     // How long a hub broadcast waits for its receivers before answering the sender. Receivers still
     // busy after that are reported as pending and keep going in the background. Keep it below the
     // senders' own read timeouts (emsp-backend gives up after 10s).
