@@ -190,3 +190,34 @@ oli-app:
     periodSeconds: 5
     timeoutSeconds: 3
     failureThreshold: 3
+
+  # Alert rules, rendered as one PrometheusRule by oli-app. Off until an env file
+  # sets alerts.enabled. Rules that need the OpenTelemetry agent live in the env
+  # files that load it.
+  alerts:
+    labels:
+      project: transit
+    custom:
+      OcnNodeDown:
+        expr: >-
+          kube_deployment_status_replicas_available{namespace="{{ .Release.Namespace }}", deployment="{{ include "oli-app.fullname" . }}"} < 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ocn-node-v2 has no available pod in {{ $labels.namespace }}"
+      OcnNodeOOMKilled:
+        expr: >-
+          kube_pod_container_status_last_terminated_reason{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+", reason="OOMKilled"} == 1
+          and on (namespace, pod, container)
+          increase(kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+"}[15m]) > 0
+        annotations:
+          summary: "ocn-node-v2 pod {{ $labels.pod }} restarted after running out of memory"
+      OcnNodeMemoryNearLimit:
+        expr: >-
+          max by (namespace, pod) (container_memory_working_set_bytes{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+", container!="", container!="POD"})
+          / max by (namespace, pod) (kube_pod_container_resource_limits{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+", resource="memory"})
+          > 0.9
+        for: 15m
+        annotations:
+          summary: "ocn-node-v2 pod {{ $labels.pod }} uses {{ $value | humanizePercentage }} of its memory limit"
