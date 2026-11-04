@@ -1,11 +1,11 @@
 package snc.openchargingnetwork.node.components
 
 import io.ktor.client.HttpClient
+import io.ktor.client.HttpClientConfig
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.network.sockets.ConnectTimeoutException
 import io.ktor.client.plugins.HttpRequestRetry
-import io.ktor.client.plugins.HttpTimeout
 import java.net.ConnectException
 import org.slf4j.LoggerFactory
 import snc.openchargingnetwork.node.config.NodeProperties
@@ -24,40 +24,42 @@ object OcnHttpClientFactory {
 
     private val logger = LoggerFactory.getLogger(OcnHttpClientFactory::class.java)
 
-    fun create(
-            properties: NodeProperties,
-            engine: HttpClientEngine = defaultEngine(properties)
-    ): HttpClient =
-            HttpClient(engine) {
-                // Only the connect phase is bounded, the engine default (5 s) is too tight.
-                install(HttpTimeout) { connectTimeoutMillis = properties.httpConnectTimeoutMs }
-
-                if (properties.httpConnectRetries > 0) {
-                    install(HttpRequestRetry) {
-                        // Ktor retries 5xx responses by default; a response means the request
-                        // reached the server, so it must never be re-sent (POST/PATCH would repeat).
-                        retryIf(maxRetries = properties.httpConnectRetries) { _, _ -> false }
-                        retryOnExceptionIf(maxRetries = properties.httpConnectRetries) { _, cause ->
-                            cause.isConnectFailure()
-                        }
-                        delayMillis(respectRetryAfterHeader = false) { retry ->
-                            properties.httpConnectRetryDelayMs * retry
-                        }
-                        modifyRequest { request ->
-                            logger.warn(
-                                    "Connect to {} failed ({}), retry {}/{}",
-                                    request.url,
-                                    cause?.message,
-                                    retryCount,
-                                    properties.httpConnectRetries
-                            )
-                        }
-                    }
-                }
+    // The client built from the CIO factory owns its engine, so closing it releases the connection
+    // pool. The connect timeout is set on the engine: installing HttpTimeout would switch off CIO's
+    // default 15 s request timeout and leave a request with no response unbounded.
+    fun create(properties: NodeProperties): HttpClient =
+            HttpClient(CIO) {
+                engine { endpoint.connectTimeout = properties.httpConnectTimeoutMs }
+                installConnectRetry(properties)
             }
 
-    private fun defaultEngine(properties: NodeProperties): HttpClientEngine =
-            CIO.create { endpoint.connectTimeout = properties.httpConnectTimeoutMs }
+    internal fun create(properties: NodeProperties, engine: HttpClientEngine): HttpClient =
+            HttpClient(engine) { installConnectRetry(properties) }
+
+    private fun HttpClientConfig<*>.installConnectRetry(properties: NodeProperties) {
+        if (properties.httpConnectRetries > 0) {
+            install(HttpRequestRetry) {
+                // Ktor retries 5xx responses by default; a response means the request
+                // reached the server, so it must never be re-sent (POST/PATCH would repeat).
+                retryIf(maxRetries = properties.httpConnectRetries) { _, _ -> false }
+                retryOnExceptionIf(maxRetries = properties.httpConnectRetries) { _, cause ->
+                    cause.isConnectFailure()
+                }
+                delayMillis(respectRetryAfterHeader = false) { retry ->
+                    properties.httpConnectRetryDelayMs * retry
+                }
+                modifyRequest { request ->
+                    logger.warn(
+                            "Connect to {} failed ({}), retry {}/{}",
+                            request.url,
+                            cause?.message,
+                            retryCount,
+                            properties.httpConnectRetries
+                    )
+                }
+            }
+        }
+    }
 
     internal fun Throwable.isConnectFailure(): Boolean =
             generateSequence(this) { it.cause }
