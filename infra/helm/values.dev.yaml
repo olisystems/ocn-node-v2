@@ -3,7 +3,10 @@ oli-app:
   # Only dev loads the OpenTelemetry agent, so only dev has the span metrics
   # (traces_spanmetrics_*, from Tempo) these two rules read. They carry no env
   # or namespace label, so the rules set namespace themselves for the Slack
-  # title. Add an env label before another env sends traces.
+  # title. Add an env label before another env sends traces. A new series can
+  # already hold errors on its first sample, which increase() misses, so the
+  # error rule counts a series with no samples in the hour before its window by
+  # its whole value.
   alerts:
     enabled: true
     labels:
