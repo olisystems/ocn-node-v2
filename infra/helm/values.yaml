@@ -209,15 +209,17 @@ oli-app:
           severity: critical
         annotations:
           summary: "ocn-node-v2 has no available pod in {{ $labels.namespace }}"
-      # A pod's restart count never drops, so comparing it with its last value before
-      # the window also catches a restart that happened during a scrape gap.
+      # A restart during a scrape gap only shows as a count above the last one before
+      # the window, and a kubelet that loses state resets the count to 0, so this
+      # rule takes the difference when it is positive and increase() otherwise.
       OcnNodeOOMKilled:
         expr: >-
           kube_pod_container_status_last_terminated_reason{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+", reason="OOMKilled"} == 1
           and on (namespace, pod, container) (
             (kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+"}
               unless last_over_time(kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+"}[1h] offset 15m))
-            or (kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+"} - last_over_time(kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+"}[1h] offset 15m))
+            or ((kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+"} - last_over_time(kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+"}[1h] offset 15m)) > 0)
+            or increase(kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+"}[15m])
           ) > 0
         annotations:
           summary: "ocn-node-v2 pod {{ $labels.pod }} restarted after running out of memory"
