@@ -209,18 +209,20 @@ oli-app:
           severity: critical
         annotations:
           summary: "ocn-node-v2 has no available pod in {{ $labels.namespace }}"
-      # Restarts in the window: the count minus its last value before the window, or
-      # the whole count when there is no earlier value or the count is lower (a
-      # kubelet that loses state resets it). This holds across scrape gaps, and
-      # increase() also catches a reset inside the window.
+      # Fires on a termination in the last 15 minutes, or on restarts in the window:
+      # the count minus its last value before the window, or the whole count when
+      # there is no earlier value or the count is lower (a kubelet that loses state
+      # resets it). increase() also catches a reset inside the window. The restart
+      # checks cover scrape gaps that outlast the timestamp's 15 minutes.
       OcnNodeOOMKilled:
         expr: >-
           kube_pod_container_status_last_terminated_reason{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+", reason="OOMKilled"} == 1
           and on (namespace, pod, container) (
-            ((kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+"} - (last_over_time(kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+"}[1h] offset 15m) <= kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+"}))
-              or kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+"}) > 0
-            or increase(kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+"}[15m])
-          ) > 0
+            (time() - kube_pod_container_status_last_terminated_timestamp{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+"} < 900)
+            or (((kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+"} - (last_over_time(kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+"}[1h] offset 15m) <= kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+"}))
+              or kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+"}) > 0)
+            or (increase(kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}", pod=~"{{ include "oli-app.fullname" . }}-[a-z0-9]+-[a-z0-9]+"}[15m]) > 0)
+          )
         annotations:
           summary: "ocn-node-v2 pod {{ $labels.pod }} restarted after running out of memory"
       OcnNodeMemoryNearLimit:
