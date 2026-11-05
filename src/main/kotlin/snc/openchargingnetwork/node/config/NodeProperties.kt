@@ -90,4 +90,18 @@ class NodeProperties {
 
     // Outbound HTTP client: wait before retry n is n * this value
     var httpConnectRetryDelayMs: Long = 500
+
+    // How long a hub broadcast waits for its receivers before answering the sender. Receivers still
+    // busy after that are reported as pending and keep going in the background. Keep it below the
+    // senders' own read timeouts (emsp-backend gives up after 10s).
+    var broadcastWaitMillis: Long = 8000
+
+    // Threads that call hub broadcast receivers, one thread per receiver call. They are not shared
+    // with @Async work, so a receiver is called right away instead of sitting in a queue until the
+    // broadcast has stopped waiting for it.
+    var broadcastPoolSize: Int = 32
+
+    // Receiver calls that may wait for a free broadcast thread. Once full, further receivers are
+    // skipped and the sender is told so.
+    var broadcastQueueCapacity: Int = 1000
 }

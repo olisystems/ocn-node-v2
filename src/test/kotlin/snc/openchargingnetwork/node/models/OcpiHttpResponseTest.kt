@@ -2,7 +2,10 @@ package snc.openchargingnetwork.node.models
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
+import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
 
 class OcpiHttpResponseTest {
 
@@ -59,5 +62,29 @@ class OcpiHttpResponseTest {
         assertEquals("42", signed.totalCount)
         assertEquals("10", signed.limit)
         assertEquals("<https://node/page/2>; rel=\"next\"", signed.link)
+    }
+
+    @Test
+    fun `an OCPI error sent with HTTP 200 is not a success`() {
+        val response = OcpiHttpResponse<Unit>(
+            statusCode = 200,
+            headers = emptyMap(),
+            body = OcpiResponse(statusCode = 3000, statusMessage = "Failed to forward tokens to 1 of 1 role API(s)")
+        )
+
+        assertFalse(response.isOcpiSuccess())
+    }
+
+    @Test
+    fun `HTTP 2xx with a 1xxx status is a success`() {
+        val response = OcpiHttpResponse<Unit>(statusCode = 201, headers = emptyMap(), body = OcpiResponse(statusCode = 1000))
+
+        assertTrue(response.isOcpiSuccess())
+    }
+
+    @Test
+    fun `an HTTP error or a missing body is not a success`() {
+        assertFalse(OcpiHttpResponse<Unit>(statusCode = 500, headers = emptyMap(), body = OcpiResponse(statusCode = 1000)).isOcpiSuccess())
+        assertFalse(OcpiHttpResponse<Unit>(statusCode = 200, headers = emptyMap()).isOcpiSuccess())
     }
 }
