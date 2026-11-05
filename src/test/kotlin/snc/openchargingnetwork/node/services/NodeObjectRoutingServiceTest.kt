@@ -3,6 +3,7 @@ package snc.openchargingnetwork.node.services
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.mockito.Mockito
 import org.mockito.Mockito.inOrder
 import org.mockito.kotlin.any
@@ -15,7 +16,10 @@ import snc.openchargingnetwork.node.components.OcpiRequestHandler
 import snc.openchargingnetwork.node.components.OcpiRequestHandlerBuilder
 import snc.openchargingnetwork.node.components.OcpiResponseHandler
 import snc.openchargingnetwork.node.config.NodeProperties
+import snc.openchargingnetwork.node.models.BroadcastDelivery
+import snc.openchargingnetwork.node.models.BroadcastDelivery.Outcome
 import snc.openchargingnetwork.node.models.OcnHeaders
+import snc.openchargingnetwork.node.models.exceptions.OcpiBroadcastDeliveryException
 import snc.openchargingnetwork.node.models.ocpi.*
 
 class NodeObjectRoutingServiceTest {
@@ -54,7 +58,86 @@ class NodeObjectRoutingServiceTest {
         whenever(requestHandler.forwardFromOcn(any())).thenReturn(responseHandler)
         whenever(responseHandler.getResponse()).thenReturn(successResponse())
         whenever(responseHandler.getResponseWithAllHeaders()).thenReturn(successResponse())
+        whenever(moduleNotificationService.broadcastObjectRequest(any())).thenReturn(emptyList())
     }
+
+    @Test
+    fun `answers success when every receiver accepted the broadcast`() {
+        val request = hubRequest()
+        whenever(moduleNotificationService.broadcastObjectRequest(request))
+            .thenReturn(listOf(delivered("ABC"), delivered("ABE")))
+
+        val response = service.route<Unit>(request)
+
+        assertThat(response.body?.statusCode).isEqualTo(OcpiStatus.SUCCESS.code)
+    }
+
+    @Test
+    fun `a single receiver's rejection reaches the sender with its own code`() {
+        val request = hubRequest()
+        whenever(moduleNotificationService.broadcastObjectRequest(request))
+            .thenReturn(listOf(BroadcastDelivery(BasicRole("ERO", "DE"), Outcome.REJECTED, 200, 2001, "Missing uid")))
+
+        val error = assertThrows<OcpiBroadcastDeliveryException> { service.route<Unit>(request) }
+
+        assertThat(error.statusCode).isEqualTo(2001)
+        assertThat(error.message)
+            .contains("reached 0 of 1 receivers")
+            .contains("DE/ERO rejected it (HTTP 200, OCPI 2001: Missing uid)")
+    }
+
+    @Test
+    fun `a failure among several receivers is a 3000 naming each one`() {
+        val request = hubRequest()
+        whenever(moduleNotificationService.broadcastObjectRequest(request))
+            .thenReturn(
+                listOf(
+                    delivered("ABC"),
+                    BroadcastDelivery(BasicRole("ERO", "DE"), Outcome.REJECTED, 500, 3000, "Eround is down"),
+                    BroadcastDelivery(BasicRole("XYZ", "DE"), Outcome.UNREACHABLE, message = "could not be reached")
+                )
+            )
+
+        val error = assertThrows<OcpiBroadcastDeliveryException> { service.route<Unit>(request) }
+
+        assertThat(error.statusCode).isEqualTo(OcpiStatus.SERVER_ERROR.code)
+        assertThat(error.message)
+            .contains("reached 1 of 3 receivers")
+            .contains("DE/ERO rejected it (HTTP 500, OCPI 3000: Eround is down)")
+            .contains("DE/XYZ could not be reached")
+            .doesNotContain("DE/ABC")
+    }
+
+    @Test
+    fun `receivers that have not answered yet make it a timeout on the forwarded request`() {
+        val request = hubRequest()
+        whenever(moduleNotificationService.broadcastObjectRequest(request))
+            .thenReturn(listOf(delivered("ABC"), BroadcastDelivery(BasicRole("XYZ", "DE"), Outcome.PENDING)))
+
+        val error = assertThrows<OcpiBroadcastDeliveryException> { service.route<Unit>(request) }
+
+        assertThat(error.statusCode).isEqualTo(OcpiStatus.HUB_REQUEST_TIMEOUT.code)
+        assertThat(error.message).contains("DE/XYZ has not answered yet")
+    }
+
+    @Test
+    fun `a rejection by the connected hub handler reaches the sender`() {
+        val request = hubRequest()
+        whenever(routingService.isRoleConnected(request.headers.receiver)).thenReturn(true)
+        whenever(responseHandler.getResponse())
+            .thenReturn(ResponseEntity.ok(OcpiResponse(statusCode = 3000, statusMessage = "tariff store down")))
+        whenever(moduleNotificationService.broadcastObjectRequest(request)).thenReturn(listOf(delivered("ABC")))
+
+        val error = assertThrows<OcpiBroadcastDeliveryException> { service.route<Unit>(request) }
+
+        assertThat(error.statusCode).isEqualTo(OcpiStatus.SERVER_ERROR.code)
+        assertThat(error.message).contains("DE/BAN rejected it (HTTP 200, OCPI 3000: tariff store down)")
+    }
+
+    private fun hubRequest() = objectRequest(receiver = BasicRole("BAN", "DE"), sender = BasicRole("CPO", "DE"))
+
+    private fun delivered(partyId: String) =
+        BroadcastDelivery(BasicRole(partyId, "DE"), Outcome.DELIVERED, 200, OcpiStatus.SUCCESS.code)
 
     @Test
     fun `broadcasts hub-addressed objects and forwards to connected handler when sender is another party`() {
@@ -66,7 +149,7 @@ class NodeObjectRoutingServiceTest {
         assertThat(response.body?.statusCode).isEqualTo(OcpiStatus.SUCCESS.code)
         verify(requestHandler).validateIncomingForBroadcast()
         verify(requestHandler).forwardDefault()
-        verify(moduleNotificationService).broadcastObjectRequestAsync(request)
+        verify(moduleNotificationService).broadcastObjectRequest(request)
     }
 
     @Test
@@ -79,7 +162,7 @@ class NodeObjectRoutingServiceTest {
         assertThat(response.body?.statusCode).isEqualTo(OcpiStatus.SUCCESS.code)
         verify(requestHandler).validateIncomingForBroadcast()
         verify(requestHandler, never()).forwardDefault()
-        verify(moduleNotificationService).broadcastObjectRequestAsync(request)
+        verify(moduleNotificationService).broadcastObjectRequest(request)
     }
 
     @Test
@@ -92,7 +175,7 @@ class NodeObjectRoutingServiceTest {
         assertThat(response.body?.statusCode).isEqualTo(OcpiStatus.SUCCESS.code)
         verify(requestHandler).validateIncomingForBroadcast()
         verify(requestHandler, never()).forwardDefault()
-        verify(moduleNotificationService).broadcastObjectRequestAsync(request)
+        verify(moduleNotificationService).broadcastObjectRequest(request)
     }
 
     @Test
@@ -103,7 +186,7 @@ class NodeObjectRoutingServiceTest {
 
         verify(requestHandler).forwardDefault()
         verify(routingService, never()).isRoleConnected(any())
-        verify(moduleNotificationService, never()).broadcastObjectRequestAsync(any())
+        verify(moduleNotificationService, never()).broadcastObjectRequest(any())
     }
 
     @Test
@@ -115,7 +198,7 @@ class NodeObjectRoutingServiceTest {
 
         verify(requestHandler).validateIncomingFromOcnForBroadcast("node-signature")
         verify(requestHandler, never()).validateIncomingForBroadcast()
-        verify(moduleNotificationService).broadcastObjectRequestAsync(request)
+        verify(moduleNotificationService).broadcastObjectRequest(request)
     }
 
     @Test
@@ -128,7 +211,7 @@ class NodeObjectRoutingServiceTest {
         val ordered = inOrder(requestHandler, moduleNotificationService)
         ordered.verify(requestHandler).validateIncomingFromOcnForBroadcast("node-signature")
         ordered.verify(requestHandler).forwardFromOcn("node-signature")
-        ordered.verify(moduleNotificationService).broadcastObjectRequestAsync(request)
+        ordered.verify(moduleNotificationService).broadcastObjectRequest(request)
         verify(requestHandler, never()).forwardDefault()
     }
 
@@ -141,7 +224,7 @@ class NodeObjectRoutingServiceTest {
         verify(requestHandler).forwardFromOcn("node-signature")
         verify(responseHandler).getResponseWithAllHeaders()
         verify(routingService, never()).isRoleConnected(any())
-        verify(moduleNotificationService, never()).broadcastObjectRequestAsync(any())
+        verify(moduleNotificationService, never()).broadcastObjectRequest(any())
     }
 
     private fun objectRequest(receiver: BasicRole, sender: BasicRole): OcpiRequestVariables {

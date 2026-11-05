@@ -8,7 +8,7 @@ import org.springframework.core.task.TaskDecorator
 @Configuration
 class MdcTaskDecoratorConfig {
 
-    /** Applied by Spring Boot to the auto-configured executor that runs @Async methods. */
+    /** Applied by Spring Boot's executor builder to the @Async and broadcast executors. */
     @Bean
     fun mdcTaskDecorator(): TaskDecorator = MdcTaskDecorator()
 }

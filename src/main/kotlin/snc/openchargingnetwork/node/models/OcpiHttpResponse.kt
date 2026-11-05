@@ -48,6 +48,12 @@ data class OcpiHttpResponse<T : Any>(
     val headers: Map<String, String>,
     val body: OcpiResponse<T>? = null
 ) {
+    /**
+     * Whether the receiver accepted the request. Parties usually report errors with
+     * HTTP 200 and the OCPI status_code in the body, so the HTTP status alone is not enough.
+     */
+    fun isOcpiSuccess(): Boolean = statusCode in 200..299 && body?.statusCode in 1000..1999
+
     fun toSignedValues(): ValuesToSign<OcpiResponse<T>> {
         return ValuesToSign(
             headers = SignableHeaders(
