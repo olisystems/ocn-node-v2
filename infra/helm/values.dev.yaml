@@ -1,5 +1,49 @@
 oli-app:
   fullnameOverride: "ocn-node-v2-dev"
+  # Only dev loads the OpenTelemetry agent, so only dev has the span metrics
+  # (traces_spanmetrics_*, from Tempo) these two rules read. They carry no env
+  # or namespace label, so the rules set namespace themselves for the Slack
+  # title. Add an env label before another env sends traces. A new series can
+  # already hold errors on its first sample, which increase() misses, so the
+  # error rule counts a series with no samples in the hour before its window by
+  # its whole value.
+  alerts:
+    enabled: true
+    labels:
+      env: dev
+    custom:
+      OcnNodeServerErrors:
+        expr: >-
+          sum(
+            (traces_spanmetrics_calls_total{service="ocn-node-v2", span_kind="SPAN_KIND_SERVER", ocpi_from!="", status_code="STATUS_CODE_ERROR"}
+              unless last_over_time(traces_spanmetrics_calls_total{service="ocn-node-v2", span_kind="SPAN_KIND_SERVER", ocpi_from!="", status_code="STATUS_CODE_ERROR"}[1h] offset 10m))
+            or increase(traces_spanmetrics_calls_total{service="ocn-node-v2", span_kind="SPAN_KIND_SERVER", ocpi_from!="", status_code="STATUS_CODE_ERROR"}[10m])
+          )
+          / sum(
+            (traces_spanmetrics_calls_total{service="ocn-node-v2", span_kind="SPAN_KIND_SERVER", ocpi_from!=""}
+              unless last_over_time(traces_spanmetrics_calls_total{service="ocn-node-v2", span_kind="SPAN_KIND_SERVER", ocpi_from!=""}[1h] offset 10m))
+            or increase(traces_spanmetrics_calls_total{service="ocn-node-v2", span_kind="SPAN_KIND_SERVER", ocpi_from!=""}[10m])
+          )
+          > 0.05
+          and
+          sum(
+            (traces_spanmetrics_calls_total{service="ocn-node-v2", span_kind="SPAN_KIND_SERVER", ocpi_from!="", status_code="STATUS_CODE_ERROR"}
+              unless last_over_time(traces_spanmetrics_calls_total{service="ocn-node-v2", span_kind="SPAN_KIND_SERVER", ocpi_from!="", status_code="STATUS_CODE_ERROR"}[1h] offset 10m))
+            or increase(traces_spanmetrics_calls_total{service="ocn-node-v2", span_kind="SPAN_KIND_SERVER", ocpi_from!="", status_code="STATUS_CODE_ERROR"}[10m])
+          ) >= 5
+        labels:
+          severity: critical
+          namespace: oli-banula
+        annotations:
+          summary: "ocn-node-v2 failed {{ $value | humanizePercentage }} of OCPI requests in the last 10 minutes"
+      OcnNodeSlowRequests:
+        expr: >-
+          histogram_quantile(0.95, sum by (le, ocpi_module) (rate(traces_spanmetrics_latency_bucket{service="ocn-node-v2", span_kind="SPAN_KIND_SERVER", ocpi_from!=""}[10m]))) > 3
+        for: 15m
+        labels:
+          namespace: oli-banula
+        annotations:
+          summary: "95th percentile of ocn-node-v2 {{ $labels.ocpi_module }} requests is {{ $value | humanizeDuration }}"
   env:
     JDK_JAVA_OPTIONS: "-javaagent:/otel/javaagent.jar"
     OTEL_RESOURCE_ATTRIBUTES: "deployment.environment.name=dev,service.namespace=transit"
