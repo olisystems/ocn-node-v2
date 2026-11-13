@@ -11,6 +11,9 @@ name: Reset Override
 # commits, so it cannot re-trigger itself. Filtering on infra/helm here would
 # reintroduce the bug where a helm-only merge skips the run and silently leaves
 # the app pinned to a feature branch.
+permissions:
+  contents: read
+
 on:
   push:
     branches:
@@ -26,9 +29,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: main
+          persist-credentials: false
 
       - name: Install yq
         run: |
@@ -44,7 +48,7 @@ jobs:
           printf '%s' "$VPN_CONFIG" > vpn.conf
           printf '%s' "$VPN_PASS" > .vpn_pass
           sudo openvpn --config vpn.conf --askpass .vpn_pass --log ovpn.log --daemon
-          for attempt in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             if sudo grep -q "Initialization Sequence Completed" ovpn.log 2>/dev/null; then
               echo "VPN connection established"
               break
@@ -65,8 +69,9 @@ jobs:
           printf '%s' "$KUBECONFIG_CONTENT" > "$RUNNER_TEMP/kubeconfig.yaml"
           chmod 600 "$RUNNER_TEMP/kubeconfig.yaml"
           export KUBECONFIG="$RUNNER_TEMP/kubeconfig.yaml"
-          kubectl patch application ocn-node-v2-dev -n argocd --type merge \
-            -p '{"spec":{"source":{"targetRevision":"main","helm":{"parameters":null}}}}'
+          patch=$(jq -nc --arg rev main \
+            '{spec:{source:{targetRevision:$rev,helm:{parameters:null}}}}')
+          kubectl patch application ocn-node-v2-dev -n argocd --type merge -p "$patch"
 
       # Int's home is whatever release infra/argo/int.yaml points at, so read it
       # from main rather than assuming a branch.

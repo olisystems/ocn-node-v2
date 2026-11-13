@@ -1,5 +1,8 @@
 name: Update Int and Prod
 
+permissions:
+  contents: read
+
 on:
   release:
     types: [published]
@@ -10,20 +13,22 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
 
       - name: Login to SWR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: swr.eu-de.otc.t-systems.com
           username: ${{ secrets.OTC_USERNAME }}
           password: ${{ secrets.OTC_PASSWORD }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         env:
           DOCKER_BUILD_SUMMARY: "false"
         with:
@@ -37,17 +42,24 @@ jobs:
   update-int-and-prod:
     runs-on: ubuntu-latest
     needs: build-and-push
+    # A separate group from the Build Image write-back: one shared group would
+    # let a newer pending write-back cancel a pending release.
+    concurrency:
+      group: release-update-${{ github.repository }}
+      cancel-in-progress: false
 
     steps:
       - name: Generate app token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: app-token
         with:
           client-id: ${{ vars.OLI_ARGO_SYNC_CLIENT_ID }}
           private-key: ${{ secrets.OLI_ARGO_SYNC_PRIVATE_KEY }}
+          permission-contents: write
 
+      # Credentials stay persisted here: the git push below uses them.
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           token: ${{ steps.app-token.outputs.token }}
           ref: main
@@ -80,5 +92,17 @@ jobs:
           git config user.name "oli-argo-sync[bot]"
           git config user.email "275810390+oli-argo-sync[bot]@users.noreply.github.com"
           for app in $APPS; do git add "infra/argo/$app.yaml"; done
-          git commit -m "chore: update $APPS to ${{ github.ref_name }}"
-          git push
+          # A re-run of the same release finds the files already updated.
+          if git diff --cached --quiet; then
+            echo "$APPS already point at $GITHUB_REF_NAME"
+            exit 0
+          fi
+          git commit -m "chore: update $APPS to $GITHUB_REF_NAME"
+          # A Build Image write-back can land on main at the same time. It
+          # changes other files, so a rebase is clean.
+          for _ in 1 2 3; do
+            git push && exit 0
+            git pull --rebase
+          done
+          echo "::error::git push failed 3 times"
+          exit 1
