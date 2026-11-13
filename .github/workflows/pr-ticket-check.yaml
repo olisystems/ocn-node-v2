@@ -1,5 +1,10 @@
 name: PR Ticket Check
 
+# pull-requests: read lets the step read the live PR title.
+permissions:
+  contents: read
+  pull-requests: read
+
 on:
   pull_request:
     branches: [main]

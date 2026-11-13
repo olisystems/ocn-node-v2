@@ -1,7 +1,10 @@
 name: Build Image
 
+# The build and the write-back are separate jobs. The build runs third-party
+# code (dependencies, base images), so it never sees the oli-argo-sync key.
+
 permissions:
-  contents: write
+  contents: read
 
 on:
   push:
@@ -17,36 +20,36 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ steps.sha.outputs.image_tag }}
 
     steps:
-      - name: Generate app token
-        uses: actions/create-github-app-token@v3
-        id: app-token
-        with:
-          client-id: ${{ vars.OLI_ARGO_SYNC_CLIENT_ID }}
-          private-key: ${{ secrets.OLI_ARGO_SYNC_PRIVATE_KEY }}
-
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
 
       - name: Compute short SHA
         id: sha
-        run: echo "short_sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+        run: |
+          short_sha=${GITHUB_SHA::7}
+          {
+            echo "short_sha=$short_sha"
+            echo "image_tag=$GITHUB_REF_NAME-$short_sha"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Login to SWR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: swr.eu-de.otc.t-systems.com
           username: ${{ secrets.OTC_USERNAME }}
           password: ${{ secrets.OTC_PASSWORD }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         env:
           DOCKER_BUILD_SUMMARY: "false"
         with:
@@ -58,8 +61,36 @@ jobs:
           tags: |
             swr.eu-de.otc.t-systems.com/oli_banula/ocnnodev2:latest
             swr.eu-de.otc.t-systems.com/oli_banula/ocnnodev2:${{ github.ref_name }}
-            swr.eu-de.otc.t-systems.com/oli_banula/ocnnodev2:${{ github.ref_name }}-${{ steps.sha.outputs.short_sha }}
+            swr.eu-de.otc.t-systems.com/oli_banula/ocnnodev2:${{ steps.sha.outputs.image_tag }}
             swr.eu-de.otc.t-systems.com/oli_banula/ocnnodev2:${{ steps.sha.outputs.short_sha }}
+
+  write-back:
+    name: Update dev image tag
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    # One write-back at a time per branch. A newer pending run replaces an older
+    # pending one, so the newest image wins.
+    concurrency:
+      group: write-back-${{ github.repository }}-${{ github.ref_name }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Generate app token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.OLI_ARGO_SYNC_CLIENT_ID }}
+          private-key: ${{ secrets.OLI_ARGO_SYNC_PRIVATE_KEY }}
+          permission-contents: write
+
+      # Credentials stay persisted here: the git push below uses them. Check
+      # out the branch head, not the built commit: an earlier write-back may
+      # have moved it.
+      - name: Checkout code
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.ref_name }}
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Install yq
         run: |
@@ -68,15 +99,29 @@ jobs:
 
       - name: Update image tag in values file
         env:
-          TAG: ${{ github.ref_name }}-${{ steps.sha.outputs.short_sha }}
+          TAG: ${{ needs.build-and-push.outputs.image-tag }}
         # Dev only. Int and prod are pinned to a release tag by tag.yaml.
         run: |
           yq -i '.oli-app.image.tag = env(TAG)' infra/helm/images.dev.yaml
 
       - name: Commit and push
+        env:
+          TAG: ${{ needs.build-and-push.outputs.image-tag }}
         run: |
           git config user.name "oli-argo-sync[bot]"
           git config user.email "275810390+oli-argo-sync[bot]@users.noreply.github.com"
           git add infra/helm/
-          git commit -m "chore: update ${{ github.ref_name }} image to ${{ github.ref_name }}-${{ steps.sha.outputs.short_sha }}"
-          git push
+          # A re-run of the same commit finds the tag already written.
+          if git diff --cached --quiet; then
+            echo "infra/helm already has $TAG"
+            exit 0
+          fi
+          git commit -m "chore: update $GITHUB_REF_NAME image to $TAG"
+          # A release can push to main at the same time. It changes other
+          # files, so a rebase is clean.
+          for _ in 1 2 3; do
+            git push && exit 0
+            git pull --rebase
+          done
+          echo "::error::git push failed 3 times"
+          exit 1
