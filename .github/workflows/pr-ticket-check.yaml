@@ -23,7 +23,7 @@ jobs:
           # The action's default lives in its own file; a public repo cannot
           # read it, so the org variable is the knob here. Set TICKET_PREFIX at
           # org level when the prefix changes.
-          PREFIXES: ${{ vars.TICKET_PREFIX || 'OLISYS' }}
+          PREFIXES: ${{ vars.TICKET_PREFIX || 'OLISYS,OD' }}
           # Via env, not inlined: a PR title would otherwise run as shell.
           HEAD_REF: ${{ github.head_ref }}
           PR_TITLE: ${{ github.event.pull_request.title }}
