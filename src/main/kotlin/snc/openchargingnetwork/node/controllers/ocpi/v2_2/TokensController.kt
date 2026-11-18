@@ -218,14 +218,10 @@ class TokensController(
         // broadcast to Tokens RECEIVER parties (and optionally store on a connected hub backend).
         // So the primary path is now NodeObjectRoutingService.route() instead of forwardDefault().
         //
-        // Keep forwardIntegrationsAsync as a separate fire-and-forget side channel for configured
-        // additional receivers. It does not produce the HTTP response.
-        requestHandlerBuilder
-            .build<Unit>(requestVariables)
-            .forwardIntegrationsAsync(ModuleID.TOKENS)
-
-        // Primary path + HTTP response (hub broadcast or normal single-receiver forward).
-        return nodeObjectRoutingService.route<Unit>(requestVariables)
+        // forwardIntegrationsAsync stays a separate side channel for configured additional
+        // receivers. It does not produce the HTTP response, and its copies are only stored once
+        // the primary path below has accepted the request.
+        return routeThenCopyToIntegrations(requestVariables)
     }
 
     @PatchMapping("/ocpi/receiver/2.2.1/tokens/{countryCode}/{partyID}/{tokenUID}")
@@ -258,12 +254,20 @@ class TokensController(
             body = body
         )
 
-        // Same split as PUT: async additional-receiver side channel, then route() for the response.
-        requestHandlerBuilder
-            .build<Unit>(requestVariables)
-            .forwardIntegrationsAsync(ModuleID.TOKENS)
+        return routeThenCopyToIntegrations(requestVariables)
+    }
 
-        return nodeObjectRoutingService.route<Unit>(requestVariables)
+    private fun routeThenCopyToIntegrations(requestVariables: OcpiRequestVariables): ResponseEntity<OcpiResponse<Unit>> {
+        val copies =
+            requestHandlerBuilder
+                .build<Unit>(requestVariables)
+                .forwardIntegrationsAsync(ModuleID.TOKENS)
+
+        // Primary path + HTTP response (hub broadcast or normal single-receiver forward). It
+        // throws when a broadcast receiver did not accept, which also skips the copies.
+        val response = nodeObjectRoutingService.route<Unit>(requestVariables)
+        copies.enqueueIntegrationCopiesIfAccepted(response)
+        return response
     }
 
 }

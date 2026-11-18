@@ -25,6 +25,7 @@ import org.springframework.scheduling.annotation.EnableAsync
 import org.springframework.scheduling.annotation.EnableScheduling
 import snc.openchargingnetwork.node.config.DataSourceProperties
 import snc.openchargingnetwork.node.config.FeatureFlagsProperties
+import snc.openchargingnetwork.node.config.IntegrationsProperties
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.config.PluginProperties
 
@@ -33,6 +34,7 @@ import snc.openchargingnetwork.node.config.PluginProperties
     NodeProperties::class,
     DataSourceProperties::class,
     FeatureFlagsProperties::class,
+    IntegrationsProperties::class,
     PluginProperties::class
 )
 @EnableJpaRepositories("snc.openchargingnetwork.node.repositories")

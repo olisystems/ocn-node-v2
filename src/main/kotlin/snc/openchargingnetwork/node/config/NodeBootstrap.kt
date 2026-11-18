@@ -16,9 +16,11 @@
 
 package snc.openchargingnetwork.node.config
 
+import java.time.Clock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -31,6 +33,7 @@ import snc.openchargingnetwork.node.repositories.*
 import snc.openchargingnetwork.node.scheduledTasks.HubClientInfoStillAliveCheck
 import snc.openchargingnetwork.node.scheduledTasks.OcpiHubClientInfoSyncTask
 import snc.openchargingnetwork.node.services.HubClientInfoService
+import snc.openchargingnetwork.node.services.IntegrationCopyOutboxService
 import snc.openchargingnetwork.node.services.StillAliveService
 
 @Configuration
@@ -50,6 +53,9 @@ class NodeBootstrap(
     ) = ApplicationRunner {}
 
     @Bean
+    fun clock(): Clock = Clock.systemUTC()
+
+    @Bean
     fun coroutineScope(): CoroutineScope {
         return CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
@@ -60,8 +66,12 @@ class NodeBootstrap(
             private val platformRepo: PlatformRepository,
             private val properties: NodeProperties,
             private val hubClientInfoService: HubClientInfoService,
-            private val stillAliveService: StillAliveService
+            private val stillAliveService: StillAliveService,
+            private val integrationsProperties: IntegrationsProperties,
+            private val integrationCopyOutboxService: IntegrationCopyOutboxService
     ) {
+
+        private val logger = LoggerFactory.getLogger(ScheduledTasks::class.java)
 
          @Scheduled(fixedRateString = "\${ocn.node.stillAliveRate}")
          fun runStillAliveCheck() {
@@ -76,6 +86,32 @@ class NodeBootstrap(
             if (properties.hubClientInfoSyncEnabled) {
                 val hubClientInfoSyncTask = OcpiHubClientInfoSyncTask(hubClientInfoService)
                 hubClientInfoSyncTask.run()
+            }
+        }
+
+        // fixedDelay: a run that is still sending must finish before the next one starts.
+        @Scheduled(fixedDelayString = "\${ocn.integrations.outbox.pollMillis:5000}")
+        fun runIntegrationCopyOutbox() {
+            if (integrationsProperties.outbox.workerEnabled) {
+                try {
+                    integrationCopyOutboxService.dispatchDue()
+                } catch (e: Exception) {
+                    logger.error("Error during scheduled integration copy dispatch: ${e.message}", e)
+                }
+            }
+        }
+
+        @Scheduled(fixedDelayString = "\${ocn.integrations.outbox.cleanupMillis:3600000}")
+        fun runIntegrationCopyOutboxCleanup() {
+            if (integrationsProperties.outbox.workerEnabled) {
+                try {
+                    val deleted = integrationCopyOutboxService.purgeDelivered()
+                    if (deleted > 0) {
+                        logger.info("Deleted {} delivered integration copies from the outbox", deleted)
+                    }
+                } catch (e: Exception) {
+                    logger.error("Error during integration copy outbox cleanup: ${e.message}", e)
+                }
             }
         }
     }

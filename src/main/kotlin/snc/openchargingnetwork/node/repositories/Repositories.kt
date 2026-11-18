@@ -16,8 +16,14 @@
 
 package snc.openchargingnetwork.node.repositories
 
+import java.time.Instant
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
+import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.CrudRepository
+import org.springframework.data.repository.query.Param
+import org.springframework.transaction.annotation.Transactional
 import snc.openchargingnetwork.node.models.entities.*
 import snc.openchargingnetwork.node.models.ocpi.BasicRole
 import snc.openchargingnetwork.node.models.ocpi.ConnectionStatus
@@ -114,4 +120,60 @@ interface Ocpi211AdapterConfigRepository : CrudRepository<Ocpi211AdapterConfigEn
     fun findByPlatformId(platformId: Long): Ocpi211AdapterConfigEntity?
     fun existsByPlatformId(platformId: Long): Boolean
     fun deleteByPlatformId(platformId: Long)
+}
+
+private const val PENDING = "snc.openchargingnetwork.node.models.entities.IntegrationCopyStatus.PENDING"
+private const val DELIVERED = "snc.openchargingnetwork.node.models.entities.IntegrationCopyStatus.DELIVERED"
+
+interface IntegrationCopyOutboxRepository : JpaRepository<IntegrationCopyOutboxEntity, Long> {
+
+    /**
+     * Rows that may be sent now, oldest first. A row waits while an older row for the same
+     * target, module and object is still pending, which keeps writes to one object in order.
+     */
+    @Query(
+            """
+            select o.id from IntegrationCopyOutboxEntity o
+            where o.status = $PENDING
+              and o.nextAttemptAt <= :now
+              and (o.lockedUntil is null or o.lockedUntil < :now)
+              and not exists (
+                  select 1 from IntegrationCopyOutboxEntity p
+                  where p.status = $PENDING
+                    and p.id < o.id
+                    and p.targetCountry = o.targetCountry
+                    and p.targetParty = o.targetParty
+                    and p.module = o.module
+                    and p.objectKey = o.objectKey
+              )
+            order by o.id
+            """
+    )
+    fun findDueIds(@Param("now") now: Instant, pageable: Pageable): List<Long>
+
+    /**
+     * Takes the row for this replica. Returns 0 when another replica got there first: the
+     * database re-checks the condition after waiting for that replica's update.
+     */
+    @Transactional
+    @Modifying(clearAutomatically = true)
+    @Query(
+            """
+            update IntegrationCopyOutboxEntity o
+            set o.lockedUntil = :lockedUntil, o.attempts = o.attempts + 1
+            where o.id = :id
+              and o.status = $PENDING
+              and (o.lockedUntil is null or o.lockedUntil < :now)
+            """
+    )
+    fun claim(
+            @Param("id") id: Long,
+            @Param("now") now: Instant,
+            @Param("lockedUntil") lockedUntil: Instant
+    ): Int
+
+    @Transactional
+    @Modifying
+    @Query("delete from IntegrationCopyOutboxEntity o where o.status = $DELIVERED and o.deliveredAt < :cutoff")
+    fun deleteDeliveredBefore(@Param("cutoff") cutoff: Instant): Int
 }
