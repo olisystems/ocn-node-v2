@@ -16,9 +16,11 @@
 
 package snc.openchargingnetwork.node.repositories
 
+import jakarta.persistence.LockModeType
 import java.time.Instant
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.CrudRepository
@@ -38,6 +40,11 @@ interface PlatformRepository : CrudRepository<PlatformEntity, Long> {
     fun findByAuth_TokenB(tokenB: String?): PlatformEntity?
     fun findByAuth_TokenC(tokenC: String?): PlatformEntity?
     fun findByStatusIn(connectionStatusList: List<ConnectionStatus>): Iterable<PlatformEntity>
+
+    /** Reads the platform as it is stored now and holds its row until the transaction ends. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from PlatformEntity p where p.id = :id")
+    fun findByIdForUpdate(@Param("id") id: Long): PlatformEntity?
 }
 
 interface RoleRepository : JpaRepository<RoleEntity, Long> {

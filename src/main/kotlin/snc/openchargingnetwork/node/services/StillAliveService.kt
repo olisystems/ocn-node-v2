@@ -19,10 +19,12 @@ package snc.openchargingnetwork.node.services
 import java.time.Instant
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import org.springframework.transaction.support.TransactionOperations
 import snc.openchargingnetwork.node.components.HttpClientComponent
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.PartyStillAliveResult
 import snc.openchargingnetwork.node.models.StillAliveCheckSummary
+import snc.openchargingnetwork.node.models.entities.Auth
 import snc.openchargingnetwork.node.models.entities.PlatformEntity
 import snc.openchargingnetwork.node.models.exceptions.OcpiClientInvalidParametersException
 import snc.openchargingnetwork.node.models.exceptions.OcpiServerUnusableApiException
@@ -44,7 +46,8 @@ class StillAliveService(
         private val properties: NodeProperties,
         private val httpClientComponent: HttpClientComponent,
         private val platformRepo: PlatformRepository,
-        private val roleRepo: RoleRepository
+        private val roleRepo: RoleRepository,
+        private val transactions: TransactionOperations
 ) {
 
     companion object {
@@ -166,16 +169,41 @@ class StillAliveService(
      * Update a platform's connection status from its current availability. Saving the platform
      * publishes the reconnected/disconnected domain event, which broadcasts the change to the
      * network.
+     *
+     * The ping is slow and [platform] was loaded before it, so the result is applied to the
+     * platform as it is stored now: saving the earlier copy would write back credentials, rules or
+     * a suspension that changed in the meantime.
      */
     private fun checkPlatform(platform: PlatformEntity, checkInstant: Instant): ConnectionStatus {
-        if (isClientAvailable(platform)) {
-            platform.renewConnection(checkInstant)
-        } else {
-            platform.disconnect(checkInstant)
-        }
-        platformRepo.save(platform)
-        return platform.status
+        val id = checkNotNull(platform.id) { "a still alive check needs a stored platform" }
+        val pingedUrl = platform.versionsUrl
+        val pingedAuth = platform.auth
+        val available = isClientAvailable(platform)
+
+        return transactions.execute {
+            val current = platformRepo.findByIdForUpdate(id) ?: return@execute platform.status
+            if (current.status !in CHECKABLE_STATUSES || !pingedWith(current, pingedUrl, pingedAuth)) {
+                logger.info(
+                        "Still alive result for platform $id dropped: the platform changed during the check"
+                )
+                return@execute current.status
+            }
+            if (available) {
+                current.renewConnection(checkInstant)
+            } else {
+                current.disconnect(checkInstant)
+            }
+            platformRepo.save(current)
+            current.status
+        }!!
     }
+
+    /** Whether the ping used the versions URL and tokens the platform has now. */
+    private fun pingedWith(current: PlatformEntity, url: String?, auth: Auth): Boolean =
+            current.versionsUrl == url &&
+                    current.auth.tokenB == auth.tokenB &&
+                    current.auth.tokenC == auth.tokenC &&
+                    current.auth.handshakeSelfInitiated == auth.handshakeSelfInitiated
 
     /** Ping a platform's Versions endpoint to determine its availability. */
     private fun isClientAvailable(client: PlatformEntity): Boolean {
