@@ -160,7 +160,8 @@ interface IntegrationCopyOutboxRepository : JpaRepository<IntegrationCopyOutboxE
 
     /**
      * Takes the row for this replica. Returns 0 when another replica got there first: the
-     * database re-checks the condition after waiting for that replica's update.
+     * database re-checks the condition after waiting for that replica's update. That includes a
+     * replica that already sent the row, failed and set its backoff.
      */
     @Transactional
     @Modifying(clearAutomatically = true)
@@ -170,6 +171,7 @@ interface IntegrationCopyOutboxRepository : JpaRepository<IntegrationCopyOutboxE
             set o.lockedUntil = :lockedUntil, o.attempts = o.attempts + 1
             where o.id = :id
               and o.status = $PENDING
+              and o.nextAttemptAt <= :now
               and (o.lockedUntil is null or o.lockedUntil < :now)
             """
     )
@@ -177,6 +179,32 @@ interface IntegrationCopyOutboxRepository : JpaRepository<IntegrationCopyOutboxE
             @Param("id") id: Long,
             @Param("now") now: Instant,
             @Param("lockedUntil") lockedUntil: Instant
+    ): Int
+
+    /**
+     * Stores the result of a send and gives the row back. Returns 0 when the row is no longer
+     * held under [lease]: the send outlasted it and another replica took the row over, so that
+     * replica's result is the one to keep.
+     */
+    @Transactional
+    @Modifying(clearAutomatically = true)
+    @Query(
+            """
+            update IntegrationCopyOutboxEntity o
+            set o.status = :status, o.deliveredAt = :deliveredAt, o.payload = :payload,
+                o.nextAttemptAt = :nextAttemptAt, o.lastError = :lastError, o.lockedUntil = null
+            where o.id = :id
+              and o.lockedUntil = :lease
+            """
+    )
+    fun release(
+            @Param("id") id: Long,
+            @Param("lease") lease: Instant,
+            @Param("status") status: IntegrationCopyStatus,
+            @Param("deliveredAt") deliveredAt: Instant?,
+            @Param("payload") payload: String?,
+            @Param("nextAttemptAt") nextAttemptAt: Instant,
+            @Param("lastError") lastError: String?
     ): Int
 
     @Transactional

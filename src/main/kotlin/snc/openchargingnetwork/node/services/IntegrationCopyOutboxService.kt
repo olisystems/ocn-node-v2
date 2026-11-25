@@ -2,6 +2,7 @@ package snc.openchargingnetwork.node.services
 
 import java.time.Clock
 import java.time.Duration
+import java.time.temporal.ChronoUnit
 import org.slf4j.LoggerFactory
 import org.springframework.data.domain.PageRequest
 import org.springframework.http.HttpMethod
@@ -90,7 +91,10 @@ class IntegrationCopyOutboxService(
 
     private fun attempt(id: Long): Boolean {
         val claimedAt = clock.instant()
-        if (outboxRepo.claim(id, claimedAt, claimedAt.plusMillis(settings.leaseMillis)) == 0) return false
+        // Whole milliseconds, so the value read back from the database equals the one written:
+        // the lease is what identifies this replica's claim when the result is stored.
+        val lease = claimedAt.plusMillis(settings.leaseMillis).truncatedTo(ChronoUnit.MILLIS)
+        if (outboxRepo.claim(id, claimedAt, lease) == 0) return false
         val row = outboxRepo.findById(id).orElse(null) ?: return false
 
         val failure = withMdc(TraceKeys.CORRELATION_ID, row.correlationId) { send(row) }
@@ -102,19 +106,23 @@ class IntegrationCopyOutboxService(
                 row.deliveredAt = now
                 row.payload = null
             }
-            row.attempts >= settings.maxAttempts -> {
-                row.status = IntegrationCopyStatus.PARKED
-                logger.error(
-                        "INTEGRATION_COPY_PARKED — integration copy gave up | outbox id: {} | {} {} to {}/{} | attempts: {} | last error: {} | correlation_id: {}",
-                        row.id, row.method, row.module, row.targetCountry, row.targetParty, row.attempts,
-                        failure, row.correlationId
-                )
-            }
+            row.attempts >= settings.maxAttempts -> row.status = IntegrationCopyStatus.PARKED
             else -> row.nextAttemptAt = now.plusMillis(backoffMillis(row.attempts))
         }
-        row.lastError = failure
-        row.lockedUntil = null
-        outboxRepo.save(row)
+        val stored =
+                outboxRepo.release(id, lease, row.status, row.deliveredAt, row.payload, row.nextAttemptAt, failure)
+        if (stored == 0) {
+            logger.warn(
+                    "[{}] integration copy {} was taken over by another replica while it was being sent; this result is dropped | outcome: {} | correlation_id: {}",
+                    LOG_TAG, row.id, failure ?: "accepted", row.correlationId
+            )
+        } else if (row.status == IntegrationCopyStatus.PARKED) {
+            logger.error(
+                    "INTEGRATION_COPY_PARKED — integration copy gave up | outbox id: {} | {} {} to {}/{} | attempts: {} | last error: {} | correlation_id: {}",
+                    row.id, row.method, row.module, row.targetCountry, row.targetParty, row.attempts,
+                    failure, row.correlationId
+            )
+        }
         return true
     }
 

@@ -208,6 +208,44 @@ class IntegrationCopyOutboxServiceTest(@Autowired private val outboxRepo: Integr
     }
 
     @Test
+    fun `a replica that picked a copy before another one failed it waits for the backoff`() {
+        service.enqueue(sessionCopy(HttpMethod.PUT, "/DE/ABC/s1", "first"), null)
+        val id = outboxRepo.findAll().single().id!!
+        val pickedAt = clock.now
+        http.script(Outcome.Unreachable)
+
+        service.dispatchDue()
+
+        assertThat(outboxRepo.claim(id, pickedAt, pickedAt.plusSeconds(300)))
+            .describedAs("the row is no longer due, although it was when this replica listed it")
+            .isEqualTo(0)
+        assertThat(outboxRepo.findAll().single().attempts).isEqualTo(1)
+    }
+
+    @Test
+    fun `a send that outlasts its lease does not overwrite the replica that took the copy over`() {
+        service.enqueue(sessionCopy(HttpMethod.PUT, "/DE/ABC/s1", "first"), null)
+        val id = outboxRepo.findAll().single().id!!
+        val due = clock.now
+        var otherLease: Instant? = null
+        http.duringNextSend = {
+            clock.advance(properties.outbox.leaseMillis + 1)
+            otherLease = clock.now.plusMillis(properties.outbox.leaseMillis)
+            assertThat(outboxRepo.claim(id, clock.now, otherLease!!)).isEqualTo(1)
+        }
+        http.script(Outcome.Unreachable)
+
+        service.dispatchDue()
+
+        val row = outboxRepo.findAll().single()
+        assertThat(row.lockedUntil).describedAs("the other replica still holds the copy").isEqualTo(otherLease)
+        assertThat(row.nextAttemptAt).isEqualTo(due)
+        assertThat(row.lastError).isNull()
+        assertThat(row.attempts).isEqualTo(2)
+        assertThat(http.sent).describedAs("the stale replica does not send the copy again").hasSize(1)
+    }
+
+    @Test
     fun `replicas claiming at the same time never both get a copy`() {
         repeat(20) { service.enqueue(sessionCopy(HttpMethod.POST, null, "cdr-$it"), null) }
         val ids = outboxRepo.findAll().map { it.id!! }
@@ -297,6 +335,7 @@ class IntegrationCopyOutboxServiceTest(@Autowired private val outboxRepo: Integr
     private class ScriptedHttpClient : HttpClientComponent(NodeProperties()) {
         val sent = mutableListOf<SentRequest>()
         private val outcomes = ArrayDeque<Outcome>()
+        var duringNextSend: (() -> Unit)? = null
 
         fun script(vararg next: Outcome) {
             outcomes.addAll(next)
@@ -305,6 +344,7 @@ class IntegrationCopyOutboxServiceTest(@Autowired private val outboxRepo: Integr
         fun reset() {
             sent.clear()
             outcomes.clear()
+            duringNextSend = null
         }
 
         override fun sendHttpRequest(
@@ -315,6 +355,7 @@ class IntegrationCopyOutboxServiceTest(@Autowired private val outboxRepo: Integr
             queryParams: Map<String, String>
         ): SyncedHttpResponse {
             sent += SentRequest(headers, body)
+            duringNextSend?.also { duringNextSend = null }?.invoke()
             return when (outcomes.removeFirstOrNull() ?: Outcome.Accepted) {
                 Outcome.Accepted -> ocpiResponse(1000)
                 Outcome.Rejected -> ocpiResponse(3000)
