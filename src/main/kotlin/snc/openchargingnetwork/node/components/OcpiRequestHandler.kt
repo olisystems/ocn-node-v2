@@ -22,6 +22,7 @@ import kotlinx.coroutines.slf4j.MDCContext
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
+import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Component
 import snc.openchargingnetwork.node.config.HaasProperties
 import snc.openchargingnetwork.node.config.NodeProperties
@@ -34,6 +35,7 @@ import org.springframework.context.ApplicationEventPublisher
 import snc.openchargingnetwork.node.plugins.core.OcpiObjectEvent
 import snc.openchargingnetwork.node.plugins.core.OcpiObjectEventPhase
 import snc.openchargingnetwork.node.models.ocpi.OcpiRequestVariables
+import snc.openchargingnetwork.node.models.ocpi.OcpiResponse
 import snc.openchargingnetwork.node.models.ocpi.OcpiStatus
 import snc.openchargingnetwork.node.services.*
 import snc.openchargingnetwork.node.tools.generateUUIDv4Token
@@ -52,6 +54,7 @@ class OcpiRequestHandlerBuilder(
         private val asyncTaskService: AsyncTaskService,
         private val responseHandlerBuilder: OcpiResponseHandlerBuilder,
         private val integrationsRoutingService: IntegrationsRoutingService,
+        private val integrationCopyOutboxService: IntegrationCopyOutboxService,
         private val protocolTransformService: OcpiProtocolTransformService,
         private val properties: NodeProperties,
         private val haasProperties: HaasProperties,
@@ -71,6 +74,7 @@ class OcpiRequestHandlerBuilder(
                 asyncTaskService,
                 responseHandlerBuilder,
                 integrationsRoutingService,
+                integrationCopyOutboxService,
                 protocolTransformService,
                 properties,
                 haasProperties,
@@ -95,6 +99,7 @@ class OcpiRequestHandlerBuilder(
                 asyncTaskService,
                 responseHandlerBuilder,
                 integrationsRoutingService,
+                integrationCopyOutboxService,
                 protocolTransformService,
                 properties,
                 haasProperties,
@@ -133,6 +138,7 @@ class OcpiRequestHandler<T : Any>(
         private val asyncTaskService: AsyncTaskService,
         private val responseHandlerBuilder: OcpiResponseHandlerBuilder,
         private val integrationsRoutingService: IntegrationsRoutingService,
+        private val integrationCopyOutboxService: IntegrationCopyOutboxService,
         private val protocolTransformService: OcpiProtocolTransformService,
         properties: NodeProperties,
         haasProperties: HaasProperties,
@@ -147,6 +153,8 @@ class OcpiRequestHandler<T : Any>(
     init {
         tagOcpiRoute(request.resolveModuleId(), request.interfaceRole.id)
     }
+
+    private val integrationCopies = mutableListOf<() -> List<OcpiRequestVariables>>()
 
     /** Validate a request that the node will broadcast instead of forwarding to one receiver. */
     fun validateIncomingForBroadcast(): OcpiRequestHandler<T> {
@@ -278,12 +286,19 @@ class OcpiRequestHandler<T : Any>(
         }
 
         publishRequestBodyEvent(response)
-        return responseHandlerBuilder.build(
-                request,
-                response,
-                knownSender = fromLocalPlatform,
-                requestVerificationStatus = verificationStatus
-        )
+        val responseHandler: OcpiResponseHandler<T> =
+                responseHandlerBuilder.build(
+                        request,
+                        response,
+                        knownSender = fromLocalPlatform,
+                        requestVerificationStatus = verificationStatus
+                )
+        // After the response handler: it throws when the response fails validation, and the
+        // sender is then told the request failed.
+        if (response.isOcpiSuccess()) {
+            enqueueIntegrationCopies()
+        }
+        return responseHandler
     }
 
     fun forwardHaasAsync(): OcpiRequestHandler<T> {
@@ -322,129 +337,71 @@ class OcpiRequestHandler<T : Any>(
         return this
     }
 
+    /**
+     * Registers a copy of this request for the integration parties of the receiver. The copies
+     * are stored in the outbox only once the main forward was accepted: by [forwardDefault] of
+     * this handler, or by [enqueueIntegrationCopiesIfAccepted] when the main forward runs elsewhere.
+     */
     fun forwardIntegrationsAsync(module: ModuleID): OcpiRequestHandler<T> {
         validateIncoming()
-        val currentContext = this
-        coroutineScope.launch(MDCContext()) {
-            val receivingParties =
-                    integrationsRoutingService.getIntegrationReceivingParties(
-                            module,
-                            request.headers.receiver
-                    )
-            for (recevingParty in receivingParties) {
-                var outRequestId: String? = null
-                try {
-                    val modifiedRequest = request.copy(
-                            headers = request.headers.copy(receiver = recevingParty)
-                    )
-                    val rewriteFields = mapOf(
-                            "$['headers']['ocpi-to-country-code']" to recevingParty.country,
-                            "$['headers']['ocpi-to-party-id']" to recevingParty.id
-                    )
-                    modifiedRequest.headers.signature =
-                            rewriteAndSign(modifiedRequest.toSignedValues(), rewriteFields)
-                    val response: OcpiHttpResponse<T> =
-                            when (routingService.getReceiverType(recevingParty)) {
-                                Receiver.LOCAL -> {
-                                    val (url, headers) =
-                                            routingService.prepareLocalPlatformRequest(modifiedRequest, false)
-                                    outRequestId = headers.requestID
-                                    val statusName = currentContext.verificationStatus?.name
-                                    val localHeaders =
-                                            headers.copy(
-                                                    verificationStatus =
-                                                            if (statusName == null)
-                                                                    headers.verificationStatus
-                                                            else statusName
-                                            )
-                                    logger.info(
-                                            "[ForwardIntegrations] Routing {} {} to integration party {}/{}: {} | out_request_id: {}",
-                                            request.method, module, recevingParty.country, recevingParty.id, url, headers.requestID
-                                    )
-                                    asyncTaskService.forwardOcpiRequestToLinkedServices(
-                                            currentContext,
-                                            true
-                                    )
-                                    httpClientComponent.makeOcpiRequest(url, localHeaders, modifiedRequest)
-                                }
-                                Receiver.REMOTE -> {
-                                    val (url, headers, body) =
-                                            routingService.prepareRemotePlatformRequest(modifiedRequest, false)
-                                    outRequestId = headers.requestID
-                                    logger.info(
-                                            "[ForwardIntegrations] Routing {} {} to remote integration party {}/{} via: {}/ocn/message | out_request_id: {}",
-                                            request.method, module, recevingParty.country, recevingParty.id, url, headers.requestID
-                                    )
-                                    asyncTaskService.forwardOcpiRequestToLinkedServices(
-                                            currentContext,
-                                            true
-                                    )
-                                    httpClientComponent.postOcnMessage(url, headers, body)
-                                }
-                            }
-                    logger.logIntegrationCopy("ForwardIntegrations", request, recevingParty, outRequestId, response)
-                } catch (e: Exception) {
-                    logger.logIntegrationCopyError("ForwardIntegrations", request, recevingParty, outRequestId, e)
-                }
-            }
+        integrationCopies += {
+            integrationsRoutingService
+                    .getIntegrationReceivingParties(module, request.headers.receiver)
+                    .map { party ->
+                        val copy = request.copy(headers = request.headers.copy(receiver = party))
+                        val rewriteFields = mapOf(
+                                "$['headers']['ocpi-to-country-code']" to party.country,
+                                "$['headers']['ocpi-to-party-id']" to party.id
+                        )
+                        copy.headers.signature = rewriteAndSign(copy.toSignedValues(), rewriteFields)
+                        copy
+                    }
         }
-
         return this
     }
 
+    /** Same as [forwardIntegrationsAsync], for the integration parties of the sender. */
     fun forwardSenderIntegrationsAsync(module: ModuleID): OcpiRequestHandler<T> {
-        val currentContext = this
-        coroutineScope.launch(MDCContext()) {
-            val receivingParties =
-                    integrationsRoutingService.getSenderIntegrationReceivingParties(
-                            module,
-                            request.headers.sender
-                    )
-            for (receivingParty in receivingParties) {
-                var outRequestId: String? = null
-                try {
-                    val modifiedRequest = request.copy(
-                            headers = request.headers.copy(receiver = receivingParty)
-                    )
-                    val response: OcpiHttpResponse<T> =
-                            when (routingService.getReceiverType(receivingParty)) {
-                                Receiver.LOCAL -> {
-                                    val (url, headers) =
-                                            routingService.prepareLocalPlatformRequest(modifiedRequest, false)
-                                    outRequestId = headers.requestID
-                                    val statusName = currentContext.verificationStatus?.name
-                                    val localHeaders =
-                                            headers.copy(
-                                                    verificationStatus =
-                                                            if (statusName == null)
-                                                                    headers.verificationStatus
-                                                            else statusName
-                                            )
-                                    logger.info(
-                                            "[ForwardSender] Routing {} {} to integration party {}/{}: {} | out_request_id: {}",
-                                            request.method, module, receivingParty.country, receivingParty.id, url, headers.requestID
-                                    )
-                                    httpClientComponent.makeOcpiRequest(url, localHeaders, modifiedRequest)
-                                }
-                                Receiver.REMOTE -> {
-                                    val (url, headers, body) =
-                                            routingService.prepareRemotePlatformRequest(modifiedRequest, false)
-                                    outRequestId = headers.requestID
-                                    logger.info(
-                                            "[ForwardSender] Routing {} {} to remote integration party {}/{} via: {}/ocn/message | out_request_id: {}",
-                                            request.method, module, receivingParty.country, receivingParty.id, url, headers.requestID
-                                    )
-                                    httpClientComponent.postOcnMessage(url, headers, body)
-                                }
-                            }
-                    logger.logIntegrationCopy("ForwardSender", request, receivingParty, outRequestId, response)
-                } catch (e: Exception) {
-                    logger.logIntegrationCopyError("ForwardSender", request, receivingParty, outRequestId, e)
-                }
+        integrationCopies += {
+            integrationsRoutingService
+                    .getSenderIntegrationReceivingParties(module, request.headers.sender)
+                    .map { party -> request.copy(headers = request.headers.copy(receiver = party)) }
+        }
+        return this
+    }
+
+    /** For a main forward that did not go through [forwardDefault] of this handler. */
+    fun enqueueIntegrationCopiesIfAccepted(mainResponse: ResponseEntity<OcpiResponse<T>>) {
+        val accepted =
+                OcpiHttpResponse(mainResponse.statusCode.value(), emptyMap(), mainResponse.body).isOcpiSuccess()
+        if (accepted) {
+            enqueueIntegrationCopies()
+        }
+    }
+
+    private fun enqueueIntegrationCopies() {
+        // A copy must never change the answer of the main request, so nothing may escape here.
+        try {
+            val copies = integrationCopies.flatMap { it() }
+            integrationCopies.clear()
+            if (copies.isEmpty()) return
+            copies.forEach { integrationCopyOutboxService.enqueue(it, verificationStatus?.name) }
+        } catch (e: Exception) {
+            logger.error(
+                "INTEGRATION_COPY_ENQUEUE_FAILED — integration copy of {} {} was not stored and will not be sent | error: {}",
+                request.method, request.module, e::class.simpleName
+            )
+            return
+        }
+        // First attempt right away, off the request thread. The scheduled worker picks up
+        // whatever this does not get to.
+        coroutineScope.launch {
+            try {
+                integrationCopyOutboxService.dispatchDue()
+            } catch (e: Exception) {
+                logger.error("[IntegrationCopyOutbox] Dispatch after enqueue failed: {}", e::class.simpleName)
             }
         }
-
-        return this
     }
 
     /**

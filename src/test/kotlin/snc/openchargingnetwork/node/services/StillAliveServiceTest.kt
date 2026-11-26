@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test
 import org.mockito.Mockito.*
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
+import org.springframework.transaction.support.TransactionOperations
 import snc.openchargingnetwork.node.components.HttpClientComponent
 import snc.openchargingnetwork.node.config.NodeProperties
 import snc.openchargingnetwork.node.models.entities.Auth
@@ -34,7 +35,8 @@ class StillAliveServiceTest {
                     properties = properties,
                     httpClientComponent = httpClientComponent,
                     platformRepo = platformRepository,
-                    roleRepo = roleRepository
+                    roleRepo = roleRepository,
+                    transactions = TransactionOperations.withoutTransaction()
             )
 
     // this module runs JUnit with a per_class test instance lifecycle, so the mocks above are
@@ -78,6 +80,10 @@ class StillAliveServiceTest {
                         )
                 )
                 .thenReturn(platforms.toList())
+        platforms.forEachIndexed { index, platform ->
+            platform.id = index + 1L
+            whenever(platformRepository.findByIdForUpdate(index + 1L)).thenReturn(platform)
+        }
     }
 
     @Test

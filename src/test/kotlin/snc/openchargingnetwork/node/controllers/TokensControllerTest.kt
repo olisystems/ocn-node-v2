@@ -60,6 +60,7 @@ class TokensControllerTest {
         val captor = argumentCaptor<OcpiRequestVariables>()
         verify(nodeObjectRoutingService).route<Unit>(captor.capture(), anyOrNull())
         verify(requestHandler).forwardIntegrationsAsync(ModuleID.TOKENS)
+        verify(requestHandler).enqueueIntegrationCopiesIfAccepted(any())
         assertThat(captor.firstValue.module).isEqualTo(ModuleID.TOKENS)
         assertThat(captor.firstValue.method).isEqualTo(HttpMethod.PUT)
         assertThat(captor.firstValue.urlPath).isEqualTo("/DE/MSP/token-1")
