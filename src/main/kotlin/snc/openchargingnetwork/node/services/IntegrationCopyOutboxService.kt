@@ -45,6 +45,8 @@ class IntegrationCopyOutboxService(
         // overtake an earlier one. A GET changes nothing and a POST creates a new object (a CDR),
         // so neither should wait behind another request that keeps failing.
         private val ORDERED_METHODS = setOf(HttpMethod.PUT, HttpMethod.PATCH, HttpMethod.DELETE)
+
+        private const val LEASE_LOST = "lease lost before the send"
     }
 
     private val settings = properties.outbox
@@ -97,7 +99,17 @@ class IntegrationCopyOutboxService(
         if (outboxRepo.claim(id, claimedAt, lease) == 0) return false
         val row = outboxRepo.findById(id).orElse(null) ?: return false
 
-        val failure = withMdc(TraceKeys.CORRELATION_ID, row.correlationId) { send(row) }
+        val failure =
+                withMdc(TraceKeys.CORRELATION_ID, row.correlationId) {
+                    send(row) { lease.isAfter(clock.instant()) && outboxRepo.countHeldUnder(id, lease) == 1L }
+                }
+        if (failure == LEASE_LOST) {
+            logger.warn(
+                    "[{}] integration copy {} was not sent: this replica's lease ran out before the request | correlation_id: {}",
+                    LOG_TAG, row.id, row.correlationId
+            )
+            return false
+        }
 
         val now = clock.instant()
         when {
@@ -126,8 +138,14 @@ class IntegrationCopyOutboxService(
         return true
     }
 
-    /** @return null when the party accepted the copy, otherwise a short reason holding no payload */
-    private fun send(row: IntegrationCopyOutboxEntity): String? {
+    /**
+     * @param stillHeld asked right before the request leaves: a replica that stalled past its
+     * lease must not send, because another replica may already have delivered this copy and a
+     * later write to the same object, which this older one would then undo at the receiver
+     * @return null when the party accepted the copy, [LEASE_LOST] when nothing was sent, otherwise
+     * a short reason holding no payload
+     */
+    private fun send(row: IntegrationCopyOutboxEntity, stillHeld: () -> Boolean): String? {
         var request: OcpiRequestVariables? = null
         var outRequestId: String? = null
         return try {
@@ -141,11 +159,13 @@ class IntegrationCopyOutboxService(
                                     headers.copy(
                                             verificationStatus = row.verificationStatus ?: headers.verificationStatus
                                     )
+                            if (!stillHeld()) return LEASE_LOST
                             httpClientComponent.makeOcpiRequest(url, localHeaders, request)
                         }
                         Receiver.REMOTE -> {
                             val (url, headers, body) = routingService.prepareRemotePlatformRequest(request, false)
                             outRequestId = headers.requestID
+                            if (!stillHeld()) return LEASE_LOST
                             httpClientComponent.postOcnMessage(url, headers, body)
                         }
                     }

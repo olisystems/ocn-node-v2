@@ -246,6 +246,42 @@ class IntegrationCopyOutboxServiceTest(@Autowired private val outboxRepo: Integr
     }
 
     @Test
+    fun `a replica that stalls past its lease before the request does not send`() {
+        service.enqueue(sessionCopy(HttpMethod.PUT, "/DE/ABC/s1", "first"), null)
+        val id = outboxRepo.findAll().single().id!!
+        var otherLease: Instant? = null
+        doAnswer { invocation ->
+            val request = invocation.getArgument<OcpiRequestVariables>(0)
+            if (otherLease == null) {
+                clock.advance(properties.outbox.leaseMillis + 1)
+                otherLease = clock.now.plusMillis(properties.outbox.leaseMillis)
+                assertThat(outboxRepo.claim(id, clock.now, otherLease!!)).isEqualTo(1)
+            }
+            Pair("http://oli.test/sessions${request.urlPath}", request.headers.copy(authorization = "Token target-token"))
+        }.whenever(routingService).prepareLocalPlatformRequest(any(), eq(false))
+
+        service.dispatchDue()
+
+        assertThat(http.sent).describedAs("the copy now belongs to the replica that took it over").isEmpty()
+        val row = outboxRepo.findAll().single()
+        assertThat(row.lockedUntil).isEqualTo(otherLease)
+        assertThat(row.status).isEqualTo(IntegrationCopyStatus.PENDING)
+        assertThat(row.lastError).isNull()
+    }
+
+    @Test
+    fun `a later write is not taken while an earlier one to the same object is pending again`() {
+        service.enqueue(sessionCopy(HttpMethod.PUT, "/DE/ABC/s1", "first"), null)
+        service.enqueue(sessionCopy(HttpMethod.PATCH, "/DE/ABC/s1", "second"), null)
+        val (first, second) = outboxRepo.findAll().sortedBy { it.id }.map { it.id!! }
+
+        assertThat(outboxRepo.claim(second, clock.now, clock.now.plusSeconds(300)))
+            .describedAs("listed as due by a replica before the earlier write failed and went back to pending")
+            .isEqualTo(0)
+        assertThat(outboxRepo.claim(first, clock.now, clock.now.plusSeconds(300))).isEqualTo(1)
+    }
+
+    @Test
     fun `replicas claiming at the same time never both get a copy`() {
         repeat(20) { service.enqueue(sessionCopy(HttpMethod.POST, null, "cdr-$it"), null) }
         val ids = outboxRepo.findAll().map { it.id!! }

@@ -161,7 +161,8 @@ interface IntegrationCopyOutboxRepository : JpaRepository<IntegrationCopyOutboxE
     /**
      * Takes the row for this replica. Returns 0 when another replica got there first: the
      * database re-checks the condition after waiting for that replica's update. That includes a
-     * replica that already sent the row, failed and set its backoff.
+     * replica that already sent the row, failed and set its backoff, and an older write to the
+     * same object that became pending again since the row was listed.
      */
     @Transactional
     @Modifying(clearAutomatically = true)
@@ -173,6 +174,15 @@ interface IntegrationCopyOutboxRepository : JpaRepository<IntegrationCopyOutboxE
               and o.status = $PENDING
               and o.nextAttemptAt <= :now
               and (o.lockedUntil is null or o.lockedUntil < :now)
+              and not exists (
+                  select 1 from IntegrationCopyOutboxEntity p
+                  where p.status = $PENDING
+                    and p.id < o.id
+                    and p.targetCountry = o.targetCountry
+                    and p.targetParty = o.targetParty
+                    and p.module = o.module
+                    and p.objectKey = o.objectKey
+              )
             """
     )
     fun claim(
@@ -180,6 +190,10 @@ interface IntegrationCopyOutboxRepository : JpaRepository<IntegrationCopyOutboxE
             @Param("now") now: Instant,
             @Param("lockedUntil") lockedUntil: Instant
     ): Int
+
+    /** 1 while the row is still held under [lease], 0 once another replica has taken it over. */
+    @Query("select count(o) from IntegrationCopyOutboxEntity o where o.id = :id and o.lockedUntil = :lease")
+    fun countHeldUnder(@Param("id") id: Long, @Param("lease") lease: Instant): Long
 
     /**
      * Stores the result of a send and gives the row back. Returns 0 when the row is no longer
